@@ -5,14 +5,15 @@ Shared agent skills for efoo-team.
 ## Setup
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh)
-```
-
-Or clone and run locally:
-
-```bash
+# Clone and run
 ghq get efoo-team/skills
 bash ~/ghq/github.com/efoo-team/skills/setup.sh
+```
+
+Or without cloning:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | bash
 ```
 
 ## Structure
