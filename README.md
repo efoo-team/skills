@@ -19,7 +19,8 @@ bash ~/ghq/github.com/efoo-team/skills/setup.sh
 
 ```
 skills/
-  langfuse/          # Langfuse REST API query skill
+  langfuse/              # Langfuse REST API query skill (all agents)
+  formation-designer/    # OpenCode formation design guide (opencode only, internal)
 ```
 
 ## Adding a new skill
