@@ -5,6 +5,7 @@ allowed-tools: Read, Grep, Glob, Bash, WebFetch
 metadata:
   author: efoo-team
   version: '1.0.0'
+  tags: [observability, llm, debugging, api]
   api-spec: https://cloud.langfuse.com/generated/api/openapi.yml
   api-reference: https://api.reference.langfuse.com
 ---

@@ -3,6 +3,7 @@ name: formation-designer
 description: oh-my-opencode formation (agent-model configuration) design and creation guide. Use when creating new formations, modifying existing formations, adding new providers/models, or reviewing formation design decisions. Covers multi-axis model classification (Reasoning, Cost, Speed, Instruct, Style, Multimodal), agent-model matching principles, naming conventions, and cost optimization strategy.
 metadata:
   internal: true
+  tags: [opencode, configuration, model-selection]
 ---
 
 # Formation Designer
