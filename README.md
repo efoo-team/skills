@@ -2,17 +2,17 @@
 
 Shared agent skills for efoo-team.
 
-## Install
+## Setup
 
 ```bash
-# Install all skills
-npx skills add efoo-team/skills
+bash <(curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh)
+```
 
-# Install a specific skill
-npx skills add efoo-team/skills --skill langfuse
+Or clone and run locally:
 
-# Install to all agents
-npx skills add efoo-team/skills --agent '*'
+```bash
+ghq get efoo-team/skills
+bash ~/ghq/github.com/efoo-team/skills/setup.sh
 ```
 
 ## Structure
