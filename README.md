@@ -19,12 +19,11 @@ npx skills add efoo-team/skills --agent '*'
 
 ```
 skills/
-  observability/     # Observability & monitoring
-    langfuse/        # Langfuse REST API query skill
+  langfuse/          # Langfuse REST API query skill
 ```
 
 ## Adding a new skill
 
-1. Create a directory under the appropriate category in `skills/`
+1. Create a named directory under `skills/`
 2. Add a `SKILL.md` with YAML frontmatter (`name`, `description`)
 3. Optionally add `references/`, `assets/`, `scripts/` subdirectories
