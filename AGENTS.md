@@ -109,6 +109,15 @@ Skill instructions here.
 - External skills: 個別の行を追加する
 - lock ファイル（`~/.agents/.skill-lock.json`）はローカルマシン固有であり、このリポジトリでは管理しない
 
+## Auto-Update on Pull
+
+`setup.sh` の初回実行時に、このリポジトリの `core.hooksPath` を `hooks/` に設定する。
+以降、メンバーが `git pull` を行うと `hooks/post-merge` が自動実行され、`setup.sh` が再実行される。
+これにより、スキルの追加・変更・削除がリポジトリへの push 後、メンバーの pull 時に自動反映される。
+
+- hook の実体は `hooks/post-merge` にある
+- `core.hooksPath` はリポジトリローカルの git config に設定されるため、他のリポジトリには影響しない
+
 ## Prohibited Actions
 
 - このリポジトリに External skill の SKILL.md をコピーして配置してはならない（二重管理の原因になる）
