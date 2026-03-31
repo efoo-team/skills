@@ -36,15 +36,6 @@ efoo-team/skills (this repo)
 - lock による更新追跡は各メンバーのローカルマシン（`~/.agents/.skill-lock.json`）で行われる
 - スキルの内容を編集したい場合は正本リポジトリ側で行う
 
-### 現在のスキル一覧
-
-| Skill | Type | Source | Agents |
-|-------|------|--------|--------|
-| langfuse | Team-owned | efoo-team/skills | all |
-| formation-designer | Team-owned (internal) | efoo-team/skills | opencode only |
-| code-debug-skill | External | abekdwight/code-debug-skills | all |
-| browser-use | External | browser-use/browser-use | all |
-
 ## Adding a New Skill
 
 ### Team-owned skill を追加する場合
@@ -52,27 +43,40 @@ efoo-team/skills (this repo)
 1. `skills/<skill-name>/SKILL.md` を作成する
 2. YAML frontmatter に `name` と `description` を記述する（必須）
 3. 必要に応じて `references/`, `assets/`, `scripts/` サブディレクトリを追加する
-4. 全エージェント共通のスキルならそのままで良い（`setup.sh` の一括インストールに含まれる）
-5. 特定エージェント限定のスキルなら以下を行う:
-   - frontmatter に `metadata.internal: true` を追加する
-   - `setup.sh` に `INSTALL_INTERNAL_SKILLS=1 npx skills add efoo-team/skills --skill <name> -g -a <agent> -y` の行を追加する
-6. 上記テーブル（現在のスキル一覧）に行を追加する
+4. インストール対象の決定:
+   - **全エージェント共通**: そのままで良い（`setup.sh` の一括インストールに含まれる）
+   - **特定エージェント限定**: 「Agent-Specific Skills」セクションの手順に従う
+5. `setup.sh` の更新が必要か確認する（特定エージェント限定の場合は必須）
 
 ### External skill を追加する場合
 
-1. `setup.sh` に `npx skills add <owner>/<repo> --skill <name> -g -a '*' -y` の行を追加する
+1. インストール対象の決定:
+   - **全エージェント共通**: `setup.sh` に `npx skills add <owner>/<repo> --skill <name> -g -a '*' -y` を追加する
+   - **特定エージェント限定**: `setup.sh` に `npx skills add <owner>/<repo> --skill <name> -g -a <agent> -y` を追加する
 2. このリポジトリには SKILL.md を配置しない（正本が外部にあるため二重管理になる）
-3. 上記テーブル（現在のスキル一覧）に行を追加する
 
 ## Agent-Specific Skills
 
-特定のエージェントでのみ使用するスキルには以下の設定を行う。
+特定のエージェントでのみ使用するスキルは、全エージェント一括インストールの対象から除外し、対象エージェントを明示してインストールする。
+
+### Team-owned skill の場合
 
 1. SKILL.md の frontmatter に `metadata.internal: true` を追加する
    - これにより `npx skills add efoo-team/skills -g -a '*' -y` の一括インストールから除外される
-2. `setup.sh` にエージェントを限定したインストール行を追加する
-   - `INSTALL_INTERNAL_SKILLS=1` 環境変数で internal スキルの発見を有効化する
-   - `-a <agent>` でインストール先エージェントを指定する
+2. `setup.sh` に以下の形式でインストール行を追加する:
+   ```bash
+   INSTALL_INTERNAL_SKILLS=1 npx skills add efoo-team/skills --skill <name> -g -a <agent> -y
+   ```
+   - `INSTALL_INTERNAL_SKILLS=1`: internal スキルの発見を有効化する環境変数
+   - `-a <agent>`: インストール先エージェントを指定する（例: `-a opencode`, `-a claude-code`）
+
+### External skill の場合
+
+1. `setup.sh` に `-a <agent>` でエージェントを限定したインストール行を追加する:
+   ```bash
+   npx skills add <owner>/<repo> --skill <name> -g -a <agent> -y
+   ```
+   - External skill は `metadata.internal` の設定は不要（正本は外部リポジトリにあるため）
 
 ## SKILL.md Format
 
