@@ -97,6 +97,8 @@ Skill instructions here.
 
 - `name`: 1-64文字、小文字とハイフンのみ
 - `description`: 1-1024文字。AIがスキルの利用判断に使うため、いつ使うべきかを明確に記述する
+- `metadata.tags`: 必須。スキルの用途を示すタグ配列（例: `[refactoring, code-quality]`）
+- `metadata.internal`: 任意。特定エージェント限定スキルの場合は `true`
 - ツール固有の拡張フィールド（`allowed-tools`, `context`, `model` 等）は必要に応じて追加して良い。未対応のツールでは無視される
 
 ## setup.sh Maintenance
