@@ -66,9 +66,9 @@ AI モデルはチームの開発者と同じ。同じ指示でも Claude と GP
 
 | Agent / Category | Requirement (provider-agnostic) | Reason |
 |-----------------|----------------------------------|--------|
-| **prometheus** | Reasoning **S 以上**, Instruct **High+**, variant `xhigh` | 計画は妥協できない。利用可能な手札の中で最上位モデルを使う。 |
+| **prometheus** | Reasoning **S 以上**, Instruct **High+**, variant `xhigh`. **Fallback: S 級以上のモデルのみ** | 計画は妥協できない。利用可能な手札の中で最上位モデルを使う。fallback 先が弱いモデルでは計画品質が崩壊する。 |
 | **momus** | Reasoning **S+ 優先 / S 以上必須**, Instruct **High+**, variant `xhigh` | レビュー品質の一貫性確保。 |
-| **hephaestus** | Reasoning **S+ 優先 / S 以上必須**, Style **GPT-like 優先**, variant `xhigh` | Deep worker は自律実装能力が最優先。 |
+| **hephaestus** | Reasoning **S+ 優先 / S 以上必須**, Style **GPT-like 優先**, variant `xhigh`. **Fallback: S 級以上のモデルのみ** | Deep worker は自律実装能力が最優先。fallback で低tier モデルに落ちると実装品質が保証できない。 |
 | Category: **review** | Reasoning **S+ 優先 / S 以上必須**, Instruct **High+**, variant `xhigh` | レビューは品質最優先。 |
 
 > 現行リポジトリでは上記要件を満たすモデルとして OpenAI (`gpt-5.4`, `gpt-5.3-codex`) が使われているが、OpenAI / Claude が利用不可な環境では「利用可能な手札の中で要件を満たす最高モデル」に置換する。
@@ -89,8 +89,8 @@ AI モデルはチームの開発者と同じ。同じ指示でも Claude と GP
 
 | Agent | Role | Requirements |
 |-------|------|-------------|
-| **sisyphus** | メインオーケストレータ | Instruct High+ 優先, Reasoning A+。Style Claude-like を優先し、利用不可なら GPT-like の最上位モデルを使用。 |
-| **atlas** | 実行コンダクタ | sisyphus と同様。 |
+| **sisyphus** | メインオーケストレータ | Instruct High+ 優先, Reasoning A+。Style Claude-like を優先し、利用不可なら GPT-like の最上位モデルを使用。**Fallback: S 級以上のモデルのみ**（オーケストレーション品質を維持するため低tier モデルへの fallback は禁止）。 |
+| **atlas** | 実行コンダクタ | sisyphus と同等の要件（Instruct High+ 優先, Reasoning A+, Claude-like 優先）。**Fallback: 指定しない**。atlas は fallback を使用しない方針とする。fallback は便利だが、atlas で fallback が発動した場合のデメリットが目立つため、fallback なしで運用する。 |
 | **sisyphus-junior** | 軽量オーケストレータ | Reasoning B+, Instruct Med+, Cost Low。ZAI 構成でのみ追加。 |
 
 **Intelligence-sensitive (Reasoning S 級が必要):**
@@ -140,9 +140,20 @@ Stable Slots (prometheus, momus, hephaestus, review) はベンダー固定では
 
 追加プロバイダーのモデルは Variable Slots に優先配置する。高コストな OpenAI モデルの使用を最小限に。
 
-### 4. Fallback Chains Always Include an S-Tier Model
+### 4. Fallback Policy
 
-プライマリが低コストモデルの場合でも、フォールバックチェーンには Reasoning S 級モデルを最低1つ含める。
+**一般原則**: プライマリが低コストモデルの場合でも、フォールバックチェーンには Reasoning S 級モデルを最低1つ含める。
+
+**エージェント固有の fallback 制約:**
+
+| Agent | Fallback Policy | Reason |
+|-------|----------------|--------|
+| **sisyphus** | S 級以上のモデルのみ | オーケストレーション品質を維持するため。低tier モデルへの fallback は禁止。 |
+| **prometheus** | S 級以上のモデルのみ | 計画品質は妥協できない。fallback 先が弱いモデルでは計画が崩壊する。 |
+| **hephaestus** | S 級以上のモデルのみ | 自律実装能力が最優先。低tier モデルでは実装品質が保証できない。 |
+| **atlas** | **fallback を指定しない** | fallback は便利だが、atlas で fallback が発動した場合のデメリットが目立つため、fallback なしで運用する。 |
+
+> **重要**: sisyphus, prometheus, hephaestus の fallback には、Reasoning S 級以上のモデルを指定すること。tier の低いモデルを fallback に指定してはならない。強いモデルにのみ fallback されるべきであり、弱いモデルは fallback 先にはなれない。
 
 ### 5. sisyphus-junior は ZAI 含む構成でのみ追加
 
@@ -234,6 +245,8 @@ Anthropic モデル (Claude) は直接利用できない。GitHub Copilot 経由
 
 - [ ] 全 Stable Slots が正しいか確認
 - [ ] フォールバックチェーンに Reasoning S 級モデルが含まれているか確認
+- [ ] sisyphus, prometheus, hephaestus の fallback が S 級以上のモデルのみで構成されているか確認（低tier モデル混入禁止）
+- [ ] atlas に fallback が指定されていないことを確認
 - [ ] variant が適切か確認 (xhigh / medium / max)
 - [ ] prompt_append が全エージェント・カテゴリに設定されているか確認
 - [ ] Structural Constants が含まれているか確認
