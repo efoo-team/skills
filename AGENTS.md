@@ -7,6 +7,7 @@
 
 ```
 efoo-team/skills (this repo)
+├── remove-skills.txt                # setup.sh が削除対象として扱うスキル名一覧
 ├── skills/
 │   ├── <skill-name>/SKILL.md      # チーム自前スキル（正本がここにあるもの）
 │   └── ...
@@ -27,6 +28,7 @@ efoo-team/skills (this repo)
 - `skills/` 直下にスキル名のディレクトリを作成し、`SKILL.md` を配置する
 - カテゴリによるサブディレクトリ分けは行わない（フラット構成）
 - `setup.sh` の `npx skills add efoo-team/skills` で一括インストールされる
+- 削除対象とするスキルは repo 直下の `remove-skills.txt` で管理する
 
 ### 2. External skills（正本が外部リポジトリにあるもの）
 
@@ -47,6 +49,7 @@ efoo-team/skills (this repo)
    - **全エージェント共通**: そのままで良い（`setup.sh` の一括インストールに含まれる）
    - **特定エージェント限定**: 「Agent-Specific Skills」セクションの手順に従う
 5. `setup.sh` の更新が必要か確認する（特定エージェント限定の場合は必須）
+6. setup 時に削除対象としたい既存スキルがある場合は `remove-skills.txt` を更新する
 
 ### External skill を追加する場合
 
@@ -106,6 +109,7 @@ Skill instructions here.
 `setup.sh` はチームメンバーが一度実行するだけで全推奨スキルがインストールされるスクリプトである。
 
 - スキルの追加・削除時は `setup.sh` を必ず更新する
+- 削除対象のスキル名は `remove-skills.txt` に記録する
 - Team-owned skills（全エージェント）: `npx skills add efoo-team/skills -g -a '*' -y` の1行でカバーされる
 - Team-owned skills（エージェント限定）: 個別の行を追加する
 - External skills: 個別の行を追加する
@@ -125,3 +129,4 @@ Skill instructions here.
 - このリポジトリに External skill の SKILL.md をコピーして配置してはならない（二重管理の原因になる）
 - `skills/` 配下にカテゴリ用のサブディレクトリを作成してはならない（フラット構成を維持する）
 - `setup.sh` を変更せずにスキルを追加・削除してはならない
+- 削除対象ポリシーを変えるときに `remove-skills.txt` を更新せず放置してはならない
