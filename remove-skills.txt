@@ -1,0 +1,4 @@
+# One skill name per line.
+# Entries listed here are treated as removal targets by setup.sh.
+
+pr-body-generator
