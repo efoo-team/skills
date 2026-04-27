@@ -25,6 +25,7 @@ When running without cloning, `setup.sh` also fetches `remove-skills.txt` from G
 ```
 remove-skills.txt         # Skill names that setup.sh treats as removal targets
 skills/
+  database-design/      # Database table and column naming skill (all agents)
   langfuse/              # Langfuse REST API query skill (all agents)
   module-boundary-design/ # Module boundary and responsibility design skill (all agents)
   github-pull-request/  # GitHub pull request authoring skill (all agents)
