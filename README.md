@@ -30,6 +30,7 @@ skills/
   module-boundary-design/ # Module boundary and responsibility design skill (all agents)
   github-pull-request/  # GitHub pull request authoring skill (all agents)
   refactor-mindset/      # Refactoring judgment skill (all agents)
+  review-plan/           # Implementation plan review skill (all agents)
   formation-designer/    # OpenCode formation design guide (opencode only, internal)
 ```
 
