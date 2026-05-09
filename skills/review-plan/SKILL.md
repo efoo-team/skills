@@ -13,11 +13,17 @@ metadata:
 ## Instructions
 
 > [!IMPORTANT]
-> Do not pass `category` when invoking Metis, Momus, or Oracle.
-> Use `subagent_type` only.
+> NON-NEGOTIABLE RULE: Specialist Invocation
 >
-> OK: delegate_task(subagent_type="oracle", prompt="...", run_in_background=true, load_skills=[])
-> NG: delegate_task(category="ultrabrain", subagent_type="oracle", prompt="...", run_in_background=true, load_skills=[])
+> When invoking Metis, Momus, or Oracle, you MUST use `subagent_type` only.
+> Never pass `category` to Metis, Momus, or Oracle.
+> There are no exceptions. This rule overrides all generic task/delegation rules.
+>
+> Correct: delegate_task(subagent_type="oracle", prompt="...", run_in_background=true, load_skills=[])
+> Forbidden: delegate_task(category="ultrabrain", subagent_type="oracle", prompt="...", run_in_background=true, load_skills=[])
+>
+> Before execution, verify that `category` is completely absent.
+> If `category` is present, do not execute the call. Rewrite it using `subagent_type` only.
 
 1. レビュー対象の計画全体を読み、目的・前提・変更範囲・成功条件を把握する。
 2. 新規review subagent(Oracle)セッションを1つ起動し、「この計画を厳密レビューするための重要観点」を洗い出してもらう。
