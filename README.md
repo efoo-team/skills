@@ -33,6 +33,8 @@ skills/
   restful-api-design/    # Web API design skill (all agents)
   review-plan/           # Implementation plan review skill (all agents)
   formation-designer/    # OpenCode formation design guide (opencode only, internal)
+  sql-writing-style/    # SQL writing style rules (all agents)
+  mastra-ai-architecture-rules/ # Mastra AI architecture design rules (all agents)
 ```
 
 ## Adding a new skill
