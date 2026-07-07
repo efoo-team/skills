@@ -1,0 +1,68 @@
+name: skill-checks
+
+# Check-only CI. These jobs report and fail so a human is notified; they never
+# auto-fix, generate, or sync anything. See scripts/check-skills.py.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  skill-lint:
+    # Validate every skills/*/SKILL.md frontmatter: name (kebab-case, matches
+    # directory), description (present, <= 1024 chars), and — the critical
+    # gate — that the frontmatter block parses as YAML. The skills CLI silently
+    # drops a skill whose frontmatter fails to parse, so this must be caught.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Validate SKILL.md frontmatter
+        run: python3 scripts/check-skills.py --only frontmatter
+
+  name-collision:
+    # Ensure no common/external skill name collides with a project_owned skill.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check manifest name collisions
+        run: python3 scripts/check-skills.py --only collision
+
+  description-similarity:
+    # Warn (annotation only, never fail) on description pairs whose difflib
+    # SequenceMatcher ratio is >= 0.8, as merge candidates to review.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Warn on similar descriptions (non-blocking)
+        run: python3 scripts/check-skills.py --only similarity
+
+  secret-scan:
+    # Scan history for committed secrets with gitleaks default config.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
