@@ -59,14 +59,10 @@ print('skills:', len(d['skills']))
 
 ## 5. manifest.yaml と実体の一致確認
 
-`efoo-team/skills` の `manifest.yaml`（導入後）と `skills/` 配下の実ディレクトリの一致を、チェックスクリプトで検証する。`manifest.yaml` とチェックスクリプトはこの DOCTOR.md 作成時点では未導入である。
+`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint と名前衝突チェックも同時に実行される）。
 
 ```bash
-if [ -f ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py ]; then
-  python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
-else
-  echo "scripts/check-skills.py is not introduced yet"
-fi
+python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
 ```
 
-期待結果: スクリプト導入後は不一致 0 件で exit 0。未導入の間はメッセージが表示されるだけで exit 0（このチェック自体は失敗として扱わない）。
+期待結果: 不一致 0 件・`RESULT: PASS` で exit 0。
