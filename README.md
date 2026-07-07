@@ -2,7 +2,44 @@
 
 Shared agent skills for efoo-team.
 
+このリポジトリはスキル本体に加えて、ツール横断の台帳2つも保有する: `manifest.yaml`（共通層・外部購読・全プロジェクト層を横断する全スキルの台帳）と `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）。
+
 `setup.sh` installs the recommended skills and then removes any names listed in `remove-skills.txt`.
+
+## Repository landscape（エージェント関連リポジトリの全体構造）
+
+efoo-team は、各エージェントツールの設定をツールごとの専用リポジトリで管理している。各設定リポジトリは、そのツールの設定ディレクトリそのもの（`~/.claude` など）を git 管理したものである。その一方で、スキル（SKILL.md）だけは**意図的にどの設定リポジトリでも管理せず**、このリポジトリ（`efoo-team/skills`）へ一元管理している。
+
+各設定リポジトリの clone は、ツールが参照する設定ディレクトリとして配置する。推奨の配置方式は、ghq 管理下の clone へ設定ディレクトリから symlink を張る方式である。
+
+```bash
+# 例: 3つの設定ディレクトリすべてに同じ方式を適用する
+ln -sfn "$(ghq root)/github.com/efoo-team/claude-code-setting" ~/.claude
+ln -sfn "$(ghq root)/github.com/efoo-team/codex-code-setting"  ~/.codex
+ln -sfn "$(ghq root)/github.com/efoo-team/opencode-setting"    ~/.config/opencode
+```
+
+この symlink 方式の詳細手順は `opencode-setting/SETUP.md` と `codex-code-setting/SETUP.md` に記載されている。なお `claude-code-setting/README.md` には `~/.claude` 自体を直接 git 管理する別方式（in-place git init + `ghq.root` 追加）も記載されているが、どちらの方式でも「設定ディレクトリ = 設定リポジトリの clone」という結果は同じである。
+
+| Repository | 実体となる配置先 | 管理対象 | スキルの扱い |
+|---|---|---|---|
+| [`efoo-team/claude-code-setting`](https://github.com/efoo-team/claude-code-setting) | `~/.claude` | Claude Code の設定（`settings.json`、`commands/`（4ペルソナのみ）、`agents/`、`CLAUDE.md`、MCP 設定） | 管理しない。`skills/` は gitignore（中身はインストール時に張られる symlink のみ） |
+| [`efoo-team/codex-code-setting`](https://github.com/efoo-team/codex-code-setting) | `~/.codex` | Codex の設定（`config.toml`、`AGENTS.md`、`automations/`、`scripts/`） | 管理しない。`skills/` は gitignore。旧 custom prompts（`prompts/`）は全廃し、スキルへ移行済み |
+| [`efoo-team/opencode-setting`](https://github.com/efoo-team/opencode-setting) | `~/.config/opencode` | opencode の設定（`formations/`、`agents/`、`prompts/`（ペルソナ追記ファイル）、`tui.json`、`omo-profile`） | 管理しない。スキル実体は一切 git 追跡していない |
+| `efoo-team/skills`（this repo） | `~/.agents/skills/`（`setup.sh` が配布） | 共通層スキルの実体と、ツール横断の台帳（`manifest.yaml` = 全スキル、`MCP-REGISTRY.md` = 全 MCP サーバー） | **ここが唯一の正本（source of truth）** |
+
+配布の流れ:
+
+```
+efoo-team/skills ──setup.sh（npx skills）──▶ ~/.agents/skills/<name>   … インストールされた実体
+                                               ├─ Claude Code : ~/.claude/skills/<name> → symlink で解決
+                                               ├─ Codex       : ~/.agents/skills を直接検出（$<name>）
+                                               └─ opencode    : ~/.agents/skills を直接検出
+```
+
+スキルを一元管理する理由: スキルはツール非依存の Markdown であり、3つの設定リポジトリへ分散して置くと同じ内容の複製が発生して乖離していくため。このリポジトリで1回書けば、`setup.sh` が全ツールへ配布する。特定ツール限定のスキル（例: opencode 限定の `formation-designer`）であっても、実体は設定リポジトリではなくこのリポジトリに置き、`metadata.internal: true` とエージェント指定インストールで配布先を絞る。
+
+このため、スキルを変更するときは `~/.agents/skills/` や各ツール側の `skills/` ディレクトリを直接編集せず、このリポジトリを変更して push する。各設定リポジトリは自分の `skills/` を gitignore しているので、インストールされた symlink が設定リポジトリへ誤ってコミットされることはない。なお、プロジェクト固有スキル（プロジェクト層）だけは例外的に各プロジェクトリポジトリが正本を持つ（次節「Two-layer skill management」を参照）。
 
 ## Setup
 
@@ -19,6 +56,21 @@ curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | ba
 ```
 
 When running without cloning, `setup.sh` also fetches `remove-skills.txt` from GitHub so the removal list is still applied.
+
+### Auto-update on pull（pull による自動反映）
+
+clone した状態で `setup.sh` を一度実行すると、このリポジトリの `core.hooksPath` が `hooks/` に設定される。以降はメンバーが `git pull` するだけで `hooks/post-merge` が `setup.sh` を自動的に再実行し、push されたスキルの追加・変更・削除がローカル環境へ反映される（手動での `setup.sh` 再実行は不要）。curl でのワンショット実行では hook は設定されないため、以降の自動反映を受けたい場合は clone 運用にすること。
+
+### Onboarding — 新しいマシンでの導入順序
+
+エージェント環境一式をゼロから整える場合は、以下の順で導入する。
+
+1. **3つの設定リポジトリを配置する。** ghq で clone し、各ツールの設定ディレクトリから symlink を張る（配置方式は「Repository landscape」を参照）。
+   - `claude-code-setting` → `~/.claude`（同リポジトリの `README.md` も参照）
+   - `codex-code-setting` → `~/.codex`（同リポジトリの `SETUP.md` を参照。config.toml のマシン固有パスの調整を含む）
+   - `opencode-setting` → `~/.config/opencode`（同リポジトリの `SETUP.md` を参照。シェル環境の同期と `omo-profile` による布陣の有効化を含む）
+2. **このリポジトリの `setup.sh` を実行する。** 全推奨スキルが `~/.agents/skills/` へインストールされ、Claude Code 向けの symlink が `~/.claude/skills/` に張られる。`npx skills` が `~/.claude/skills/` 等へ書き込むため、設定ディレクトリの配置（手順1）を必ず先に済ませておくこと。
+3. **以降の更新は各リポジトリで `git pull` するだけ。** このリポジトリは pull すると post-merge hook がスキルを自動反映する（上記「Auto-update on pull」を参照）。
 
 ## Two-layer skill management
 
@@ -49,9 +101,16 @@ efoo-team manages Agent Skills in two layers. Full rules live in `AGENTS.md`; `m
 ## Structure
 
 ```
-manifest.yaml              # Ledger of every skill across efoo-team (common/external/project-owned)
-remove-skills.txt          # Skill names that setup.sh treats as removal targets
-skills/                    # Common-layer skills (this repo is their source of truth)
+AGENTS.md                  # スキル管理ルールの正本（追加・変更・削除・昇格の規約）
+DOCTOR.md                  # 月次ヘルスチェックの手動チェックリスト（本リポジトリと3つの設定リポジトリが対象）
+MCP-REGISTRY.md            # efoo-team が利用する全 MCP サーバーの横断台帳
+manifest.yaml              # 全スキル横断の台帳（common / external / project-owned）
+remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
+setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理）
+hooks/post-merge           # git pull 時に setup.sh を自動再実行する git hook
+scripts/check-skills.py    # CI チェック本体（frontmatter lint・名前衝突・類似 description 検出）
+.github/workflows/skill-checks.yml  # CI 定義（check-skills.py の3チェック + gitleaks によるシークレット検査）
+skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 
 Common-layer skills currently in `skills/` (25). "Invocation" is `explicit-only` when the skill's frontmatter sets `disable-model-invocation: true` (only triggered by `/<name>` or `$<name>`); otherwise it is `auto` (the agent may invoke it based on the description alone).
