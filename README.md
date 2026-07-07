@@ -35,6 +35,8 @@ skills/
   formation-designer/    # OpenCode formation design guide (opencode only, internal)
   sql-writing-style/    # SQL writing style rules (all agents)
   mastra-ai-architecture-rules/ # Mastra AI architecture design rules (all agents)
+  agent-harness-engineering/    # AI agent harness engineering charter (all agents)
+  agent-native-project-design/  # Agent-operated repository/project design charter (all agents)
 ```
 
 ## Adding a new skill
