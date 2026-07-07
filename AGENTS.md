@@ -67,6 +67,9 @@ efoo-team の Agent Skills は 2 層で管理する。**`manifest.yaml`** がこ
 
 ## Adding a New Skill
 
+スキルの新規作成は `/create-skill`（Codex では `$create-skill`）の対話ワークフローを使うことを推奨する。
+ユーザー意図のヒアリング・スキル化の要否判定・配置決定・執筆・台帳登録・検証までが以下の規約に沿って進行する。
+
 ### Team-owned skill を追加する場合
 
 1. `skills/<skill-name>/SKILL.md` を作成する

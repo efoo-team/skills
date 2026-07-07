@@ -54,13 +54,14 @@ remove-skills.txt          # Skill names that setup.sh treats as removal targets
 skills/                    # Common-layer skills (this repo is their source of truth)
 ```
 
-Common-layer skills currently in `skills/` (24). "Invocation" is `explicit-only` when the skill's frontmatter sets `disable-model-invocation: true` (only triggered by `/<name>` or `$<name>`); otherwise it is `auto` (the agent may invoke it based on the description alone).
+Common-layer skills currently in `skills/` (25). "Invocation" is `explicit-only` when the skill's frontmatter sets `disable-model-invocation: true` (only triggered by `/<name>` or `$<name>`); otherwise it is `auto` (the agent may invoke it based on the description alone).
 
 | Skill | Purpose | Invocation |
 |---|---|---|
 | `agent-harness-engineering` | AI agent harness design charter (loop, tool surface, context, authz, state, evals) | auto |
 | `agent-native-project-design` | Designing repos to be run reliably by Claude Code/Codex-style harnesses | auto |
 | `ask` | Read-only analysis and answers, no edits | explicit-only |
+| `create-skill` | Interactive workflow for creating a new skill (interview → placement → author → register → verify) | explicit-only |
 | `database-design` | Naming DB tables/columns from persisted concepts, not processing purpose | auto |
 | `define` | Detailed requirements definition, outputs a requirements doc only | explicit-only |
 | `dependabot-sweep` | Consolidates Dependabot PRs into a single combined PR | explicit-only |
