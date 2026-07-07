@@ -52,19 +52,18 @@ trap cleanup EXIT
 echo "=== efoo-team skills setup ==="
 
 # Team-owned skills
-npx skills add efoo-team/skills -g -a '*' -y
+npx skills@1.5.14 add efoo-team/skills -g -a '*' -y
 
 # Team-owned skills (agent-specific)
-INSTALL_INTERNAL_SKILLS=1 npx skills add efoo-team/skills --skill formation-designer -g -a opencode -y
+INSTALL_INTERNAL_SKILLS=1 npx skills@1.5.14 add efoo-team/skills --skill formation-designer -g -a opencode -y
 
 # External skills
-npx skills add abekdwight/code-debug-skills --skill code-debug-skill -g -a '*' -y
-npx skills add browser-use/browser-use --skill browser-use -g -a '*' -y
+npx skills@1.5.14 add abekdwight/code-debug-skills --skill code-debug-skill -g -a '*' -y
 
 load_remove_skills
 if [ "${#REMOVE_SKILLS[@]}" -gt 0 ]; then
   echo "=== Removing blocked skills: ${REMOVE_SKILLS[*]} ==="
-  npx skills remove "${REMOVE_SKILLS[@]}" -g -y
+  npx skills@1.5.14 remove "${REMOVE_SKILLS[@]}" -g -y
 fi
 
 # Configure post-merge hook (if running inside the repo)
@@ -74,4 +73,4 @@ if [ -n "$REPO_DIR" ] && [ -d "$REPO_DIR/hooks" ]; then
 fi
 
 echo "=== Done ==="
-npx skills list
+npx skills@1.5.14 list
