@@ -1,0 +1,193 @@
+# manifest.yaml
+#
+# efoo-team 全体で使われている Agent Skills の台帳（ledger）。
+#
+# 重要な注意事項:
+# - このファイルは台帳としてのみ機能する。README.md / AGENTS.md や setup.sh から
+#   自動生成されることはなく、逆にこのファイルから何かを生成する仕組みも存在しない。
+# - 手動で維持する。スキルの追加・削除・リネームを行った際は、このファイルも
+#   手動で追記・修正すること。
+# - YAML の罠に注意: バッククォート始まりの値・`[a] [b]` のような複数
+#   flow-sequence 形式・コロンを含む値は必ずダブルクォートで囲むこと
+#   （skills CLI は YAML パース失敗を無言でスキップするため、壊れた
+#   frontmatter は気づかれずに配布から漏れる）。本ファイルも同じ理由で
+#   全ての文字列値をダブルクォートしている。
+
+# common: efoo-team/skills（本リポジトリ）skills/ 配下の全スキル。
+# `npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` で一括配布される
+# （formation-designer のみ internal かつ -a opencode 限定）。
+# invocation: "explicit-only" = frontmatter に disable-model-invocation: true
+#             （/name または $name での明示起動のみ。auto-invoke されない）
+#             "auto"          = disable-model-invocation なし（説明文に基づき
+#             モデルが自律的に発動しうる）
+common:
+  - name: "agent-harness-engineering"
+    purpose: "AIエージェントのハーネス（ループ・ツール表面・コンテキスト管理・認可・状態・評価等）を設計・実装・調達するランタイム非依存の設計憲章"
+    invocation: "auto"
+  - name: "agent-native-project-design"
+    purpose: "Claude Code/Codex等の既製ハーネス上で動くリポジトリ側（CLAUDE.md/AGENTS.md・Agent Skills・hooks等）を設計するときに使う"
+    invocation: "auto"
+  - name: "ask"
+    purpose: "実装や編集を一切行わず、事実に基づく分析と回答のみを行う read-only スキル"
+    invocation: "explicit-only"
+  - name: "database-design"
+    purpose: "DBのテーブル・カラム命名を処理目的でなく永続化する概念・entityから判断するスキル"
+    invocation: "auto"
+  - name: "define"
+    purpose: "実装前の詳細な要件定義を行い、要件定義書のみを出力するスキル"
+    invocation: "explicit-only"
+  - name: "dependabot-sweep"
+    purpose: "Dependabot PRを一括分析し、1つの統合PRにまとめるスキル"
+    invocation: "explicit-only"
+  - name: "documentation-sync"
+    purpose: "コード変更に伴うドキュメント整合性を検証・同期するスキル"
+    invocation: "auto"
+  - name: "execute"
+    purpose: "複雑なタスクを整理・分割し、委譲機構を統括して遂行するオーケストレーションスキル"
+    invocation: "explicit-only"
+  - name: "formation-designer"
+    purpose: "oh-my-opencode の formation（agent-model 設定）設計ガイド（internal、opencode限定配布）"
+    invocation: "auto"
+  - name: "github-pull-request"
+    purpose: "実装変更を抽象度の階層構造で分析し、構造化されたPR本文として出力するスキル"
+    invocation: "auto"
+  - name: "langfuse"
+    purpose: "LangfuseのREST API経由でLLM観測データ（trace/observation/session等）を照会・分析するスキル"
+    invocation: "auto"
+  - name: "mastra-ai-architecture-rules"
+    purpose: "Mastraランタイム上のAIサービスの責務分離（agent/workflow/tool/state等）を設計するルール"
+    invocation: "auto"
+  - name: "mastra-framework-guide"
+    purpose: "Mastraフレームワークの最新ドキュメント探索・API検証・バージョン移行を教えるガイド"
+    invocation: "auto"
+  - name: "module-boundary-design"
+    purpose: "機能境界・責務分離・モジュール分割の設計判断を行うスキル"
+    invocation: "auto"
+  - name: "plan-explain"
+    purpose: "計画ファイルを読み込み、事実抽出のみで構造化された概要説明レポートを生成するスキル"
+    invocation: "explicit-only"
+  - name: "pr"
+    purpose: "フィーチャーブランチ作成からPR作成までの一連のGit操作を安全に実行するスキル"
+    invocation: "explicit-only"
+  - name: "pr-stage"
+    purpose: "ステージ済み変更をコミットし、必要ならブランチ作成・push・PR作成まで行うスキル"
+    invocation: "explicit-only"
+  - name: "pre-define"
+    purpose: "曖昧な要望を /define に渡せる具体的な入力へ洗練するスキル"
+    invocation: "explicit-only"
+  - name: "refactor-mindset"
+    purpose: "構造と意図の整合をとり変更容易性を高めるリファクタリング判断スキル"
+    invocation: "auto"
+  - name: "restful-api-design"
+    purpose: "Web API/HTTP APIの設計判断（リソース・メソッド・エラー・ページネーション等）を行うスキル"
+    invocation: "auto"
+  - name: "review-plan"
+    purpose: "実装前の計画を複数のOracleサブエージェントで厳密レビューするスキル"
+    invocation: "auto"
+  - name: "review-pr-check"
+    purpose: "PRレビュー対応を収集/Oracle/実行ワーカーに分離してオーケストレーションするスキル"
+    invocation: "explicit-only"
+  - name: "search-history"
+    purpose: "Claude Code/Codex のローカルチャット履歴をキーワード横断検索するスキル"
+    invocation: "explicit-only"
+  - name: "sql-writing-style"
+    purpose: "読み手が一瞥して理解できるSQLを書くためのスタイルルール"
+    invocation: "auto"
+
+# external: 正本が efoo-team/skills 以外の外部リポジトリにあり、setup.sh 経由で
+# 購読しているスキル。実体はこのリポジトリに置かない（二重管理の原因になるため）。
+# 変更が必要な場合は必ず upstream（source のリポジトリ）へ PR を送ること。
+external:
+  - name: "code-debug-skill"
+    source: "abekdwight/code-debug-skills"
+    note: "実体はこのリポジトリに存在しない。setup.sh の npx skills add 行で購読しているのみ。実体改変は禁止、変更が必要な場合は upstream (abekdwight/code-debug-skills) へ PR を送ること。"
+
+# project_owned: 各プロジェクトリポジトリの <repo>/.agents/skills/ 配下に存在する
+# プロジェクト固有スキル。正本は各リポジトリ側にあり、このリポジトリでは管理しない。
+# ここは「どのリポジトリに何があるか」を横断的に把握するための台帳エントリのみ。
+project_owned:
+  l-shift:
+    - name: "architecture-review"
+      purpose: "Git差分ベースのアーキテクチャレビュー（Clean Architecture層依存・循環依存・DB設計・ハードコード検証）"
+    - name: "conflict-resolution"
+      purpose: "マージコンフリクトの事前検出・自動/手動解決判定・解決後品質検証"
+    - name: "dependency-analysis"
+      purpose: "architecture guardrail・madge・knipによる依存関係の静的解析と未使用コード検出"
+    - name: "dotenv"
+      purpose: ".envファイルからNode.jsアプリの環境変数を読み込む"
+    - name: "dotenvx"
+      purpose: "dotenvxでコマンド実行・複数.env管理・暗号化を行う"
+    - name: "e2e-testing"
+      purpose: "PlaywrightのE2Eテスト保守・修正・デバッグガイドライン"
+    - name: "final-check"
+      purpose: "段階的品質チェックのオーケストレーション手順（5ステージ構成）"
+    - name: "integration-testing"
+      purpose: "React Router v7 loader/action統合テスト作成・保守ガイドライン"
+    - name: "lshift-debug-context"
+      purpose: "l-shift固有のデバッグ観測ソース台帳（旧名 code-debug-skill。共通スキル code-debug-skill と併用する）"
+    - name: "lshift-docs-map"
+      purpose: "L-Shift固有のコード変更→ドキュメント対応表（旧名 documentation-sync。共通スキル documentation-sync と併用する）"
+    - name: "lshift-pr-e2e"
+      purpose: "L-ShiftのPR差分からE2E観点を抽出し、local-firstでPlaywright探索と既存回帰を統合実行する"
+    - name: "lshift-pr-ux-review"
+      purpose: "L-ShiftのPR差分起点で、実画面操作とスクリーンショット証跡によりUI/UXと仕様妥当性を定性レビューする"
+    - name: "mastra"
+      purpose: "Mastraフレームワークの利用・更新ガイド（l-shift内の版。共通 mastra-framework-guide の昇格元）"
+    - name: "memory-curation"
+      purpose: "Serenaメモリの分析・分類・統合・整理手順"
+    - name: "pattern-check"
+      purpose: "Clean Architectureレイヤー別の実装パターン検証と禁止パターン検出"
+    - name: "quality-gate"
+      purpose: "pnpm check（lint + typecheck + lint:tz）とformatを実行し、エラー0件を達成する品質ゲート手順"
+    - name: "redash-script-manager"
+      purpose: "scripts/redash配下のRedash定義（クエリ・ダッシュボード・アラート）の一貫管理"
+    - name: "rest-api-design"
+      purpose: "L-Shift確定契約値（バージョニング・ページネーション等）を薄型ラッパーとして提供し、判断ロジック本体は共通スキル restful-api-design に委譲する"
+    - name: "spreadsheet-issue-tracking"
+      purpose: "Google Spreadsheet issueトラッカーへのCLIアクセス"
+    - name: "test-maintenance"
+      purpose: "テスト失敗の分析・分類と保守修正手順"
+    - name: "unit-testing"
+      purpose: "packages/配下のdomain/application層ユニットテスト作成ガイドライン"
+    - name: "user-manual"
+      purpose: "Astro Starlightユーザーマニュアルの記法規約・コンポーネント仕様・ページ作成手順"
+  chefrepi:
+    - name: "e2e-strategy"
+      purpose: "Playwright MCPで実ブラウザの探索的検証を行い、視覚的・統合的な問題を発見して汎用テスト設計の方向性を提案する"
+  podcast-editor:
+    - name: "podcast-editor-operate"
+      purpose: "podcast-editorで1エピソードを非対話で最初から最後まで運用する手順"
+    - name: "podcast-editor-review"
+      purpose: "review list / review apply（非対話レビュー表面）を安全に操作するための運用規範"
+    - name: "podcast-editor-transcribe"
+      purpose: "transcribeコマンドで編集を伴わない単独文字起こしを行う手順"
+  video-production-cooking-lesson:
+    - name: "recipe-draft"
+      purpose: "調理動画（あらつなぎmp4）とSRT字幕から「レシピ叩き台テキスト」を作る"
+  video-production-tabi:
+    - name: "cutlist"
+      purpose: "叩き台またはシーン台帳から構成案→タイムライン→Premiere用カットリスト+テロップ案を作る（台本づくり最終工程）"
+    - name: "quick-draft"
+      purpose: "撮影素材（mp4+SRT）から台本の叩き台を一気に作る（ゾーニング→コンセプト→構成→画確認）"
+    - name: "triage"
+      purpose: "素材の精密トリアージを行いシーン台帳を作る（公開前提の仕上げ工程の入口）"
+  food-article-seo:
+    skills: []
+    note: "Agent Skills は存在しない。.claude/commands/ 配下の6本（analyze_workflow, debug_tool, develop_feature, modify_feature, task_management, test_agent）はスラッシュコマンドでありスキルではないため、この台帳の登記対象外。"
+
+# similar_groups: 類似目的に見えるが統合しないと判定済みのスキル群。
+# 各エントリは統合しない根拠を1行で記録する（再検討時の参照用）。
+similar_groups:
+  - group: "E2E探索系"
+    members:
+      - "chefrepi/e2e-strategy"
+      - "l-shift/lshift-pr-e2e"
+      - "l-shift/lshift-pr-ux-review"
+    decision: "keep-separate"
+    rationale: "対象プロジェクトとトリガー条件と出力対象が異なる（e2e-strategyは汎用探索的検証+テスト設計提案、lshift-pr-e2eはPR番号必須のlocal-first回帰実行、lshift-pr-ux-reviewはコードレビューではなくUX定性判断）ため、統合すると起動条件と目的判定が混在する。"
+  - group: "動画叩き台系"
+    members:
+      - "video-production-tabi/quick-draft"
+      - "video-production-cooking-lesson/recipe-draft"
+    decision: "keep-separate"
+    rationale: "出力スキーマ（旅行系ナラティブ台本 vs 手順化されたレシピテキスト）と入力補正ロジック（quick-draftはゾーニング/コンセプト判断、recipe-draftはSRT誤変換補正+フレーム照合）が異なるドメイン固有処理であり、パラメータ化での統合はかえって複雑性を増す。"

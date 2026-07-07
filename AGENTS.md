@@ -17,6 +17,33 @@ efoo-team/skills (this repo)
 スキルの実体（canonical）は `~/.agents/skills/` に配置され、各ツールへ symlink で配布される。
 管理には `npx skills`（vercel-labs/skills）を使用する。
 
+## Two-Layer Architecture（共通層とプロジェクト層）
+
+efoo-team の Agent Skills は 2 層で管理する。**`manifest.yaml`** がこの 2 層を横断する台帳（ledger）であり、
+台帳から何かを生成する仕組みや、逆に何かを台帳へ同期する仕組みは存在しない（手動維持）。
+
+- **共通層 (common layer)**: このリポジトリ (`efoo-team/skills`) が正本。`setup.sh` の
+  `npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` で `~/.agents/skills/` へ配布され、
+  Claude Code / Codex / opencode など各ツールがそこから解決する。
+- **プロジェクト層 (project layer)**: 各プロジェクトリポジトリ自身の `<repo>/.agents/skills/<name>/SKILL.md`
+  が正本。Claude Code 向けには `<repo>/.claude/skills/<name>` からコミット済みの相対 symlink
+  （`../../.agents/skills/<name>`）を張る（生成スクリプトや post-merge フックは使わない。Codex/opencode は
+  `.agents/skills` をネイティブ検出するため symlink 不要）。
+
+### 昇格ルール（common への昇格）
+
+- **迷ったらプロジェクト層で作る**。プロジェクト固有の使い方しか想定できない段階で共通層に置くと、
+  汎用化が不十分なまま複数プロジェクトへ配布されてしまう。
+- **2つ目のプロジェクトで同じスキルが必要になった時点で、共通層へ昇格する**。昇格の際は
+  プロジェクト固有値（リポジトリ名・パス・ツール名・契約値など）を本文からパラメータとして
+  外出しし、汎用スキルとして再構成する（実績: l-shift の `mastra` → 共通 `mastra-framework-guide`）。
+- 昇格後、元のプロジェクト層スキルは実体を保持し続けず、**共通スキルへの接続文 + プロジェクト固有値のみ**
+  を残す薄型ラッパーへ縮小する（実績: `rest-api-design`、`lshift-docs-map`、`lshift-debug-context`）。
+  同名のまま残すと共通層とシャドウするため、昇格・薄型化と同時に必要ならリネームする。
+
+共通層の現在のスキル一覧（用途1行・起動区分つき）は `README.md` の Structure 節を参照する。
+共通層・外部購読・全プロジェクトのプロジェクト層を横断した完全な一覧は `manifest.yaml` を参照する。
+
 ## Skill Categories
 
 スキルは管理方法によって2種類に分かれる。
@@ -115,6 +142,19 @@ Skill instructions here.
 - External skills: 個別の行を追加する
 - lock ファイル（`~/.agents/.skill-lock.json`）はローカルマシン固有であり、このリポジトリでは管理しない
 
+## Invocation Quick Reference（起動方法早見表）
+
+スキルの起動方法はツールごとに異なる。
+
+| Tool | 起動方法 |
+|---|---|
+| Claude Code | `/<name>` |
+| Codex | `$<name>` |
+| opencode | automatic（description に基づく自動発動）または `skill` ツール呼び出し |
+
+frontmatter の `disable-model-invocation: true` は「自動発動を無効化し、`/<name>` または `$<name>` の
+明示起動のみ許可する」という意味（explicit-only）。未設定なら auto（説明文に基づく自動発動を許可）。
+
 ## Auto-Update on Pull
 
 `setup.sh` の初回実行時に、このリポジトリの `core.hooksPath` を `hooks/` に設定する。
@@ -130,3 +170,10 @@ Skill instructions here.
 - `skills/` 配下にカテゴリ用のサブディレクトリを作成してはならない（フラット構成を維持する）
 - `setup.sh` を変更せずにスキルを追加・削除してはならない
 - 削除対象ポリシーを変えるときに `remove-skills.txt` を更新せず放置してはならない
+- **共通層と同名のスキルをプロジェクト層（`<repo>/.agents/skills/`）に配置してはならない**
+  （Personal/Project 間のシャドウを引き起こす。同名が必要になったら昇格するか、プロジェクト側を
+  リネームする。実績: `code-debug-skill`→`lshift-debug-context`、`documentation-sync`→`lshift-docs-map`）
+- **スキルの実体をリポジトリ間・層間でコピー配置してはならない**（symlink か、共通スキルへの
+  接続文だけを持つ薄型ラッパーで参照する。実体コピーは正本と乖離し、更新が伝播しなくなる）
+- **外部購読スキル（`external`）の実体をどこにも改変・コピーしてはならない**。変更が必要な場合は
+  必ず正本（upstream リポジトリ）へ PR を送る
