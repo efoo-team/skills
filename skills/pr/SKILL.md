@@ -2,7 +2,7 @@
 name: pr
 description: フィーチャーブランチの作成からステージング・コミット・push・Pull Request 作成までの一連の Git 操作を、ブランチ運用ルール（develop 優先・保護ブランチへの直接コミット禁止）を遵守しながら安全に実行する。Only use when the user explicitly invokes /pr (or $pr in Codex). Never auto-invoke.
 disable-model-invocation: true
-argument-hint: [branch-name] [commit-title] [base-branch]
+argument-hint: "[branch-name] [commit-title] [base-branch]"
 metadata:
   tags: [git, pull-request, branch, workflow, github]
 ---

@@ -1,6 +1,6 @@
 ---
 name: plan-explain
-description: `.sisyphus/plans/` 配下などの計画ファイルを読み込み、その計画が何を行うものかを人間が即座に把握できる構造化された概要説明レポートを生成する。事実抽出のみを行い、解釈・推測・追加調査は行わない。Only use when the user explicitly invokes /plan-explain (or $plan-explain in Codex). Never auto-invoke.
+description: "`.sisyphus/plans/` 配下などの計画ファイルを読み込み、その計画が何を行うものかを人間が即座に把握できる構造化された概要説明レポートを生成する。事実抽出のみを行い、解釈・推測・追加調査は行わない。Only use when the user explicitly invokes /plan-explain (or $plan-explain in Codex). Never auto-invoke."
 disable-model-invocation: true
 argument-hint: [plan-file-path]
 metadata:
