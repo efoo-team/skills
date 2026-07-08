@@ -27,6 +27,9 @@ common:
   - name: "agent-native-project-design"
     purpose: "Claude Code/Codex等の既製ハーネス上で動くリポジトリ側（CLAUDE.md/AGENTS.md・Agent Skills・hooks等）を設計するときに使う"
     invocation: "auto"
+  - name: "agents-md-sync"
+    purpose: "リポジトリを解析して階層ごとのAGENTS.md知識ベースを生成・更新し、drift検出と階層別の執筆/レビューサブエージェント、CLAUDE.mdブリッジ維持まで行うスキル"
+    invocation: "explicit-only"
   - name: "ask"
     purpose: "実装や編集を一切行わず、事実に基づく分析と回答のみを行う read-only スキル"
     invocation: "explicit-only"
@@ -181,6 +184,12 @@ project_owned:
 # similar_groups: 類似目的に見えるが統合しないと判定済みのスキル群。
 # 各エントリは統合しない根拠を1行で記録する（再検討時の参照用）。
 similar_groups:
+  - group: "ドキュメント同期系"
+    members:
+      - "common/agents-md-sync"
+      - "common/documentation-sync"
+    decision: "keep-separate"
+    rationale: "documentation-syncはgit diff起点で既存ドキュメント一般の同期要否を検証する汎用手順（auto）、agents-md-syncはAGENTS.md階層の生成・更新に特化したサブエージェント並列オーケストレーション（explicit-only）であり、入力・出力・起動区分が異なるため統合すると責務と発火条件が混在する。"
   - group: "E2E探索系"
     members:
       - "chefrepi/e2e-strategy"
