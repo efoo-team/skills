@@ -73,13 +73,14 @@ efoo-team の Agent Skills は 2 層で管理する。**`manifest.yaml`** がこ
 ### Team-owned skill を追加する場合
 
 1. `skills/<skill-name>/SKILL.md` を作成する
-2. YAML frontmatter に `name` と `description` を記述する（必須）
-3. 必要に応じて `references/`, `assets/`, `scripts/` サブディレクトリを追加する
-4. インストール対象の決定:
+2. YAML frontmatter に `name` と `description` を記述する（必須。`metadata.tags` も必須）
+3. explicit-only スキルの場合は「SKILL.md Format › explicit-only スキルの3点セット」に従い `agents/openai.yaml` と冒頭門番文も揃える
+4. 必要に応じて `references/`, `assets/`, `scripts/` サブディレクトリを追加する
+5. インストール対象の決定:
    - **全エージェント共通**: そのままで良い（`setup.sh` の一括インストールに含まれる）
    - **特定エージェント限定**: 「Agent-Specific Skills」セクションの手順に従う
-5. `setup.sh` の更新が必要か確認する（特定エージェント限定の場合は必須）
-6. setup 時に削除対象としたい既存スキルがある場合は `remove-skills.txt` を更新する
+6. `setup.sh` の更新が必要か確認する（特定エージェント限定の場合は必須）
+7. setup 時に削除対象としたい既存スキルがある場合は `remove-skills.txt` を更新する
 
 ### External skill を追加する場合
 
@@ -130,9 +131,25 @@ Skill instructions here.
 
 - `name`: 1-64文字、小文字とハイフンのみ
 - `description`: 1-1024文字。AIがスキルの利用判断に使うため、いつ使うべきかを明確に記述する
+  - **front-load**: 第1文に「何をするか+主トリガー語」を置く。Codex はスキル一覧がコンテキストウィンドウの2%を超えると description を末尾から切り詰めるため、重要な要素ほど先頭に書く
+  - **auto スキルは推定150トークン（日本語なら約250文字）以内**を目安にする（`check-skills.py` が検査する。詳細は `agent-native-project-design/references/skill-authoring.md` §2）
 - `metadata.tags`: 必須。スキルの用途を示すタグ配列（例: `[refactoring, code-quality]`）
 - `metadata.internal`: 任意。特定エージェント限定スキルの場合は `true`
 - ツール固有の拡張フィールド（`allowed-tools`, `context`, `model` 等）は必要に応じて追加して良い。未対応のツールでは無視される
+
+### explicit-only スキルの3点セット
+
+明示起動専用スキル（`manifest.yaml` で `invocation: "explicit-only"`）は、以下の3点を必ず揃える（`check-skills.py` が検査する）:
+
+1. frontmatter に `disable-model-invocation: true`（Claude Code 用。description がコンテキストに載らなくなる）
+2. `skills/<name>/agents/openai.yaml` に以下を記述（Codex 用。Codex は `disable-model-invocation` を認識しないため必須）:
+   ```yaml
+   policy:
+     allow_implicit_invocation: false
+   ```
+3. description の**冒頭**に門番文「Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.」を置く
+
+例外: **auto スキルでも `metadata.internal: true` の特定エージェント限定スキルは②の `agents/openai.yaml` だけを持ってよい**（`check-skills.py` も許容する）。`~/.agents/skills` に実体がある限り Codex がネイティブ検出してしまうため、対象エージェント以外への暗黙起動リークを防ぐ目的で使う（実績: opencode 限定の formation-designer）。
 
 ## setup.sh Maintenance
 
@@ -147,16 +164,16 @@ Skill instructions here.
 
 ## Invocation Quick Reference（起動方法早見表）
 
-スキルの起動方法はツールごとに異なる。
+スキルの起動方法と explicit-only（自動発動停止）の実現手段はツールごとに異なる。
 
-| Tool | 起動方法 |
-|---|---|
-| Claude Code | `/<name>` |
-| Codex | `$<name>` |
-| opencode | automatic（description に基づく自動発動）または `skill` ツール呼び出し |
+| Tool | 明示起動 | explicit-only の実現手段 | description のコンテキスト消費（explicit-only 時） |
+|---|---|---|---|
+| Claude Code | `/<name>` | frontmatter `disable-model-invocation: true` | ゼロ（公式仕様） |
+| Codex | `$<name>` | `agents/openai.yaml` の `policy.allow_implicit_invocation: false`（**frontmatter は認識されない**） | ゼロ（2%スキル予算からも除外） |
+| opencode | `/<name>` | **未対応**（anomalyco/opencode#11972 をウォッチ。両フィールドとも無視される） | 常時消費 |
 
-frontmatter の `disable-model-invocation: true` は「自動発動を無効化し、`/<name>` または `$<name>` の
-明示起動のみ許可する」という意味（explicit-only）。未設定なら auto（説明文に基づく自動発動を許可）。
+manifest.yaml の `invocation: "explicit-only"` が正本。対応する3点セット（SKILL.md Format 節参照）を
+`check-skills.py` が検査する。未設定（`invocation: "auto"`）なら説明文に基づく自動発動を許可。
 
 ## Auto-Update on Pull
 

@@ -27,7 +27,18 @@
 
 1. `skills/<name>/SKILL.md` を作成する（frontmatter: `name`・`description`・`metadata.tags` 必須。`name` はディレクトリ名と一致させる）
 2. 必要に応じて `references/`・`assets/`・`scripts/` サブディレクトリを追加する。カテゴリ用サブディレクトリは作らない（`skills/` 直下フラット構成）
-3. `manifest.yaml` の `common` にアルファベット順で追記する。**全文字列をダブルクォートする**:
+3. **explicit-only スキルの場合**、frontmatter の `disable-model-invocation: true` に加えて `skills/<name>/agents/openai.yaml` を作成する（Codex は frontmatter の指定を認識しないため。3点セットの詳細は skill-authoring.md §2）:
+
+   ```yaml
+   policy:
+     allow_implicit_invocation: false
+   ```
+
+   例外: auto スキルでも `metadata.internal: true` の特定エージェント限定スキルは、Codex への
+   リーク（`~/.agents/skills` を Codex がネイティブ検出する）を防ぐため同ファイルを持ってよい
+   （実績: formation-designer。opencode 限定なのに Codex の暗黙起動リストに載るのを防ぐ）
+
+4. `manifest.yaml` の `common` にアルファベット順で追記する。**全文字列をダブルクォートする**:
 
    ```yaml
    - name: "<name>"
@@ -35,9 +46,9 @@
      invocation: "auto"          # explicit-only の場合は "explicit-only"
    ```
 
-4. `README.md` の Structure 節の表に行を追加し、スキル数「Common-layer skills currently in `skills/` (N)」の N を更新する
-5. `setup.sh` の更新は不要（`npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` の一括インストールでカバーされる）
-6. 既存スキルの置き換え・リネームを伴う場合のみ、旧スキル名を `remove-skills.txt` に追記する
+5. `README.md` の Structure 節の表に行を追加し、スキル数「Common-layer skills currently in `skills/` (N)」の N を更新する
+6. `setup.sh` の更新は不要（`npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` の一括インストールでカバーされる）
+7. 既存スキルの置き換え・リネームを伴う場合のみ、旧スキル名を `remove-skills.txt` に追記する
 
 ## 3. 共通層 team-owned（特定エージェント限定）
 
@@ -111,7 +122,7 @@ skills CLI は **YAML パースに失敗した SKILL.md を無言でスキップ
 python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
 ```
 
-期待結果: `RESULT: PASS`・エラー0件。frontmatter lint（YAML パースゲート含む）・名前衝突・description 類似度が一括検証される。CI（`.github/workflows/skill-checks.yml`）でも同じチェックが走るため、ローカルで PASS させてから commit する。
+期待結果: `RESULT: PASS`・エラー0件。frontmatter lint（YAML パースゲート含む）・名前衝突・description 類似度・起動契約整合（invocation 3点セット）・description 予算が一括検証される。CI（`.github/workflows/skill-checks.yml`）でも同じチェックが走るため、ローカルで PASS させてから commit する。
 
 - 類似度警告（ratio >= 0.8）が出た場合: 既存スキルとの統合を検討する。統合しないと判断したら、その根拠を `manifest.yaml` の `similar_groups` に1行で登記する
 - プロジェクト層スキルの場合も、`project_owned` 登記後に同スクリプトで collision チェックを行う

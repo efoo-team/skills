@@ -55,6 +55,35 @@ jobs:
       - name: Warn on similar descriptions (non-blocking)
         run: python3 scripts/check-skills.py --only similarity
 
+  invocation-contract:
+    # Ensure each manifest common entry's invocation ("auto"/"explicit-only")
+    # matches the skill's disable-model-invocation frontmatter, the
+    # agents/openai.yaml exclusion (Codex), and the leading guard sentence.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check invocation contract consistency
+        run: python3 scripts/check-skills.py --only invocation
+
+  description-budget:
+    # Fail when an auto skill's description exceeds the estimated-token budget
+    # (Codex 2% / Claude Code 1% skill-listing budgets).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Check auto-skill description budget
+        run: python3 scripts/check-skills.py --only desc-budget
+
   secret-scan:
     # Scan history for committed secrets with gitleaks default config.
     runs-on: ubuntu-latest

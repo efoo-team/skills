@@ -108,12 +108,12 @@ manifest.yaml              # 全スキル横断の台帳（common / external / p
 remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
 setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理）
 hooks/post-merge           # git pull 時に setup.sh を自動再実行する git hook
-scripts/check-skills.py    # CI チェック本体（frontmatter lint・名前衝突・類似 description 検出）
-.github/workflows/skill-checks.yml  # CI 定義（check-skills.py の3チェック + gitleaks によるシークレット検査）
+scripts/check-skills.py    # CI チェック本体（frontmatter lint・名前衝突・類似 description 検出・起動契約整合・description 予算）
+.github/workflows/skill-checks.yml  # CI 定義（check-skills.py の5チェック + gitleaks によるシークレット検査）
 skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 
-Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only` when the skill's frontmatter sets `disable-model-invocation: true` (only triggered by `/<name>` or `$<name>`); otherwise it is `auto` (the agent may invoke it based on the description alone).
+Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The ledger (`manifest.yaml` `invocation`) is the source of truth and `check-skills.py` enforces consistency.
 
 | Skill | Purpose | Invocation |
 |---|---|---|
@@ -128,7 +128,7 @@ Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only`
 | `documentation-sync` | Verifies/syncs docs against code changes from git diff | auto |
 | `execute` | Orchestrates and delegates a complex task | explicit-only |
 | `formation-designer` | oh-my-opencode formation (agent-model) design guide (internal, opencode only) | auto |
-| `github-pull-request` | Structures implementation changes into a layered PR body | auto |
+| `github-pull-request` | Structures implementation changes into a layered PR body | explicit-only |
 | `langfuse` | Queries/analyzes Langfuse LLM observability data via REST API | auto |
 | `mastra-ai-architecture-rules` | Responsibility boundaries for Mastra-based AI services | auto |
 | `mastra-framework-guide` | Verifying current Mastra API/docs and version-migration guidance | auto |
@@ -139,12 +139,58 @@ Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only`
 | `pre-define` | Refines a vague request into concrete input for `/define` | explicit-only |
 | `refactor-mindset` | Restructuring code for future changeability | auto |
 | `restful-api-design` | Web/HTTP API design judgment (resources, methods, errors, pagination, etc.) | auto |
-| `review-plan` | Reviews an implementation plan with multiple Oracle sub-agents | auto |
+| `review-plan` | Reviews an implementation plan with multiple Oracle sub-agents | explicit-only |
 | `review-pr-check` | Orchestrates PR review triage across collector/Oracle/executor workers | explicit-only |
 | `search-history` | Keyword search across local Claude Code/Codex chat history | explicit-only |
 | `sql-writing-style` | SQL style rules for at-a-glance readability | auto |
 
 For the external subscribed skill (`code-debug-skill`, from `abekdwight/code-debug-skills`) and every project-owned skill in other repositories, see `manifest.yaml`.
+
+## Context budget hygiene（スキル説明文のコンテキスト予算）
+
+auto スキルの description は、Claude Code / Codex の**全セッションで常時コンテキストを消費する**。
+このリポジトリ側の対策（explicit-only スキルのコンテキスト除外、auto スキルの description 予算）は
+`check-skills.py` が強制するが、**個人環境に入れているプラグインやスキルはこのリポジトリの統制外**であり、
+以下は各メンバーの管理範囲になる。
+
+### Codex
+
+Codex はスキル一覧（name + description + パス）に**モデルのコンテキストウィンドウの2%**
+（GPT-5系 272k で約5,400トークン。ハードコードで変更不可）しか割り当てず、超過すると
+「Skill descriptions were shortened to fit the 2% skills context budget」警告とともに
+description を末尾から切り詰める。この警告が出た場合、チームスキルは既に軽量化済みのため、
+主因はほぼ個人環境のプラグインである。`~/.codex/config.toml` で使っていないものを無効化する
+（変更後は Codex の再起動が必要）:
+
+```toml
+# プラグイン単位で無効化
+[plugins.<plugin-name>]
+enabled = false
+
+# スキル単位で無効化
+[[skills.config]]
+name = "<skill-name>"
+enabled = false
+```
+
+（設定キーは Codex 0.142 時点のソース `codex-rs/config/src/skills_config.rs` / `config_toml.rs` で確認したもの。
+変わっている場合は公式ドキュメント https://developers.openai.com/codex を参照）
+
+### Claude Code
+
+Claude Code にも同種の予算がある: スキル一覧は**モデルのコンテキストウィンドウの1%**（デフォルト。
+文字数ベース）に収められ、超過すると**起動頻度の低いスキルから** description が切り詰め・除外される。
+また各スキルの description は予算と無関係に 1,536 文字で切られる。状況は `/doctor`（切り詰め対象の
+一覧）と `/context`（Skills 行 = 予算適用後のサイズ）で確認できる。対処:
+
+- explicit-only スキル（`disable-model-invocation: true`）の description はコンテキストに載らない（公式仕様。このリポジトリの explicit-only 14本は消費ゼロ）
+- 使っていないプラグインは `/plugin` から無効化し、使っていない購読スキルは `npx skills remove <name> -g -y` で外す
+- 予算自体も変更できる: `settings.json` の `skillListingBudgetFraction`（例 `0.02` = 2%）、または環境変数 `SLASH_COMMAND_TOOL_CHAR_BUDGET`（固定文字数）。優先度の低いスキルは `skillOverrides` で `"name-only"` にすると名前だけ載せて予算を空けられる
+
+### ウォッチ対象の upstream issue
+
+- [openai/codex#19679](https://github.com/openai/codex/issues/19679) — 2%予算の設定可能化要望（解決されたら予算規律を緩められる）
+- [anomalyco/opencode#11972](https://github.com/anomalyco/opencode/issues/11972) — opencode の `disable-model-invocation` 対応要望（解決されたら explicit-only が opencode でも機能する）
 
 ## Adding a new skill
 

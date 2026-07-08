@@ -1,6 +1,6 @@
 ---
 name: ask
-description: 質問に対して、実装や編集を一切行わず、事実に基づく分析と回答を提供する read-only スキル。コードの仕組み・実装方針・エラー原因・設計妥当性などの質問に、推測ではなく実装とドキュメントの事実に基づいて回答する。Only use when the user explicitly invokes /ask (or $ask in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /ask (or $ask in Codex). Never auto-invoke. 質問に対して、実装や編集を一切行わず、事実に基づく分析と回答を提供する read-only スキル。コードの仕組み・実装方針・エラー原因・設計妥当性などの質問に、推測ではなく実装とドキュメントの事実に基づいて回答する。
 disable-model-invocation: true
 argument-hint: [質問内容]
 metadata:

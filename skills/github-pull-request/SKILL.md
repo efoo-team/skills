@@ -1,6 +1,7 @@
 ---
 name: github-pull-request
-description: AIに実装させた変更を抽象度の階層構造で分析し、構造化されたGitHub PR本文として出力する。大規模変更（1万行超）でも、システム構成図→データ構造→API→処理フロー→実装詳細の順で抽象→具体へ整理する。画像エビデンスを含むPR本文の組み立て方も扱う。「PR本文を書いて」「この変更をPRにする」「実装した内容のPRを作りたい」といった場面で使用する。
+description: Only use when the user explicitly invokes /github-pull-request (or $github-pull-request in Codex). Never auto-invoke. AIに実装させた変更を抽象度の階層構造で分析し、構造化されたGitHub PR本文として出力する。大規模変更（1万行超）でも、システム構成図→データ構造→API→処理フロー→実装詳細の順で抽象→具体へ整理する。画像エビデンスを含むPR本文の組み立て方も扱う。
+disable-model-invocation: true
 metadata:
   tags: [github, pull-request, pr, architecture, documentation, design-quality, perspective-analysis]
 ---

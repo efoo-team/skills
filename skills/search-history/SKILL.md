@@ -1,6 +1,6 @@
 ---
 name: search-history
-description: Claude Code / Codex CLI のローカルチャット履歴（JSONL）をキーワードで横断検索し、該当するセッションと会話断片を提示する。履歴ファイルは読み取り専用で扱う。Only use when the user explicitly invokes /search-history (or $search-history in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /search-history (or $search-history in Codex). Never auto-invoke. Claude Code / Codex CLI のローカルチャット履歴（JSONL）をキーワードで横断検索し、該当するセッションと会話断片を提示する。履歴ファイルは読み取り専用で扱う。
 disable-model-invocation: true
 argument-hint: "[keyword] [--claude | --codex | --all] [--days N]"
 metadata:

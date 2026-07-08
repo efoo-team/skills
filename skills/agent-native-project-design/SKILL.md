@@ -1,6 +1,6 @@
 ---
 name: agent-native-project-design
-description: Claude Code / Codex 等の既製AIエージェント・ハーネスをランタイムとして使い、リポジトリ/プロジェクト側をエージェントが確実に運用できるように設計するときに使用する。CLAUDE.md / AGENTS.md の設計と刈り込み、Agent Skills の作成、自然言語指示と決定的スクリプトの分担、ディレクトリ契約と成果物管理、検証ループと不確実性マーカーの設計、hooks / slash commands / subagents / MCP の使い分け、headless・CI・並列運用の設計といった場面で使用する。『CLAUDE.mdを設計/整理して』『エージェントに運用させるリポジトリを作りたい』『この作業をエージェントに任せられる形にして』『スクリプトに落とすべきか指示に書くべきか』『エージェントが指示を無視する/守らないので直したい』という相談にも適用する。ハーネス/ランタイムそのものを開発する場合は agent-harness-engineering を参照する。
+description: Claude Code / Codex 等の既製AIエージェント・ハーネス上で運用するリポジトリ/プロジェクト側（CLAUDE.md / AGENTS.md・Agent Skills・hooks・subagents）を設計・整理・刈り込みするスキル。『CLAUDE.mdを設計/整理して』『この作業をエージェントに任せたい』『スキルを作りたい』『エージェントが指示を守らない』という相談で使用する。ハーネス/ランタイム自体の開発は agent-harness-engineering を参照。
 metadata:
   tags: [ai-agent, claude-code, codex, agents-md, claude-md, agent-skills, repository-design, verification, scripts, directory-contract, headless, ci, automation]
 ---

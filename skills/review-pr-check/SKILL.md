@@ -1,6 +1,6 @@
 ---
 name: review-pr-check
-description: PRレビュー対応を収集ワーカー・Oracle・実行ワーカーへ分離してオーケストレーションするスキル。収集は gh pr-review-check を実行する収集ワーカーに、分類・グループ化・ワークパケット生成は Oracle サブエージェントに、実装・返信・resolve などの実作業は実行ワーカーに委譲し、parent は完全性ゲート・fallback 起動・ポーリングループを管理する。Only use when the user explicitly invokes /review-pr-check (or $review-pr-check in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /review-pr-check (or $review-pr-check in Codex). Never auto-invoke. PRレビュー対応を収集ワーカー・Oracle・実行ワーカーへ分離してオーケストレーションするスキル。収集は gh pr-review-check を実行する収集ワーカーに、分類・グループ化・ワークパケット生成は Oracle サブエージェントに、実装・返信・resolve などの実作業は実行ワーカーに委譲し、parent は完全性ゲート・fallback 起動・ポーリングループを管理する。
 disable-model-invocation: true
 argument-hint: [PR番号 or URL(任意)]
 metadata:

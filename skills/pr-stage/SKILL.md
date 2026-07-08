@@ -1,6 +1,6 @@
 ---
 name: pr-stage
-description: 既に git add でステージ済みの変更を確認し、comprehensive なコミットメッセージでコミットし、必要ならフィーチャーブランチを自動作成した上で push・Pull Request 作成まで行う。保護ブランチ（develop / main / master）への直接コミットを避け、ベースブランチを develop → main → master の順で自動判定する。Only use when the user explicitly invokes /pr-stage (or $pr-stage in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /pr-stage (or $pr-stage in Codex). Never auto-invoke. 既に git add でステージ済みの変更を確認し、comprehensive なコミットメッセージでコミットし、必要ならフィーチャーブランチを自動作成した上で push・Pull Request 作成まで行う。保護ブランチ（develop / main / master）への直接コミットを避け、ベースブランチを develop → main → master の順で自動判定する。
 disable-model-invocation: true
 argument-hint: [commit-message]
 metadata:
