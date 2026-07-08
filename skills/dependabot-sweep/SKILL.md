@@ -1,7 +1,7 @@
 ---
 name: dependabot-sweep
 description: Only use when the user explicitly invokes /dependabot-sweep (or $dependabot-sweep in Codex). Never auto-invoke. Dependabot が作成した依存関係更新 PR を一括で分析し、すべての更新を 1 つのブランチに統合した単一 PR を作成する。各 dependabot PR を個別マージせず統合 PR にまとめ、元の PR はコメントを残してクローズする。
-argument-hint: [追加指示(任意)]
+argument-hint: "[追加指示(任意)]"
 disable-model-invocation: true
 metadata:
   tags: [dependabot, dependencies, pull-request, automation, github]
@@ -52,6 +52,8 @@ gh pr list --author "app/dependabot" --state open --json number,title,headRefNam
 - CHANGELOG やリリースノートから破壊的変更の有無を確認
 
 ### 3. 統合ブランチの作成
+
+ベースブランチは `develop` → `main` → `master` の順で存在を確認し、最初に見つかったものを使用する（`pr` スキルと同一の規則）。
 
 ```bash
 git checkout <base-branch>

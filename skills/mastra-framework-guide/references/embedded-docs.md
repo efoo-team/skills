@@ -4,6 +4,17 @@ Look up API signatures from embedded docs in `node_modules/@mastra/*/dist/docs/`
 
 **Use this FIRST** when Mastra packages are installed locally. Embedded docs are always accurate for the installed version.
 
+## Contents
+
+1. [Why use embedded docs](#why-use-embedded-docs)
+2. [Documentation structure](#documentation-structure)
+3. [Lookup process](#lookup-process)
+4. [Common packages](#common-packages)
+5. [Quick commands reference](#quick-commands-reference)
+6. [Example: Looking up agent constructor](#example-looking-up-agent-constructor)
+7. [When embedded docs are not available](#when-embedded-docs-are-not-available)
+8. [Best Practices](#best-practices)
+
 ## Why use embedded docs
 
 - **Version accuracy**: Embedded docs match the exact installed version
@@ -16,10 +27,14 @@ Look up API signatures from embedded docs in `node_modules/@mastra/*/dist/docs/`
 
 ```
 node_modules/@mastra/core/dist/docs/
-├── SKILL.md           # Package overview, exports
-├── SOURCE_MAP.json    # Export→file mappings
-└── [topics]/          # Feature docs (agents/, workflows/, etc.)
+├── SKILL.md                  # Package overview, exports
+├── assets/SOURCE_MAP.json    # Export→file mappings
+└── references/               # Flat topic/reference docs
+    ├── docs-agents-overview.md
+    └── reference-<section>-<item>.md ...
 ```
+
+Layout can move between versions - run `ls node_modules/@mastra/core/dist/docs/` first and adapt to what is actually there.
 
 ## Lookup process
 
@@ -34,7 +49,9 @@ If you see packages like `core`, `memory`, `rag`, etc., proceed with embedded do
 ### 2. Find the export in SOURCE_MAP.json
 
 ```bash
-cat node_modules/@mastra/core/dist/docs/SOURCE_MAP.json | grep '"Agent"'
+# Locate first (currently under assets/; location can move between versions)
+ls node_modules/@mastra/core/dist/docs/
+cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"Agent"'
 ```
 
 Returns: `{ "Agent": { "types": "dist/agent/agent.d.ts", ... } }`
@@ -50,7 +67,8 @@ This shows the exact TypeScript interface, constructor parameters, and JSDoc.
 ### 4. Check topic docs (optional)
 
 ```bash
-cat node_modules/@mastra/core/dist/docs/agents/01-overview.md
+ls node_modules/@mastra/core/dist/docs/references/ | grep -i agent
+cat node_modules/@mastra/core/dist/docs/references/docs-agents-overview.md
 ```
 
 Topic docs provide conceptual explanations and usage examples.
@@ -71,8 +89,8 @@ Topic docs provide conceptual explanations and usage examples.
 # List installed @mastra packages
 ls node_modules/@mastra/
 
-# Find specific export in SOURCE_MAP
-cat node_modules/@mastra/core/dist/docs/SOURCE_MAP.json | grep '"ExportName"'
+# Find specific export in SOURCE_MAP (currently under assets/; ls first if not found)
+cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"ExportName"'
 
 # Read type definition from path
 cat node_modules/@mastra/core/dist/[path-from-source-map]
@@ -92,7 +110,7 @@ grep -r "functionName" node_modules/@mastra/core/src/
 **1. Find Agent in SOURCE_MAP:**
 
 ```bash
-cat node_modules/@mastra/core/dist/docs/SOURCE_MAP.json | grep '"Agent"'
+cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"Agent"'
 ```
 
 **2. Read the type definition:**
@@ -104,7 +122,7 @@ cat node_modules/@mastra/core/dist/agent/agent.d.ts
 **3. Check topic docs for usage examples:**
 
 ```bash
-cat node_modules/@mastra/core/dist/docs/agents/01-overview.md
+cat node_modules/@mastra/core/dist/docs/references/docs-agents-overview.md
 ```
 
 ## When embedded docs are not available

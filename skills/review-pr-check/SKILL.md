@@ -1,17 +1,17 @@
 ---
 name: review-pr-check
-description: Only use when the user explicitly invokes /review-pr-check (or $review-pr-check in Codex). Never auto-invoke. PRレビュー対応を収集ワーカー・Oracle・実行ワーカーへ分離してオーケストレーションするスキル。収集は gh pr-review-check を実行する収集ワーカーに、分類・グループ化・ワークパケット生成は Oracle サブエージェントに、実装・返信・resolve などの実作業は実行ワーカーに委譲し、parent は完全性ゲート・fallback 起動・ポーリングループを管理する。
+description: Only use when the user explicitly invokes /review-pr-check (or $review-pr-check in Codex). Never auto-invoke. PRレビュー対応を収集ワーカー・分類サブエージェント・実行ワーカーへ分離してオーケストレーションするスキル。収集は gh pr-review-check を実行する収集ワーカーに、分類・グループ化・ワークパケット生成は分類サブエージェント（デフォルト例は Oracle）に、実装・返信・resolve などの実作業は実行ワーカーに委譲し、parent は完全性ゲート・fallback 起動・ポーリングループを管理する。サブエージェント機構が無い環境では parent 自身が縮退実行する。
 disable-model-invocation: true
-argument-hint: [PR番号 or URL(任意)]
+argument-hint: "[PR番号 or URL(任意)]"
 metadata:
-  tags: [pull-request, review, orchestration, github, oracle, sub-agents]
+  tags: [pull-request, review, orchestration, github, triage, sub-agents]
 ---
 
 # Review-Check - PRレビュー精査コマンド
 
 ## 目的
 
-このコマンドは control plane として動作する。収集は `gh pr-review-check` を実行する収集ワーカーに委譲し、分類・グループ化・ワークパケット生成は Oracle サブエージェント（デフォルト）に委譲し、実装・返信・resolve などの実作業は実行ワーカーに委譲する。parent は basic-set（`output_dir`, `pr-meta.json`, `reviews.jsonl`, `collection-manifest.json`、必要に応じて収集サイクル識別子）を受け取り、完全性ゲート・fallback 起動・Phase 3 の軽量前処理・Phase 7/8 のループ継続判定を管理する。
+このコマンドは control plane として動作する。収集は `gh pr-review-check` を実行する収集ワーカーに委譲し、分類・グループ化・ワークパケット生成は**レビュー分類用サブエージェント（環境が提供するもの。デフォルト例: Oracle）**に委譲し、実装・返信・resolve などの実作業は実行ワーカーに委譲する。サブエージェント機構が無い環境（例: Codex）では、parent 自身がこれらを縮退実行する（「サブエージェントが無い環境での縮退」を参照）。parent は basic-set（`output_dir`, `pr-meta.json`, `reviews.jsonl`, `collection-manifest.json`、必要に応じて収集サイクル識別子）を受け取り、完全性ゲート・fallback 起動・Phase 3 の軽量前処理・Phase 7/8 のループ継続判定を管理する。
 
 ## 最重要遵守ルール
 
@@ -23,13 +23,22 @@ metadata:
 6. **sub-agents並行化を活用し、処理効率を最大化する**
 7. **処理開始時に必ずgit pullを実行し、他のAIエージェント（ドキュメント更新AI等）による変更を取り込んでから作業を開始する**
 8. **ステータス管理はGitHub Reactionsで行う（+1=完了, -1=スキップ, eyes=対応中）**
-9. **Phase 7の待機では必ず `sleep 600` コマンドを実行すること。他の待機手段での代替は禁止。**
+9. **Phase 7 の待機は固定 `sleep 600` ではなく、初回 2〜3 分待機 → 以後は指数バックオフでポーリングする（根拠と縮退は `references/orchestration-protocol.md` の Phase 7）。長時間のブロッキング sleep が実行できないハーネスでは、待機は「次の再収集までの間隔確保」と読み替えてよい。ただし Phase 7 自体の省略・即完了は禁止。**
 10. **Phase 6完了後、Phase 7→8のポーリングループを必ず実行すること。ループをスキップして完了とすることは禁止。新規の actionable entry がなくなるまでループを継続すること。**
 11. **通常収集は必ず収集ワーカーに委譲し、`gh pr-review-check` の出力として得られる basic-set（`output_dir`, `pr-meta.json`, `reviews.jsonl`, `collection-manifest.json`、必要に応じて収集サイクル識別子）を parent が受け取って後続フェーズへ渡す。**
 12. **parent は `collection-manifest.json` の完全性ゲート、`incomplete/inconclusive` 時の fallback 起動判断、Phase 3 の軽量前処理、Phase 7/8 のループ所有だけを担う。parent 自身が妥当性判断・skip/fix判断・実装判断を抱え込んではならない。**
-13. **分類担当サブエージェントはデフォルトで Oracle を使用する。small run では Oracle に basic-set 一式を渡してよいが、medium/large run では parent が coarse shard を作成し、Oracle 複数体へ並列委譲する。**
-14. **parent に許可される前処理は coarse grouping を含む索引化・分割・圧縮である。`path` / `directory prefix` / `feature proxy` / `dependency hint` に基づく「ざっくりグルーピング」までは parent が行ってよいが、validity 判定、`fix/skip/hold` 判定、優先度判断は Oracle 以降の責務であり、parent が代行してはならない。**
+13. **分類担当サブエージェントは環境が提供するレビュー分類用サブエージェント（デフォルト例: Oracle）を使う。small run では basic-set 一式を分類サブエージェント1体へ渡してよいが、medium/large run では parent が coarse shard を作成し、分類サブエージェント複数体へ並列委譲する。サブエージェント機構が無い環境では parent 自身が縮退実行する（「サブエージェントが無い環境での縮退」参照）。**
+14. **parent に許可される前処理は coarse grouping を含む索引化・分割・圧縮である。`path` / `directory prefix` / `feature proxy` / `dependency hint` に基づく「ざっくりグルーピング」までは parent が行ってよいが、validity 判定、`fix/skip/hold` 判定、優先度判断は分類サブエージェント以降（縮退時は parent の分類フェーズ）の責務であり、coarse grouping の段階で先取りしてはならない。**
 15. **実行ワーカーは常に「1ワークパケットだけ」を受け取ること。複数パケットや未処理一覧全体を同時に渡してはならない。**
+
+## サブエージェントが無い環境での縮退
+
+レビュー分類用サブエージェント（Oracle 等）を提供しないハーネス（例: Codex）では、上記の「収集ワーカー / 分類サブエージェント / 実行ワーカー」への分離を parent 1体の中で縮退実行する。役割分離が物理的に無くても、規律は自分の中で保つ:
+
+- parent 自身が逐次、**1ワークパケットずつ**「分類 → 妥当性検証 → 実装 → 返信 → resolve」を進める。複数パケットを同時に抱えない（ルール15 の制約は自分の中でも守る）。
+- 分類・グループ化と実装のフェーズ分離を、サブエージェント境界が無くても**作業規律として保つ**。すべてのコメントの分類・対応方針を確定してから実装に着手する（ルール1）。
+- read-only の分類と、書き込みを伴う実装を混在させない。分類中はファイル変更・コミットをしない（`references/reporting-and-policy.md`「フェーズ分離の徹底」）。
+- 収集の fallback（Phase 3-0-A）は環境によらず同梱の `scripts/collect-review.sh` を実行する。分類・実装を自分で担うことと、決定的な収集をスクリプトに委ねることは両立する。
 
 ## 引数
 
@@ -52,7 +61,7 @@ $ARGUMENTS
     ↓
 [Phase 3A] 軽量前処理（parent が coarse shard を生成）
     ↓
-[Phase 3B] shard分類（Oracle が shard 単位で action=pending を分類）
+[Phase 3B] shard分類（分類サブエージェントが shard 単位で action=pending を分類。縮退時は parent が逐次分類）
     ↓
 [Phase 3C] 統合（parent が shard 結果を統合する）
     ↓
@@ -62,7 +71,7 @@ $ARGUMENTS
     ↓
 [Phase 6] 並行処理（実行ワーカーが妥当性検証 → 対応判断 → 実装 → テスト → プッシュ → 完了処理を実行）
     ↓
-[Phase 7] 待機・ポーリング（parent が 10分待機後に再収集し、sleep 600 を厳守）
+[Phase 7] 待機・ポーリング（parent が初回2〜3分→指数バックオフでポーリングして再収集）
     ↓
 [Phase 8] ループ判定（parent が新規レビュー有無を判定し、必要ならPhase 3へ戻す）
     ↓
@@ -76,7 +85,7 @@ $ARGUMENTS
 各フェーズ・トピックの詳細プロトコルは `references/` 配下に分割している。実行時は該当ファイルを参照すること。
 
 - **フェーズ別詳細プロトコル（Phase 0〜8）**: [`references/orchestration-protocol.md`](references/orchestration-protocol.md)
-  - Phase 0（PR本文確認）/ Phase 1（CLI収集・エントリ構造スキーマ）/ Phase 2（完全性検証）/ Phase 3（残存課題抽出・完全性ゲート・明示的フォールバックパス・Oracle への分類依頼・parent の軽量前処理・除外条件・ノイズ判定）/ Phase 4（work packet 確定）/ Phase 5（packet dispatch）/ Phase 6（並行処理・妥当性検証・対応判断・実装/完了処理・テスト/プッシュ）/ Phase 7（待機・ポーリング）/ Phase 8（ループ判定）
+  - Phase 0（PR本文確認）/ Phase 1（CLI収集・エントリ構造スキーマ）/ Phase 2（完全性検証）/ Phase 3（残存課題抽出・完全性ゲート・明示的フォールバックパス〈`scripts/collect-review.sh`〉・分類サブエージェントへの分類依頼・parent の軽量前処理・除外条件・ノイズ判定）/ Phase 4（work packet 確定）/ Phase 5（packet dispatch）/ Phase 6（並行処理・妥当性検証・対応判断・実装/完了処理・テスト/プッシュ）/ Phase 7（待機・ポーリング）/ Phase 8（ループ判定）
 - **ステータス管理・マージ可能状態**: [`references/status-and-resolve.md`](references/status-and-resolve.md)
   - GitHub Reactions（+1/-1/eyes）による状態管理、`gh pr-review-check resolve` コマンド、スレッドの resolve（GraphQL API）、マージ可能状態・条件付きマージ可能状態の完了条件と最終報告
 - **レポート出力・対応方針・運用ルール**: [`references/reporting-and-policy.md`](references/reporting-and-policy.md)

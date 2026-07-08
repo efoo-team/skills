@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Check-only lint for efoo-team/skills.
 
-Validates SKILL.md frontmatter, manifest name collisions, invocation contract
-consistency (manifest invocation <-> disable-model-invocation <->
-agents/openai.yaml), auto-skill description budget, and (as warnings)
-description similarity. This script performs NO fixes, generation, or sync;
-it only reports problems and fails so a human is notified.
+Validates SKILL.md frontmatter (incl. required metadata.tags and, as a
+warning, argument-hint quoting), manifest name collisions, invocation
+contract consistency (manifest invocation <-> disable-model-invocation <->
+agents/openai.yaml), auto-skill description budget, core-axiom parity
+between the two charter skills, and (as warnings) description similarity.
+This script performs NO fixes, generation, or sync; it only reports
+problems and fails so a human is notified.
 
 Dependency policy
 -----------------
@@ -41,6 +43,14 @@ INTERNAL_RE = re.compile(r"^\s+internal:\s*true\s*$", re.MULTILINE | re.IGNORECA
 IMPLICIT_FALSE_RE = re.compile(
     r"^\s*allow_implicit_invocation:\s*[\"']?false[\"']?\s*$", re.MULTILINE | re.IGNORECASE
 )
+# \s は改行を跨いで次行を値として誤取得するため、行内空白 [ \t] に限定する
+TAGS_LINE_RE = re.compile(r"^[ \t]+tags:[ \t]*(.*)$", re.MULTILINE)
+TAGS_BLOCK_ITEM_RE = re.compile(r"^[ \t]+tags:[ \t]*\n[ \t]+-[ \t]+\S", re.MULTILINE)
+ARG_HINT_RE = re.compile(r"^argument-hint:\s*(.+?)\s*$", re.MULTILINE)
+# 「## 0. コア公理」を意図的に同一複製している2憲章スキル（片側だけの改訂＝driftをerrorにする）
+AXIOM_SKILLS = ("agent-harness-engineering", "agent-native-project-design")
+AXIOM_SECTION_RE = re.compile(r"^## 0\..*$", re.MULTILINE)
+AXIOM_ITEM_RE = re.compile(r"^\d{1,2}\.\s.*$", re.MULTILINE)
 MAX_DESCRIPTION = 1024
 # auto スキルの description 予算（Codex の 2% スキル予算対策。詳細は
 # agent-native-project-design/references/skill-authoring.md §2 を参照）。
@@ -224,6 +234,32 @@ def check_frontmatter(skills_dir: Path, rep: Reporter) -> None:
                     f"(max {MAX_DESCRIPTION})",
                     rel,
                 )
+
+        # metadata.tags: efoo-team 必須（AGENTS.md「SKILL.md Format」）。
+        tags_match = TAGS_LINE_RE.search(fm_text)
+        has_tags = False
+        if tags_match:
+            # 行末コメント（tags: []  # TODO 等）を落としてから空判定する
+            value = tags_match.group(1).split("#", 1)[0].strip()
+            if value and value not in ("[]", '""', "''"):
+                has_tags = True
+            elif TAGS_BLOCK_ITEM_RE.search(fm_text):
+                has_tags = True
+        if not has_tags:
+            rep.error(
+                f"{dir_name}: metadata.tags is missing or empty "
+                "(efoo-team requires a non-empty tags array; see AGENTS.md 'SKILL.md Format')",
+                rel,
+            )
+
+        # argument-hint はクオートされた文字列にする（未クオートの [x] は YAML リストになる）。
+        ah_match = ARG_HINT_RE.search(fm_text)
+        if ah_match and ah_match.group(1).startswith("["):
+            rep.warning(
+                f"{dir_name}: argument-hint {ah_match.group(1)!r} is unquoted and parses "
+                'as a YAML list; quote it like argument-hint: "[...]"',
+                rel,
+            )
 
     rep.info(f"[skill-lint] checked {len(skill_files)} SKILL.md file(s)")
     rep.info(f"[skill-lint] YAML parse backend(s): {', '.join(sorted(parse_backends))}")
@@ -453,11 +489,74 @@ def check_description_budget(manifest, path_used: str, skills_dir: Path, rep: Re
             )
 
 
+def _extract_axioms(skill_dir: Path):
+    """Return the numbered-axiom block under the '## 0.' section, or None."""
+    skill_file = skill_dir / "SKILL.md"
+    if not skill_file.is_file():
+        return None
+    text = skill_file.read_text(encoding="utf-8")
+    section_match = AXIOM_SECTION_RE.search(text)
+    if not section_match:
+        return None
+    section = text[section_match.end():]
+    next_heading = re.search(r"^## ", section, re.MULTILINE)
+    if next_heading:
+        section = section[: next_heading.start()]
+    items = AXIOM_ITEM_RE.findall(section)
+    return "\n".join(items) if items else None
+
+
+def check_axiom_parity(skills_dir: Path, rep: Reporter) -> None:
+    """2つの憲章スキルの「## 0. コア公理」番号付き公理は意図的な同一複製である
+    （各ファイルが「改訂時は両ファイルを同時に更新すること」と明記）。
+    助言文だけでは片側だけの改訂（drift）を防げないため、ここで機械強制する。"""
+    rep.info("[axiom-parity] comparing '## 0' numbered axioms of: " + ", ".join(AXIOM_SKILLS))
+    blocks: dict[str, str] = {}
+    for name in AXIOM_SKILLS:
+        block = _extract_axioms(skills_dir / name)
+        if block is None or len(block.splitlines()) < 3:
+            rep.error(
+                f"{name}: could not extract the numbered axiom block under '## 0.' "
+                "(節の構造を変えた場合は check-skills.py の AXIOM_* 定義も更新する)",
+                str(skills_dir / name / "SKILL.md"),
+            )
+            return
+        blocks[name] = block
+    first, second = AXIOM_SKILLS
+    if blocks[first] != blocks[second]:
+        diff_lines = list(
+            difflib.unified_diff(
+                blocks[first].splitlines(),
+                blocks[second].splitlines(),
+                fromfile=first,
+                tofile=second,
+                lineterm="",
+                n=0,
+            )
+        )[:12]
+        rep.error(
+            "core axioms drifted between the two charter skills; edit both files "
+            "together (diff: " + " | ".join(diff_lines) + ")"
+        )
+    else:
+        rep.info(
+            f"[axiom-parity] OK ({len(blocks[first].splitlines())} axiom line(s) identical)"
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--only",
-        choices=["frontmatter", "collision", "similarity", "invocation", "desc-budget", "all"],
+        choices=[
+            "frontmatter",
+            "collision",
+            "similarity",
+            "invocation",
+            "desc-budget",
+            "axioms",
+            "all",
+        ],
         default="all",
         help="run only one check (default: all)",
     )
@@ -504,6 +603,8 @@ def main() -> int:
         check_invocation(manifest, path_used, Path(args.skills_dir), rep)
     if args.only in ("desc-budget", "all"):
         check_description_budget(manifest, path_used, Path(args.skills_dir), rep)
+    if args.only in ("axioms", "all"):
+        check_axiom_parity(Path(args.skills_dir), rep)
 
     rep.info("")
     rep.info(f"SUMMARY: {rep.errors} error(s), {rep.warnings} warning(s)")

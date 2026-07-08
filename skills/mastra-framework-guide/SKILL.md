@@ -1,15 +1,16 @@
 ---
 name: mastra-framework-guide
-description: "Mastra フレームワークの API 検証・最新ドキュメント探索・バージョン移行のガイド。Mastra のコードを書く前の現行仕様確認、API シグネチャの検証、agent / workflow / tool / memory / RAG の構築、v0.x → v1.x などの移行で使用する。内部知識は古い前提とし、必ずインストール済みバージョンの型定義か公式ドキュメントで検証すること。"
+description: "Mastra フレームワークの API 検証・最新ドキュメント探索・バージョン移行のガイド。Mastra のコードを書く前の現行仕様確認、API シグネチャの検証、agent / workflow / tool / memory / RAG の構築、v0.x → v1.x などの移行で使用する。内部知識は古い前提とし、必ずインストール済みバージョンの型定義か公式ドキュメントで検証すること。責務分離などの設計判断は mastra-ai-architecture-rules を使う。"
 license: Apache-2.0
 metadata:
-  author: Mastra
-  version: '2.0.0'
-  repository: https://github.com/mastra-ai/skills
-  upstream: mastra-ai/skills
+  tags: [mastra, framework, api-verification, migration]
+  forked-from: "mastra-ai/skills v2.0.0 (author: Mastra)"
+  divergence: "efoo-team 向けにローカライズ済み（mastra-ai-architecture-rules との棲み分け注記・パス補正等）。upstream を pull してこのファイルを上書きしない。変更はこのリポジトリで管理する。"
 ---
 
 # Mastra Framework Guide
+
+> Last verified: 2026-07（Mastra v1.50.1 / `@mastra/core` 同梱 docs / https://mastra.ai で検証。DOCTOR.md の四半期鮮度チェックの対象）
 
 Build AI applications with Mastra. This skill teaches you how to find current documentation and build agents and workflows.
 
@@ -51,8 +52,11 @@ ls node_modules/@mastra/
 1. **Embedded docs first** (if packages installed)
 
    ```bash
-   # Check what's available
-   cat node_modules/@mastra/core/dist/docs/SOURCE_MAP.json | grep '"Agent"'
+   # First locate SOURCE_MAP.json (its location can move between versions)
+   ls node_modules/@mastra/core/dist/docs/
+
+   # Check what's available (current layout keeps it under assets/)
+   cat node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json | grep '"Agent"'
 
    # Read the actual type definition
    cat node_modules/@mastra/core/dist/[path-from-source-map]
@@ -110,9 +114,11 @@ Mastra requires **ES2022 modules**. CommonJS will fail.
 
 Always use `"provider/model-name"`:
 
-- `"openai/gpt-4o"`
-- `"anthropic/claude-3-5-sonnet-20241022"`
+- `"openai/gpt-5.5"`
+- `"anthropic/claude-sonnet-4-6"`
 - `"google/gemini-2.5-pro"`
+
+（モデル ID は例示であり必ず陳腐化する。実際に使える ID は現行ドキュメントで確認する）
 
 ## When you see errors
 

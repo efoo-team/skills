@@ -59,10 +59,20 @@ print('skills:', len(d['skills']))
 
 ## 5. manifest.yaml と実体の一致確認
 
-`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint・名前衝突・description 類似度・起動契約整合・description 予算の5チェックが同時に実行される）。
+`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint〔metadata.tags 必須・argument-hint クオート検査を含む〕・名前衝突・description 類似度・起動契約整合・description 予算・コア公理等価の6チェックが同時に実行される）。
 
 ```bash
 python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
 ```
 
 期待結果: 不一致 0 件・`RESULT: PASS` で exit 0。
+
+## 6. 外部依存スキルの四半期鮮度再検証
+
+外部サービス・フレームワーク・上流リポジトリの仕様に依存するスキル（現在: `mastra-framework-guide` / `formation-designer`。以後追加されたものも含む）は本文冒頭に `Last verified:` 行を持つ。年月を確認し、**四半期（3ヶ月）を超過していたら**、各スキルに記載の検証手段（公式ドキュメント・インストール済みパッケージの型定義・`$schema` での validate）と突き合わせて内容を更新し、`Last verified:` を書き換える。
+
+```bash
+grep -rn "Last verified:" ~/ghq/github.com/efoo-team/skills/skills/*/SKILL.md
+```
+
+期待結果: 各行の年月が直近3ヶ月以内であること。超過があれば該当スキルの再検証を実施する。

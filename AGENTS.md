@@ -131,7 +131,7 @@ Skill instructions here.
 
 - `name`: 1-64文字、小文字とハイフンのみ
 - `description`: 1-1024文字。AIがスキルの利用判断に使うため、いつ使うべきかを明確に記述する
-  - **front-load**: 第1文に「何をするか+主トリガー語」を置く。Codex はスキル一覧がコンテキストウィンドウの2%を超えると description を末尾から切り詰めるため、重要な要素ほど先頭に書く
+  - **front-load**: 第1文に「何をするか+主トリガー語」を置く。Codex はスキル一覧がコンテキストウィンドウの2%（「2%」という割合が固定。予算トークン数は窓長連動）を超えると description を末尾から切り詰めるため、重要な要素ほど先頭に書く
   - **auto スキルは推定150トークン（日本語なら約250文字）以内**を目安にする（`check-skills.py` が検査する。詳細は `agent-native-project-design/references/skill-authoring.md` §2）
 - `metadata.tags`: 必須。スキルの用途を示すタグ配列（例: `[refactoring, code-quality]`）
 - `metadata.internal`: 任意。特定エージェント限定スキルの場合は `true`
@@ -170,7 +170,7 @@ Skill instructions here.
 |---|---|---|---|
 | Claude Code | `/<name>` | frontmatter `disable-model-invocation: true` | ゼロ（公式仕様） |
 | Codex | `$<name>` | `agents/openai.yaml` の `policy.allow_implicit_invocation: false`（**frontmatter は認識されない**） | ゼロ（2%スキル予算からも除外） |
-| opencode | `/<name>` | **未対応**（anomalyco/opencode#11972 をウォッチ。両フィールドとも無視される） | 常時消費 |
+| opencode | `/<name>` | **未対応**（要望 issue anomalyco/opencode#11972 は 2026-04 に stale クローズ済み・実装ではない。両フィールドとも無視される） | 常時消費 |
 
 manifest.yaml の `invocation: "explicit-only"` が正本。対応する3点セット（SKILL.md Format 節参照）を
 `check-skills.py` が検査する。未設定（`invocation: "auto"`）なら説明文に基づく自動発動を許可。

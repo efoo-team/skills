@@ -8,6 +8,17 @@ How to look up current documentation from https://mastra.ai when local packages 
 - You need conceptual explanations or guides
 - You want the latest documentation (may be ahead of installed version)
 
+## Contents
+
+1. [Documentation site structure](#documentation-site-structure)
+2. [Finding relevant documentation](#finding-relevant-documentation)
+3. [Agent-friendly documentation](#agent-friendly-documentation)
+4. [Lookup Workflow](#lookup-workflow)
+5. [Common documentation paths](#common-documentation-paths)
+6. [Example: Looking up workflow .then() method](#example-looking-up-workflow-then-method)
+7. [When to use remote vs embedded docs](#when-to-use-remote-vs-embedded-docs)
+8. [Best practices](#best-practices)
+
 ## Documentation site structure
 
 Mastra docs are organized at **https://mastra.ai**:

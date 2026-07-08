@@ -84,6 +84,20 @@ jobs:
       - name: Check auto-skill description budget
         run: python3 scripts/check-skills.py --only desc-budget
 
+  axiom-parity:
+    # The two charter skills (agent-harness-engineering / agent-native-
+    # project-design) intentionally duplicate the "## 0" core axioms and each
+    # file says "edit both together". Fail when they drift apart.
+    # stdlib-only check: no PyYAML needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Check core-axiom parity
+        run: python3 scripts/check-skills.py --only axioms
+
   secret-scan:
     # Scan history for committed secrets with gitleaks default config.
     runs-on: ubuntu-latest
