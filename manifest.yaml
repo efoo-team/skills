@@ -16,10 +16,14 @@
 # common: efoo-team/skills（本リポジトリ）skills/ 配下の全スキル。
 # `npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` で一括配布される
 # （formation-designer のみ internal かつ -a opencode 限定）。
-# invocation: "explicit-only" = frontmatter に disable-model-invocation: true
-#             （/name または $name での明示起動のみ。auto-invoke されない）
-#             "auto"          = disable-model-invocation なし（説明文に基づき
-#             モデルが自律的に発動しうる）
+# invocation: "explicit-only" = /name または $name での明示起動のみ（auto-invoke されない）。
+#             次の3点セットを必ず揃える（check-skills.py が検査する）:
+#             ① frontmatter に disable-model-invocation: true（Claude Code 用）
+#             ② skills/<name>/agents/openai.yaml に policy.allow_implicit_invocation: false（Codex 用。
+#                Codex は disable-model-invocation を認識しないため別ファイルが必要）
+#             ③ description の冒頭に門番文「Only use when the user explicitly invokes...」
+#             "auto" = 上記なし（説明文に基づきモデルが自律的に発動しうる）。
+#             opencode は両フィールドとも未対応（anomalyco/opencode#11972 をウォッチ）。
 common:
   - name: "agent-harness-engineering"
     purpose: "AIエージェントのハーネス（ループ・ツール表面・コンテキスト管理・認可・状態・評価等）を設計・実装・調達するランタイム非依存の設計憲章"
@@ -56,7 +60,7 @@ common:
     invocation: "auto"
   - name: "github-pull-request"
     purpose: "実装変更を抽象度の階層構造で分析し、構造化されたPR本文として出力するスキル"
-    invocation: "auto"
+    invocation: "explicit-only"
   - name: "langfuse"
     purpose: "LangfuseのREST API経由でLLM観測データ（trace/observation/session等）を照会・分析するスキル"
     invocation: "auto"
@@ -89,7 +93,7 @@ common:
     invocation: "auto"
   - name: "review-plan"
     purpose: "実装前の計画を複数のOracleサブエージェントで厳密レビューするスキル"
-    invocation: "auto"
+    invocation: "explicit-only"
   - name: "review-pr-check"
     purpose: "PRレビュー対応を収集/Oracle/実行ワーカーに分離してオーケストレーションするスキル"
     invocation: "explicit-only"

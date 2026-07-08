@@ -1,6 +1,6 @@
 ---
 name: execute
-description: 複雑なタスクを整理・分割し、利用可能な委譲機構を統括してプロジェクトを遂行するオーケストレーションスキル。実装詳細よりも全体の整理・統括に注力し、タスクの依存関係を整理して独立したタスクは並列に委譲する。『タスクを実行して』『まとめて遂行して』『オーケストレーションして』といった明示的な起動時に使用する。Only use when the user explicitly invokes /execute (or $execute in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /execute (or $execute in Codex). Never auto-invoke. 複雑なタスクを整理・分割し、利用可能な委譲機構を統括してプロジェクトを遂行するオーケストレーションスキル。実装詳細よりも全体の整理・統括に注力し、タスクの依存関係を整理して独立したタスクは並列に委譲する。『タスクを実行して』『まとめて遂行して』『オーケストレーションして』といった明示的な起動時に使用する。
 disable-model-invocation: true
 argument-hint: [タスク説明・追加指示(任意)]
 metadata:

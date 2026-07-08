@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: 新しい Agent Skill をゼロから対話的に作成するためのスキル。「スキルを作りたい」「この作業をスキル化したい」という場面で使用する。ユーザーへの質問で意図（解決したい課題・発火してほしい場面・利用範囲）を見極めてから、スキル化の要否判定、配置層（共通層/プロジェクト層）と名前の決定、SKILL.md の設計・執筆、台帳（manifest.yaml）への登録、チェッカーでの検証までを一貫して行う。スキル執筆の一般原則（progressive disclosure・description 執筆等）の正本は agent-native-project-design にあり、本スキルはそれを適用する作成ワークフローを提供する。Only use when the user explicitly invokes /create-skill (or $create-skill in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /create-skill (or $create-skill in Codex). Never auto-invoke. 新しい Agent Skill をゼロから対話的に作成するためのスキル。「スキルを作りたい」「この作業をスキル化したい」という場面で使用する。ユーザーへの質問で意図（解決したい課題・発火してほしい場面・利用範囲）を見極めてから、スキル化の要否判定、配置層（共通層/プロジェクト層）と名前の決定、SKILL.md の設計・執筆、台帳（manifest.yaml）への登録、チェッカーでの検証までを一貫して行う。スキル執筆の一般原則（progressive disclosure・description 執筆等）の正本は agent-native-project-design にあり、本スキルはそれを適用する作成ワークフローを提供する。
 disable-model-invocation: true
 argument-hint: [作りたいスキルの概要・要望]
 metadata:
@@ -87,7 +87,7 @@ Phase 1 に入る前に、以下を読む。
 | 層 | **迷ったらプロジェクト層**。複数プロジェクトで必要と実証済みのときだけ共通層（efoo-team/skills） |
 | 種別 | team-owned / external（正本が外部リポジトリにあるなら購読のみ。SKILL.md のコピー配置は禁止） |
 | 配布対象 | 全エージェント / 特定エージェント限定（`metadata.internal: true` + setup.sh 個別行） |
-| 起動区分 | auto（description による自動発動）/ explicit-only（`disable-model-invocation: true`）。多段ワークフロー型・Git 操作等の副作用を伴うものは explicit-only を推奨 |
+| 起動区分 | auto（description による自動発動）/ explicit-only（3点セット: `disable-model-invocation: true` + `agents/openai.yaml` + 冒頭門番文。skill-authoring.md §2 参照）。多段ワークフロー型・Git 操作等の副作用を伴うものは explicit-only を推奨 |
 | 名前 | kebab-case・1〜64文字。`helper` / `utils` のような曖昧語は不可。**manifest 全域（common / external / 全プロジェクトの project_owned）と照合し、衝突・シャドウが無いこと** |
 
 **Gate**: 層・種別・配布対象・起動区分・名前の5点に合意を得るまで Phase 4 に進まない。
@@ -95,7 +95,12 @@ Phase 1 に入る前に、以下を読む。
 ### Phase 4: 設計と執筆
 
 1. skill-authoring.md の原則を適用して設計する。特に:
-   - **description**: 三人称で「何をするか + いつ使うか + トリガー語」の3要素。Phase 1 で採取したユーザーの語彙をそのまま埋め込む。隣接スキルがあれば「いつ使わないか・そのときどれを使うか」の境界も書く。explicit-only の場合は末尾に「Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.」を含める
+   - **description**: 三人称で「何をするか + いつ使うか + トリガー語」の3要素を **front-load 順**（第1文に「何をするか+主トリガー語」、境界条件は後半）で書く。Phase 1 で採取したユーザーの語彙をそのまま埋め込む。隣接スキルがあれば「いつ使わないか・そのときどれを使うか」の境界も書く。auto スキルは**推定150トークン（日本語なら約250文字）以内**を目安にする（check-skills.py が検査。根拠と詳細は skill-authoring.md §2）
+   - **explicit-only の場合**: 門番文「Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.」を description の**冒頭**に置き、`disable-model-invocation: true` に加えて `<skill>/agents/openai.yaml` を次の内容で同梱する（Codex は disable-model-invocation を認識しないため）:
+     ```yaml
+     policy:
+       allow_implicit_invocation: false
+     ```
    - **description の追加注意**（authoring-insights.md §2〜3）: 手順・段階数などワークフローの要約を description に書かない（本文を読まないショートカットの原因）。auto スキルで発火が弱いと予想されるなら「明示的に◯◯と言われなくても使う」と押し出してよい。`<` `>` は含めない。name は連続ハイフン不可・動名詞形または「何をするか」で命名
    - **構成**: SKILL.md 本文は 500 行未満。相互排他的な内容は `references/` に分割（100行超なら冒頭目次・内容が分かるファイル名）。参照は SKILL.md から1階層のみ
    - **ガイダンス形式**: 防ぎたい失敗の型に合わせる（authoring-insights.md §4）。出力の形を正したいなら禁止形でなく肯定形のテンプレートで示す。規律強制型のスキルには合理化対抗表と red flags を付ける。ALL-CAPS の MUST の積み上げより「なぜ重要か」を書く

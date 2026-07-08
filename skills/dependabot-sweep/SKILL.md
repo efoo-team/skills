@@ -1,6 +1,6 @@
 ---
 name: dependabot-sweep
-description: Dependabot が作成した依存関係更新 PR を一括で分析し、すべての更新を 1 つのブランチに統合した単一 PR を作成する。各 dependabot PR を個別マージせず統合 PR にまとめ、元の PR はコメントを残してクローズする。Only use when the user explicitly invokes /dependabot-sweep (or $dependabot-sweep in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /dependabot-sweep (or $dependabot-sweep in Codex). Never auto-invoke. Dependabot が作成した依存関係更新 PR を一括で分析し、すべての更新を 1 つのブランチに統合した単一 PR を作成する。各 dependabot PR を個別マージせず統合 PR にまとめ、元の PR はコメントを残してクローズする。
 argument-hint: [追加指示(任意)]
 disable-model-invocation: true
 metadata:

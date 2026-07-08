@@ -1,6 +1,6 @@
 ---
 name: agent-harness-engineering
-description: AIエージェントのハーネス（エージェントループ・ツール表面・コンテキスト管理・ガードレール/認可・状態と耐久性・停止条件・評価・可観測性）を設計・実装・調達するときに使用する、ランタイム非依存の設計憲章。『エージェント基盤/ハーネスを設計して』『自作・SDK・既製ハーネスのどれを使うべきか』『エージェントループを作って』『compaction/コンテキスト管理をどうするか』『ツールの認可・承認ゲートを設計して』『エージェントの評価・可観測性を整備して』『マルチエージェントにすべきか』といった場面で使用する。Mastraランタイム上の具体設計は mastra-ai-architecture-rules を、Claude Code / Codex 等の既製ハーネス上で動かすリポジトリ/プロジェクト側の設計は agent-native-project-design を併せて参照する。
+description: AIエージェントのハーネス（エージェントループ・ツール表面・コンテキスト管理・認可・状態・停止条件・評価・可観測性）を設計・実装・調達するためのランタイム非依存の設計憲章。『エージェント基盤/ハーネスを設計して』『自作/SDK/既製のどれにするか』『compactionをどうするか』『マルチエージェントにすべきか』という場面で使用する。リポジトリ側の設計は agent-native-project-design、Mastra 上の設計は mastra-ai-architecture-rules を参照。
 metadata:
   tags: [ai-agent, harness, agent-loop, context-engineering, tool-design, guardrails, authorization, state-management, durability, evals, observability, multi-agent, architecture]
 ---

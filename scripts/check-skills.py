@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Check-only lint for efoo-team/skills.
 
-Validates SKILL.md frontmatter, manifest name collisions, and (as warnings)
+Validates SKILL.md frontmatter, manifest name collisions, invocation contract
+consistency (manifest invocation <-> disable-model-invocation <->
+agents/openai.yaml), auto-skill description budget, and (as warnings)
 description similarity. This script performs NO fixes, generation, or sync;
 it only reports problems and fails so a human is notified.
 
@@ -34,7 +36,19 @@ KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\s*(?:\n|$)", re.DOTALL)
 NAME_RE = re.compile(r"^name:\s*(.+?)\s*$", re.MULTILINE)
 DESC_RE = re.compile(r"^description:\s*(.+?)\s*$", re.MULTILINE)
+DMI_RE = re.compile(r"^disable-model-invocation:\s*(\S+)\s*$", re.MULTILINE)
+INTERNAL_RE = re.compile(r"^\s+internal:\s*true\s*$", re.MULTILINE | re.IGNORECASE)
+IMPLICIT_FALSE_RE = re.compile(
+    r"^\s*allow_implicit_invocation:\s*[\"']?false[\"']?\s*$", re.MULTILINE | re.IGNORECASE
+)
 MAX_DESCRIPTION = 1024
+# auto スキルの description 予算（Codex の 2% スキル予算対策。詳細は
+# agent-native-project-design/references/skill-authoring.md §2 を参照）。
+# 単位は推定トークン: ASCII 1文字 0.25 + 非ASCII 1文字 0.6（o200k 実測に基づく
+# 近似。日本語 250 文字 ≒ 150 推定トークン）。文字数基準だと英語 description を
+# 過剰に罰するため、トークン近似で判定する。
+AUTO_DESC_WARN_TOKENS = 150
+AUTO_DESC_ERROR_TOKENS = 270
 SIMILARITY_THRESHOLD = 0.8
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -296,11 +310,154 @@ def check_similarity(manifest, path_used: str, rep: Reporter) -> None:
         rep.info(f"[description-similarity] {hits} similar pair(s) reported as warnings")
 
 
+def _read_frontmatter(skill_dir: Path):
+    """Return frontmatter text of <skill_dir>/SKILL.md, or None if unreadable."""
+    skill_file = skill_dir / "SKILL.md"
+    if not skill_file.is_file():
+        return None
+    fm_match = FRONTMATTER_RE.match(skill_file.read_text(encoding="utf-8"))
+    return fm_match.group(1) if fm_match else None
+
+
+def check_invocation(manifest, path_used: str, skills_dir: Path, rep: Reporter) -> None:
+    """manifest の invocation（正本）と、explicit-only 3点セット
+    （① frontmatter の disable-model-invocation、② agents/openai.yaml の
+    allow_implicit_invocation: false、③ description 冒頭の門番文）の一致を検査する。"""
+    rep.info(f"[invocation] manifest loaded via: {path_used}")
+    checked = 0
+    for entry in manifest.get("common") or []:
+        name = entry.get("name")
+        if not name:
+            continue
+        invocation = entry.get("invocation")
+        skill_dir = skills_dir / name
+        rel = str(skill_dir / "SKILL.md")
+        fm_text = _read_frontmatter(skill_dir)
+        if fm_text is None:
+            rep.error(f"{name}: manifest common entry has no readable skills/{name}/SKILL.md")
+            continue
+        checked += 1
+
+        dmi_match = DMI_RE.search(fm_text)
+        dmi_true = bool(dmi_match) and unquote(dmi_match.group(1)).lower() == "true"
+        is_internal = bool(INTERNAL_RE.search(fm_text))
+        openai_yaml = skill_dir / "agents" / "openai.yaml"
+        implicit_false = False
+        if openai_yaml.is_file():
+            oy_text = openai_yaml.read_text(encoding="utf-8")
+            ok, detail, _ = yaml_parse_frontmatter(oy_text)
+            if not ok:
+                rep.error(
+                    f"{name}: agents/openai.yaml is not valid YAML: {detail}",
+                    str(openai_yaml),
+                )
+            implicit_false = bool(IMPLICIT_FALSE_RE.search(oy_text))
+
+        if invocation == "explicit-only":
+            if not dmi_true:
+                rep.error(
+                    f"{name}: manifest says explicit-only but frontmatter lacks "
+                    "'disable-model-invocation: true' (Claude Code 用)",
+                    rel,
+                )
+            if not implicit_false:
+                rep.error(
+                    f"{name}: manifest says explicit-only but agents/openai.yaml with "
+                    "'allow_implicit_invocation: false' is missing (Codex 用。Codex は "
+                    "disable-model-invocation を認識しない)",
+                    rel,
+                )
+            desc_match = DESC_RE.search(fm_text)
+            description = unquote(desc_match.group(1)) if desc_match else ""
+            guard = (
+                f"Only use when the user explicitly invokes /{name} "
+                f"(or ${name} in Codex). Never auto-invoke."
+            )
+            if not description.startswith(guard):
+                rep.error(
+                    f"{name}: manifest says explicit-only but description does not "
+                    f"start with the guard sentence 'Only use when the user explicitly "
+                    f"invokes /{name} (or ${name} in Codex). Never auto-invoke.' "
+                    "(門番文は description 冒頭に置く)",
+                    rel,
+                )
+        elif invocation == "auto":
+            if dmi_true:
+                rep.error(
+                    f"{name}: manifest says auto but frontmatter has "
+                    "'disable-model-invocation: true' (manifest か frontmatter を直す)",
+                    rel,
+                )
+            if implicit_false and not is_internal:
+                rep.error(
+                    f"{name}: manifest says auto but agents/openai.yaml disables implicit "
+                    "invocation (auto でこれを許すのは metadata.internal: true の"
+                    "エージェント限定スキルのみ)",
+                    rel,
+                )
+        else:
+            rep.error(
+                f"{name}: manifest invocation is '{invocation}' "
+                "(must be 'auto' or 'explicit-only')"
+            )
+    rep.info(f"[invocation] checked {checked} common skill(s)")
+
+
+def estimate_tokens(text: str) -> int:
+    """o200k 近似の推定トークン数（ASCII 0.25 / 非ASCII 0.6 重み）。"""
+    ascii_chars = sum(1 for c in text if ord(c) < 128)
+    return round(ascii_chars * 0.25 + (len(text) - ascii_chars) * 0.6)
+
+
+def check_description_budget(manifest, path_used: str, skills_dir: Path, rep: Reporter) -> None:
+    """auto スキルの description 長を検査する（Codex の 2% スキル予算対策）。
+    explicit-only スキルと、agents/openai.yaml で Codex から除外済みのスキルは
+    コンテキストに載らないため対象外。"""
+    rep.info(f"[desc-budget] manifest loaded via: {path_used}")
+    rep.info(
+        f"[desc-budget] auto skills only: warn > {AUTO_DESC_WARN_TOKENS} est. tokens, "
+        f"error > {AUTO_DESC_ERROR_TOKENS} est. tokens"
+    )
+    for entry in manifest.get("common") or []:
+        name = entry.get("name")
+        if not name or entry.get("invocation") != "auto":
+            continue
+        skill_dir = skills_dir / name
+        rel = str(skill_dir / "SKILL.md")
+        fm_text = _read_frontmatter(skill_dir)
+        if fm_text is None:
+            continue  # check_invocation が error 済み
+        openai_yaml = skill_dir / "agents" / "openai.yaml"
+        if openai_yaml.is_file() and IMPLICIT_FALSE_RE.search(
+            openai_yaml.read_text(encoding="utf-8")
+        ):
+            continue  # Codex のコンテキストに載らないため予算対象外
+        desc_match = DESC_RE.search(fm_text)
+        if not desc_match:
+            continue  # check_frontmatter が error 済み
+        description = unquote(desc_match.group(1))
+        tokens = estimate_tokens(description)
+        if tokens > AUTO_DESC_ERROR_TOKENS:
+            rep.error(
+                f"{name}: auto スキルの description が推定 {tokens} トークン "
+                f"({len(description)} 文字、上限 {AUTO_DESC_ERROR_TOKENS})。"
+                "front-load して短縮する",
+                rel,
+            )
+        elif tokens > AUTO_DESC_WARN_TOKENS:
+            rep.warning(
+                f"{name}: auto スキルの description が推定 {tokens} トークン "
+                f"({len(description)} 文字、目安 {AUTO_DESC_WARN_TOKENS})。"
+                "Codex の 2% 予算を圧迫する",
+                rel,
+            )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--only",
-        choices=["frontmatter", "collision", "similarity", "all"],
+        choices=["frontmatter", "collision", "similarity", "invocation", "desc-budget", "all"],
         default="all",
         help="run only one check (default: all)",
     )
@@ -331,7 +488,7 @@ def main() -> int:
         f"ruby={'yes' if HAVE_RUBY else 'no'}"
     )
 
-    needs_manifest = args.only in ("collision", "similarity", "all")
+    needs_manifest = args.only in ("collision", "similarity", "invocation", "desc-budget", "all")
     manifest = None
     path_used = ""
     if needs_manifest:
@@ -343,6 +500,10 @@ def main() -> int:
         check_collision(manifest, path_used, rep)
     if args.only in ("similarity", "all"):
         check_similarity(manifest, path_used, rep)
+    if args.only in ("invocation", "all"):
+        check_invocation(manifest, path_used, Path(args.skills_dir), rep)
+    if args.only in ("desc-budget", "all"):
+        check_description_budget(manifest, path_used, Path(args.skills_dir), rep)
 
     rep.info("")
     rep.info(f"SUMMARY: {rep.errors} error(s), {rep.warnings} warning(s)")

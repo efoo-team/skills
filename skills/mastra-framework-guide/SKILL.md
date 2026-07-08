@@ -1,6 +1,6 @@
 ---
 name: mastra-framework-guide
-description: "Mastra フレームワークの利用・更新ガイド。最新ドキュメントの探索方法（embedded docs / remote docs）、API シグネチャの検証、agent / workflow / tool / memory / RAG の構築、バージョン移行を教える。Mastra の API を検証したいとき、コードを書く前に現行仕様を確認したいとき、v0.x → v1.x などのバージョン移行を行うときに使用する。内部知識は古い前提で扱い、必ずインストール済みバージョンの型定義または公式ドキュメントで検証すること。"
+description: "Mastra フレームワークの API 検証・最新ドキュメント探索・バージョン移行のガイド。Mastra のコードを書く前の現行仕様確認、API シグネチャの検証、agent / workflow / tool / memory / RAG の構築、v0.x → v1.x などの移行で使用する。内部知識は古い前提とし、必ずインストール済みバージョンの型定義か公式ドキュメントで検証すること。"
 license: Apache-2.0
 metadata:
   author: Mastra

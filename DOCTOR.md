@@ -59,7 +59,7 @@ print('skills:', len(d['skills']))
 
 ## 5. manifest.yaml と実体の一致確認
 
-`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint と名前衝突チェックも同時に実行される）。
+`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint・名前衝突・description 類似度・起動契約整合・description 予算の5チェックが同時に実行される）。
 
 ```bash
 python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py

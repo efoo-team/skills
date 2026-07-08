@@ -1,6 +1,6 @@
 ---
 name: define
-description: 実装前の詳細な要件定義を行うためのスキル。プロジェクトの新機能や改修について、ユーザーと要求・要件の共通認識を確立し、技術的制約・設計方針・実装仕様を定義して実装の方向性を明確化する。ソースコードの実装は行わず、成果物として要件定義書（Markdown）のみを出力する。Only use when the user explicitly invokes /define (or $define in Codex). Never auto-invoke.
+description: Only use when the user explicitly invokes /define (or $define in Codex). Never auto-invoke. 実装前の詳細な要件定義を行うためのスキル。プロジェクトの新機能や改修について、ユーザーと要求・要件の共通認識を確立し、技術的制約・設計方針・実装仕様を定義して実装の方向性を明確化する。ソースコードの実装は行わず、成果物として要件定義書（Markdown）のみを出力する。
 disable-model-invocation: true
 argument-hint: [要件定義対象の内容]
 metadata:

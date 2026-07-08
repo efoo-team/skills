@@ -1,6 +1,6 @@
 ---
 name: agents-md-sync
-description: "リポジトリ全体を解析し、階層ごとの AGENTS.md 知識ベース（ルートと、スコアリングで選定したサブディレクトリ）を生成・更新するスキル。実行のたびに既存 AGENTS.md とコードベースの乖離を検出して最新状態に追従させ、Claude Code 用の CLAUDE.md ブリッジも維持する。AGENTS.md の整備・初期化・更新や init-deep 相当の知識ベース構築を求められたときに使用する。指示ファイルに何を書くべきかの設計原則は agent-native-project-design を参照する。Only use when the user explicitly invokes /agents-md-sync (or $agents-md-sync in Codex). Never auto-invoke."
+description: "Only use when the user explicitly invokes /agents-md-sync (or $agents-md-sync in Codex). Never auto-invoke. リポジトリ全体を解析し、階層ごとの AGENTS.md 知識ベース（ルートと、スコアリングで選定したサブディレクトリ）を生成・更新するスキル。実行のたびに既存 AGENTS.md とコードベースの乖離を検出して最新状態に追従させ、Claude Code 用の CLAUDE.md ブリッジも維持する。AGENTS.md の整備・初期化・更新や init-deep 相当の知識ベース構築を求められたときに使用する。指示ファイルに何を書くべきかの設計原則は agent-native-project-design を参照する。"
 metadata:
   tags: [agents-md, knowledge-base, documentation, codebase-analysis, subagents]
 disable-model-invocation: true

@@ -1,6 +1,7 @@
 ---
 name: review-plan
-description: 実装前の計画や作業計画を、複数のレビュー用サブエージェント(Oracle)で厳密レビューし、レビュー→妥当性確認→採否決定→採用指摘の計画文書への反映提案を最低3サイクル実行する。計画文書本体の直接編集とソースコード実装は行わず、改訂提案はチャットで提示する。計画レビュー、実装前レビュー、設計方針の妥当性確認時に使用。
+description: Only use when the user explicitly invokes /review-plan (or $review-plan in Codex). Never auto-invoke. 実装前の計画や作業計画を、複数のレビュー用サブエージェント(Oracle)で厳密レビューし、レビュー→妥当性確認→採否決定→採用指摘の計画文書への反映提案を最低3サイクル実行する。計画文書本体の直接編集とソースコード実装は行わず、改訂提案はチャットで提示する。
+disable-model-invocation: true
 metadata:
   tags: [plan-review, design-review, oracle, quality, external-spec]
 ---

@@ -1,6 +1,6 @@
 ---
 name: mastra-ai-architecture-rules
-description: Mastra をランタイムとする AI サービスの設計・実装・リファクタリング時に使用する。agent / workflow / tool / workspace / memory / RequestContext / workflow state / 永続ストレージの責務分離を定義し、LLM に任せる範囲と決定的なコードに落とす範囲を判断する。single-agent first、workflow 最小化、state には参照・ID・要約のみを保持する原則、optional capability（workspace・memory・永続ストレージなど）は必要性が確認できた場合のみユーザー承認後に導入する原則を適用する。『Mastra で設計して』『workflow を作って』『agent と code の境界を決めて』『state に何を持つべきか整理して』『memory や workspace が必要か判断して』といった場面で使用する。
+description: Mastra をランタイムとする AI サービスの設計・実装・リファクタリングで、agent / workflow / tool / memory / state の責務分離と、LLM に任せる範囲と決定的コードの境界を判断するスキル。『Mastra で設計して』『workflow を作って』『state に何を持つべきか』『memory や workspace が必要か』という場面で使用する。single-agent first・workflow 最小化の原則を適用する。
 metadata:
   tags: [mastra, architecture, ai-agent, agent-design, workflow-design, ai, ai-workflow-design, tool-design, workspace, state-management, memory, request-context, storage, guardrails, anti-overengineering]
 ---
