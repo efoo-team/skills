@@ -1,6 +1,6 @@
 ---
 name: formation-designer
-description: oh-my-opencode formation (agent-model configuration) design and creation guide. Use when creating new formations, modifying existing formations, adding new providers/models, or reviewing formation design decisions. Covers multi-axis model classification (Reasoning, Cost, Speed, Instruct, Style, Multimodal), agent-model matching principles, naming conventions, and cost optimization strategy.
+description: oh-my-openagent (formerly oh-my-opencode) formation (agent-model configuration) design and creation guide. Use when creating new formations, modifying existing formations, adding new providers/models, or reviewing formation design decisions. Covers multi-axis model classification (Reasoning, Cost, Speed, Instruct, Style, Multimodal), agent-model matching principles, naming conventions, and cost optimization strategy.
 metadata:
   internal: true
   tags: [opencode, configuration, model-selection]
@@ -8,7 +8,11 @@ metadata:
 
 # Formation Designer
 
-oh-my-opencode のフォーメーション（エージェント-モデル構成）を設計・作成するための方針とリファレンス。
+> Last verified: 2026-07（インストール済み oh-my-openagent 4.16.0 と opencode-setting/formations/ 実体で検証。DOCTOR.md の四半期鮮度チェックの対象）
+
+oh-my-openagent（旧名 oh-my-opencode。上流リポジトリは改名済みで、旧名の URL は互換リダイレクトされる）のフォーメーション（エージェント-モデル構成）を設計・作成するための方針とリファレンス。
+
+「formation」は efoo-team 側の運用概念であり、`opencode-setting/formations/*.jsonc`（omo 設定ファイル一式）を `bin/omo-profile` で切り替える仕組みを指す。キー名・スキーマの正は**インストール済み omo バージョンの `$schema`** であり、本書の記載と食い違う場合はインストール版 schema と formations/ 実体を優先する。
 
 ## Core Insight: Models Are Developers
 
@@ -42,6 +46,8 @@ AI モデルはチームの開発者と同じ。同じ指示でも Claude と GP
   - Yes / No
 
 ### Model Attribute Table
+
+> 2026-07 時点のスナップショット。モデル名と評価は必ず陳腐化する。formations/ が実際に使っているモデル（例: `openai/gpt-5.5`）がこの表に無いときは表が古い合図であり、上流の [Agent-Model Matching Guide](https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/docs/guide/agent-model-matching.md) と実測で本表を更新してから設計する。
 
 | Model | Reasoning | Cost | Speed | Instruct | Style | Multimodal |
 |-------|-----------|------|-------|----------|-------|------------|
@@ -131,6 +137,8 @@ AI モデルはチームの開発者と同じ。同じ指示でも Claude と GP
 
 複数プロバイダーは `-` で連結: `openai-copilot-opencode-kimi.jsonc`
 
+> この Token はフォーメーション**ファイル名**の略記であり、omo 設定内で使う provider ID（`github-copilot` / `zai-coding-plan` / `kimi-for-coding` 等）とは別物。provider ID はインストール版 schema と上流ドキュメントで確認する。
+
 ### 2. Stable Slots Are Requirement-Fixed, Not Vendor-Fixed
 
 Stable Slots (prometheus, momus, hephaestus, review) はベンダー固定ではなく要件固定。常に Reasoning S 級の最上位モデルを割り当てる。
@@ -169,7 +177,7 @@ ZAI プロバイダーが利用可能な構成でのみ `sisyphus-junior` を追
 
 ### 7. Structural Constants
 
-全フォーメーションで以下を共通に含める:
+全フォーメーションで以下を共通に含める（formations/ 実体と一致させている。`lsp` は現行フォーメーションでは使用していない）:
 
 ```jsonc
 {
@@ -177,15 +185,11 @@ ZAI プロバイダーが利用可能な構成でのみ `sisyphus-junior` を追
   "claude_code": { "agents": false },
   "autoupdate": true,
   "model_fallback": true,
-  "lsp": {
-    "markdown": {
-      "command": ["marksman", "server"],
-      "extensions": [".md", ".mdx"]
-    }
-  },
   "disabled_hooks": ["comment-checker"]
 }
 ```
+
+> `$schema` の URL は旧リポジトリ名（oh-my-opencode）のパスだが GitHub 側の互換により現在も解決し、schema 自身の `$id` は新名（oh-my-openagent）を指す。上流 HEAD では `autoupdate` → `auto_update` への改名が入っているが、**キー名の正はインストール済み omo の schema**（4.16.0 は `autoupdate` を受理）である。omo 更新後は `$schema` で validate してキー名を追従させる。
 
 ### 8. Prompt Append Rules
 
@@ -194,9 +198,9 @@ ZAI プロバイダーが利用可能な構成でのみ `sisyphus-junior` を追
   `"検討や作業は英語で、ユーザーへの回答やドキュメンテーションは日本語でお願いします。"`
 - librarian のみ追加で context7 利用指示を含める
 
-### 9. Provider Constraint: Anthropic via Copilot Only
+### 9. Provider Constraint: Anthropic via Copilot Only（efoo-team の契約状況）
 
-Anthropic モデル (Claude) は直接利用できない。GitHub Copilot 経由 (`github-copilot/claude-opus-4.6`, `github-copilot/claude-sonnet-4.6`) でのみ利用可能。
+efoo-team では Anthropic モデル (Claude) を直接契約しておらず、GitHub Copilot 経由 (`github-copilot/claude-opus-4.6` 等) でのみ利用可能（2026-07 時点）。これは上流の制約ではなく当チームのサブスクリプション状況であり、上流には anthropic 直結 provider も存在する。契約状況が変わったら本節を見直す。
 
 ## Cost Optimization Strategy
 
@@ -254,29 +258,13 @@ Anthropic モデル (Claude) は直接利用できない。GitHub Copilot 経由
 
 ## Existing Formation Patterns
 
-### Agent Model Assignment Summary
+既存フォーメーションの割当スナップショットは本書に転記しない（転記は formations/ 実体と必ず乖離し、静かに腐るため）。既存パターンを参照するときは source of truth を直接読む:
 
-| Agent | OpenAI-only | +Copilot | +OpenCode | +ZAI | +Kimi |
-|-------|------------|----------|-----------|------|-------|
-| sisyphus | gpt-5.4 | gpt-5.4 | mimo-v2-pro | glm-5-turbo | gpt-5.4 |
-| hephaestus | codex | codex | codex | codex | codex |
-| oracle | codex | codex | codex | gpt-5.4 | codex |
-| librarian | 5.4-mini | sonnet-4.6 | mimo-v2-pro | codex-spark | 5.4-mini |
-| explore | 5.4-mini | sonnet-4.6 | mimo-v2-pro | glm-5-turbo | 5.4-mini |
-| prometheus | gpt-5.4 | gpt-5.4 | gpt-5.4 | gpt-5.4 | gpt-5.4 |
-| momus | codex | codex | codex | codex | codex |
-
-### Category Model Assignment Summary
-
-| Category | OpenAI-only | +Copilot | +OpenCode | +ZAI | +Kimi |
-|----------|------------|----------|-----------|------|-------|
-| review | codex | codex | codex | codex | codex |
-| ultrabrain | gpt-5.4 | gpt-5.4 | gpt-5.4 | codex | gpt-5.4 |
-| deep | gpt-5.4 | gpt-5.4 | gpt-5.4 | codex | gpt-5.4 |
-| quick | spark | spark | spark | glm-5-turbo | k2p5 |
-| unspecified-low | spark | sonnet-4.6 | spark | glm-5-turbo | k2p5 |
-| unspecified-high | gpt-5.4 | opus-4.6 | gpt-5.4 | codex | gpt-5.4 |
-| writing | 5.4-mini | sonnet-4.6 | 5.4-mini | glm-5 | k2p5 |
+```bash
+ls ~/.config/opencode/formations/                 # 一覧
+cat ~/.config/opencode/formations/<name>.jsonc    # agents / categories の実割当
+bin/omo-profile show <name>                       # 適用結果の確認
+```
 
 ## References
 

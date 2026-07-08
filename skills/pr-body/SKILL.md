@@ -1,14 +1,14 @@
 ---
-name: github-pull-request
-description: Only use when the user explicitly invokes /github-pull-request (or $github-pull-request in Codex). Never auto-invoke. AIに実装させた変更を抽象度の階層構造で分析し、構造化されたGitHub PR本文として出力する。大規模変更（1万行超）でも、システム構成図→データ構造→API→処理フロー→実装詳細の順で抽象→具体へ整理する。画像エビデンスを含むPR本文の組み立て方も扱う。
+name: pr-body
+description: Only use when the user explicitly invokes /pr-body (or $pr-body in Codex). Never auto-invoke. AIに実装させた変更を抽象度の階層構造で分析し、構造化されたGitHub PR本文として出力する（本文生成のみ。Git操作は行わない。旧名 github-pull-request）。大規模変更でも、システム構成図→データ構造→API→処理フロー→実装詳細の順で抽象→具体へ整理する。画像エビデンスを含むPR本文の組み立て方も扱う。
 disable-model-invocation: true
 metadata:
   tags: [github, pull-request, pr, architecture, documentation, design-quality, perspective-analysis]
 ---
 
-# GitHub Pull Request
+# PR Body（pr-body）
 
-AIに実装させた変更を**抽象度の階層構造で分析し、人間が機微を即座に知覚できるGitHub PR本文**を生成する。
+AIに実装させた変更を**抽象度の階層構造で分析し、人間が機微を即座に知覚できるGitHub PR本文**を生成する。本スキルは本文の生成のみを担い、ブランチ・コミット・push などの Git 操作は行わない（それらは `pr` / `pr-stage` の責務）。
 
 ---
 
@@ -326,15 +326,7 @@ sequenceDiagram
 
 ## 画像・スクリーンショット運用
 
-UI変更、バグ再現、before/after比較、入力バリデーションの証跡がある場合は、PR本文に画像エビデンスを含める。
-
-- **まず本文に節を用意する。** `## 画像エビデンス` / `## Screenshots` のような見出しを作る
-- **表で整理する。** 基本形は `ケース / 確認内容 / 画像`
-- **画像はcommitしない。** PR本文に貼るためだけにリポジトリへ画像を追加しない
-- **local pathを本文に残すな。** `.png` のローカルパスを Markdown に直書きして終わるのは不可
-- **GitHub側の user-attachments URL を使う。** 返ってきた Markdown / URL をそのまま本文へ埋める
-- **CLI中心の作業でも、画像添付だけは別段階として扱え。** `gh pr create --body` の一発完結を前提にせず、必要なら作成後に `gh pr edit --body-file` で更新する
-- **詳細な手順と注意点は `references/image-attachments.md` を参照する。**
+UI変更、バグ再現、before/after比較、入力バリデーションの証跡がある場合は、`## 画像エビデンス` 節を表（`ケース / 確認内容 / 画像`）で本文に用意する。アップロード手順と禁止事項（画像の commit 禁止・local path 直書き禁止・user-attachments URL の使用・`gh image` extension の導入確認・`--body-file` での後付け更新等）は **`references/image-attachments.md` に従う**。
 
 ---
 
@@ -386,10 +378,8 @@ graph TB
 
 ## 注意事項
 
-- **構造化PR本文の生成が中心責務である。** 画像運用はその補助であり、本文の整理なく画像だけを貼るな
-- **画像アップロードはGitHubの user-attachments を前提にする。** 詳細は `references/image-attachments.md` を参照
-- **`gh image` は core command ではなく extension である。** 使う場合は導入状況を確認し、未導入ならブラウザ upload も選択肢として示す
-- **pr.mdと組み合わせて使う。** pr.mdのStep 1-6（ブランチ作成〜push）を実行した後、Step 7（PR本文作成）を本スキルで代替する
+- **構造化PR本文の生成が中心責務である。** 画像運用はその補助であり、本文の整理なく画像だけを貼るな（画像の手順詳細は `references/image-attachments.md`）
+- **pr スキルと組み合わせて使う。** pr の実行フロー 1〜6（ブランチ作成〜push）を実行した後、7「Pull Request 作成」の本文生成を本スキルで代替する
 - **module-boundary-designと併用せよ。** 責務分割の判断に迷った場合は `module-boundary-design` を参照し、その判断根拠を「設計判断」セクションに反映する
 - **分析は内部に留める。** 階層ごとの分析結果をそのままPR本文に貼るな。統合して1つのストーリーにしろ
 - **AIの自己評価を鵜呑みにするな。** 出力前に「この記述はコード差分と矛盾しないか」を自分で確認する

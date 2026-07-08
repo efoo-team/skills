@@ -34,7 +34,7 @@ Claude Code と Codex CLI の履歴を対等に扱う。それぞれ以下のイ
 - **インデックス**: `~/.claude/history.jsonl`
   - 各行: `{"display": "...", "timestamp": <unix_ms>, "project": "...", "sessionId": "..."}`
 - **セッション本体**: `~/.claude/projects/<encoded-path>/<sessionId>.jsonl`
-  - encoded-path はプロジェクトのフルパスの `/` を `-` に変換したもの（例: `/Users/foo/myapp` → `-Users-foo-myapp`）
+  - encoded-path はプロジェクトのフルパスの `/` や `.` 等の非英数字を `-` に変換したもの（例: `/Users/foo/myapp` → `-Users-foo-myapp`、`github.com` → `github-com`）。検索は find + grep で行うため、この規則からパスを再構成する必要はない
   - 各行: `{"type": "user"|"assistant"|..., "message": {"role": "...", "content": "..."}, "timestamp": "...", "sessionId": "..."}`
 
 ### Codex CLI
@@ -102,7 +102,7 @@ Claude Code と Codex CLI の履歴を対等に扱う。それぞれ以下のイ
 
 ### ヒント
 - Claude セッション再開: `claude --resume <sessionId>`
-- Codex セッション再開: `codex --resume <sessionId>`
+- Codex セッション再開: `codex resume <sessionId>`（直近のセッションは `codex resume --last`。`--resume` というフラグは存在しない）
 - 詳細確認: 該当 JSONL ファイルを直接参照
 ```
 

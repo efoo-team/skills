@@ -4,6 +4,19 @@ Complete guide for creating new Mastra projects. Includes both quickstart CLI me
 
 **Official documentation: [mastra.ai/docs](https://mastra.ai/docs)**
 
+> Version-pinned values in this guide (`zod@^4`, model IDs, Node 20+) change over time - verify against current docs before relying on them.
+
+## Contents
+
+1. [Getting Started](#getting-started)
+2. [Prerequisites](#prerequisites)
+3. [Quick Setup (user runs CLI)](#quick-setup-user-runs-cli)
+4. [CLI flags](#cli-flags)
+5. [Automatic setup / manual installation](#automatic-setup--manual-installation) — Steps 1-9
+6. [Next steps](#next-steps)
+7. [Troubleshooting](#troubleshooting)
+8. [Resources](#resources)
+
 ## Getting Started
 
 Ask: **"How would you like to create your Mastra project?"**
@@ -165,11 +178,11 @@ export const weatherAgent = new Agent({
 })
 ```
 
-**Note:** Model format is `"provider/model-name"`. Examples:
+**Note:** Model format is `"provider/model-name"`. Examples (illustrative — verify current IDs against docs):
 
 - `"google/gemini-2.5-pro"`
-- `"openai/gpt-4o"`
-- `"anthropic/claude-3-5-sonnet-20241022"`
+- `"openai/gpt-5.5"`
+- `"anthropic/claude-sonnet-4-6"`
 
 ### Step 8: Create mastra entry point
 

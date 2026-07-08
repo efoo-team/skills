@@ -69,13 +69,13 @@ Claude Code / Codex のような既製ハーネスをランタイムとして採
 
 ## 3. Agent Skills の作成
 
-- **progressive disclosure の3階層で設計すること**：name + description（常時ロード、約100トークン）→ SKILL.md 本文（発火時ロード、500行以下）→ references / scripts（必要時のみ）。コンテキストウィンドウは公共財である。
+- **progressive disclosure の3階層で設計すること**：name + description（常時ロード、約100〜150トークン）→ SKILL.md 本文（発火時ロード、500行以下）→ references / scripts（必要時のみ）。コンテキストウィンドウは公共財である。
 - **発火は description がすべて**：三人称で「何をするか + いつ使うか + トリガー語」を書く。発火しない原因の大半は description の曖昧さである。
 - **参照ファイルは SKILL.md から1階層のみ**。深いネストは部分読みによる情報欠落を生む。長い参照ファイルには冒頭に目次を付ける。
 - **憲章は常時ロード側（CLAUDE.md）に一元化し、skill には参照とフェーズ固有の差分のみ書くこと**。同じルールを複数スキルへコピーすると drift する。フェーズによってルール強度を変える場合（叩き台段階は裏取り不要等）はその差分だけを書く。
 - **実運用の失敗観察から反復すること**。スキルは書いて終わりではなく、発火漏れ・誤発火・指示の読み落としを観察してdescription と本文を直し続ける。
 
-詳細: [references/skill-authoring.md](references/skill-authoring.md)
+詳細: [references/skill-authoring.md](references/skill-authoring.md)（執筆原則の正本）/ [references/authoring-insights.md](references/authoring-insights.md)（外部知見の補遺: スキル4類型・ガイダンス形式・トリガー評価・外部スキル監査。create-skill もここを参照する）
 
 ---
 

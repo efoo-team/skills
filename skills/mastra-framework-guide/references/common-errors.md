@@ -2,6 +2,18 @@
 
 Comprehensive guide to common Mastra errors and their solutions.
 
+## Contents
+
+1. [Build and configuration errors](#build-and-configuration-errors)
+2. [Agent errors](#agent-errors)
+3. [Workflow errors](#workflow-errors)
+4. [Memory errors](#memory-errors)
+5. [Tool errors](#tool-errors)
+6. [Storage errors](#storage-errors)
+7. [Environment variable errors](#environment-variable-errors)
+8. [Model errors](#model-errors)
+9. [Debugging tips](#debugging-tips)
+
 ## Build and configuration errors
 
 ### "Cannot find module" or import errors
@@ -61,7 +73,7 @@ Property 'memory' does not exist on type 'AgentConfig'
 **Solutions**:
 
 1. Check embedded docs (see `embedded-docs.md`) to check current API
-2. Check `node_modules/@mastra/core/dist/docs/SOURCE_MAP.json` for current exports
+2. Check `node_modules/@mastra/core/dist/docs/assets/SOURCE_MAP.json` for current exports
 3. Verify package versions: `npm list @mastra/core`
 4. Update dependencies: `npm update @mastra/core`
 

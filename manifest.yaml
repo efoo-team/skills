@@ -23,7 +23,8 @@
 #                Codex は disable-model-invocation を認識しないため別ファイルが必要）
 #             ③ description の冒頭に門番文「Only use when the user explicitly invokes...」
 #             "auto" = 上記なし（説明文に基づきモデルが自律的に発動しうる）。
-#             opencode は両フィールドとも未対応（anomalyco/opencode#11972 をウォッチ）。
+#             opencode は両フィールドとも未対応（要望 issue anomalyco/opencode#11972 は
+#             2026-04 に stale クローズ済み・実装ではない。必要なら新規 issue を起票する）。
 common:
   - name: "agent-harness-engineering"
     purpose: "AIエージェントのハーネス（ループ・ツール表面・コンテキスト管理・認可・状態・評価等）を設計・実装・調達するランタイム非依存の設計憲章"
@@ -56,13 +57,7 @@ common:
     purpose: "複雑なタスクを整理・分割し、委譲機構を統括して遂行するオーケストレーションスキル"
     invocation: "explicit-only"
   - name: "formation-designer"
-    purpose: "oh-my-opencode の formation（agent-model 設定）設計ガイド（internal、opencode限定配布）"
-    invocation: "auto"
-  - name: "github-pull-request"
-    purpose: "実装変更を抽象度の階層構造で分析し、構造化されたPR本文として出力するスキル"
-    invocation: "explicit-only"
-  - name: "langfuse"
-    purpose: "LangfuseのREST API経由でLLM観測データ（trace/observation/session等）を照会・分析するスキル"
+    purpose: "oh-my-openagent（旧名 oh-my-opencode）の formation（agent-model 設定）設計ガイド（internal、opencode限定配布）"
     invocation: "auto"
   - name: "mastra-ai-architecture-rules"
     purpose: "Mastraランタイム上のAIサービスの責務分離（agent/workflow/tool/state等）を設計するルール"
@@ -79,8 +74,11 @@ common:
   - name: "pr"
     purpose: "フィーチャーブランチ作成からPR作成までの一連のGit操作を安全に実行するスキル"
     invocation: "explicit-only"
+  - name: "pr-body"
+    purpose: "実装変更を抽象度の階層構造で分析し、構造化されたPR本文として出力するスキル（本文生成のみ。旧名 github-pull-request。pr / pr-stage の被委譲先）"
+    invocation: "explicit-only"
   - name: "pr-stage"
-    purpose: "ステージ済み変更をコミットし、必要ならブランチ作成・push・PR作成まで行うスキル"
+    purpose: "ステージ済み変更をコミットし、push・PR作成まで行うスキル（pr への薄型差分ラッパー）"
     invocation: "explicit-only"
   - name: "pre-define"
     purpose: "曖昧な要望を /define に渡せる具体的な入力へ洗練するスキル"
@@ -92,10 +90,10 @@ common:
     purpose: "Web API/HTTP APIの設計判断（リソース・メソッド・エラー・ページネーション等）を行うスキル"
     invocation: "auto"
   - name: "review-plan"
-    purpose: "実装前の計画を複数のOracleサブエージェントで厳密レビューするスキル"
+    purpose: "実装前の計画を複数観点で厳密レビューするスキル（委譲機構が利用可能なら観点ごとに独立セッションを使用）"
     invocation: "explicit-only"
   - name: "review-pr-check"
-    purpose: "PRレビュー対応を収集/Oracle/実行ワーカーに分離してオーケストレーションするスキル"
+    purpose: "PRレビュー対応を収集・分類・実行の各ワーカーに分離してオーケストレーションするスキル（収集は同梱スクリプトで決定的に実行。サブエージェント機構が無い環境では縮退実行）"
     invocation: "explicit-only"
   - name: "search-history"
     purpose: "Claude Code/Codex のローカルチャット履歴をキーワード横断検索するスキル"
@@ -207,3 +205,33 @@ similar_groups:
       - "video-production-cooking-lesson/recipe-draft"
     decision: "keep-separate"
     rationale: "出力スキーマ（旅行系ナラティブ台本 vs 手順化されたレシピテキスト）と入力補正ロジック（quick-draftはゾーニング/コンセプト判断、recipe-draftはSRT誤変換補正+フレーム照合）が異なるドメイン固有処理であり、パラメータ化での統合はかえって複雑性を増す。"
+  - group: "PR作成系"
+    members:
+      - "common/pr"
+      - "common/pr-stage"
+    decision: "thin-wrapper"
+    rationale: "pr-stage は pr への薄型差分ラッパー（差分＝既にステージ済みの変更のみを対象とし git add を行わない）。手順・安全ガードの正本は pr にあり、PR 本文生成のみを担う pr-body が両者共通の被委譲先として別に存在する。"
+  - group: "設計判断系"
+    members:
+      - "common/module-boundary-design"
+      - "common/refactor-mindset"
+    decision: "keep-separate"
+    rationale: "refactor-mindset は『いつ・どこまで大胆に直すか』の判断と AI 前提の大規模一貫変更を扱い、module-boundary-design は境界の引き方・責務配置・抽象の成立条件を扱う。前者の Phase 2 が後者へ委譲する上下関係にあり、統合すると発火条件と目的判定が混線する。"
+  - group: "Mastra系"
+    members:
+      - "common/mastra-ai-architecture-rules"
+      - "common/mastra-framework-guide"
+    decision: "keep-separate"
+    rationale: "mastra-ai-architecture-rules は責務分離の設計判断（どう設計するか）、mastra-framework-guide は現行 API 仕様の検証・移行ガイド（何が現行仕様か）で、責務・起動場面・出力が異なる。相互の境界文を両 description に記載する。"
+  - group: "計画系"
+    members:
+      - "common/plan-explain"
+      - "common/review-plan"
+    decision: "keep-separate"
+    rationale: "入力は同じ計画ファイルだが、plan-explain は事実抽出のみの人間向け要約（出力＝概要レポート）、review-plan は複数観点の批判レビューと改訂提案（出力＝採否付き改訂案）で、動詞と出力が異なる。"
+  - group: "要件系"
+    members:
+      - "common/pre-define"
+      - "common/define"
+    decision: "keep-separate"
+    rationale: "pre-define は曖昧な要望の具体化（/define への入力生成。仕様決定はしない）、define は詳細要件定義（要件定義書を出力）で、パイプラインの段が異なり handoff が明示されている。"

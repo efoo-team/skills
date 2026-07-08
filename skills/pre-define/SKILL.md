@@ -2,7 +2,7 @@
 name: pre-define
 description: Only use when the user explicitly invokes /pre-define (or $pre-define in Codex). Never auto-invoke. ユーザーの曖昧な要望を、詳細な要件定義（/define）に渡せる具体的な入力へ洗練させるためのスキル。仕様決定や要件定義そのものは行わず、関連する既存仕様を調査したうえで平易な質問を重ね、コミュニケーションの齟齬をなくすことを目的とする。
 disable-model-invocation: true
-argument-hint: [要望・リクエスト]
+argument-hint: "[要望・リクエスト]"
 metadata:
   tags: [requirements, clarification, pre-analysis, question, read-only]
 ---
