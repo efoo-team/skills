@@ -11,8 +11,6 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 | pencil | `.pen` デザインファイル（Web/モバイルアプリ・Webサイト）の読み取り・生成・検証 | global | Claude Code | なし（`env: {}`） | `~/.claude.json` の `mcpServers.pencil`（トップレベル = user スコープ） |
 | pencil | 同上 | global | Codex | なし | `codex-code-setting/config.toml` の `[mcp_servers.pencil]` |
 | pencil | 同上 | global | opencode | なし | `opencode-setting/opencode.json` の `mcp.pencil`（リポジトリでは gitignore 対象のローカルファイル） |
-| serena | シンボル単位のセマンティックコード検索・編集支援 | global | Claude Code | なし | claude-plugins-official マーケットプレイスの `serena` プラグイン経由でインストール（plugin 管理。`.mcp.json` / `~/.claude.json` への直接記載はない） |
-| serena | 同上 | global | Codex | なし | `codex-code-setting/config.toml` の `[mcp_servers.serena]`（`uvx` 経由で起動） |
 | context7 | ライブラリ・フレームワーク・SDK の最新ドキュメント取得 | global | Claude Code | なし | claude-plugins-official マーケットプレイスの `context7` プラグイン経由でインストール（plugin 管理） |
 | context7 | 同上 | global | Codex | なし（**キーは現状維持。2026-07 ユーザー決定により env 変数化しない**。`config.toml` の `args` に直書きされたまま運用する） | `codex-code-setting/config.toml` の `[mcp_servers.context7]` |
 | playwright | ブラウザ自動化・E2E 操作 | global | Codex | なし | `codex-code-setting/config.toml` の `[mcp_servers.playwright]` |
