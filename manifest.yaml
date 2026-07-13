@@ -59,6 +59,9 @@ common:
   - name: "formation-designer"
     purpose: "oh-my-openagent（旧名 oh-my-opencode）の formation（agent-model 設定）設計ガイド（internal、opencode限定配布）"
     invocation: "auto"
+  - name: "issue-report"
+    purpose: "非エンジニアの不具合報告・機能要望を平易な言葉でヒアリングして課題を具体化し、承認を得てからGitHub issueとして登録するスキル（解決策・仕様の決定は行わない）"
+    invocation: "explicit-only"
   - name: "mastra-ai-architecture-rules"
     purpose: "Mastraランタイム上のAIサービスの責務分離（agent/workflow/tool/state等）を設計するルール"
     invocation: "auto"
@@ -233,5 +236,6 @@ similar_groups:
     members:
       - "common/pre-define"
       - "common/define"
+      - "common/issue-report"
     decision: "keep-separate"
-    rationale: "pre-define は曖昧な要望の具体化（/define への入力生成。仕様決定はしない）、define は詳細要件定義（要件定義書を出力）で、パイプラインの段が異なり handoff が明示されている。"
+    rationale: "pre-define は曖昧な要望の具体化（/define への入力生成。仕様決定はしない）、define は詳細要件定義（要件定義書を出力）で、パイプラインの段が異なり handoff が明示されている。issue-report は対象ユーザー（非エンジニア）・出力（GitHub issue 登録という副作用）・具体化の深さ（課題まで。仕様・要件に踏み込まない）が異なり、開発工程の前段ではなく報告受付を担うため統合すると責務が混在する。"
