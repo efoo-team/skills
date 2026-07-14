@@ -79,13 +79,13 @@ grep -rn "Last verified:" ~/ghq/github.com/efoo-team/skills/skills/*/SKILL.md
 
 ## 7. 動画制作エコシステムの整合
 
-動画制作エコシステム（podcast-editor + video-production-\* workspaces）の座組み正本と各 repo の整合を確認する。座組みの正本は `podcast-editor/docs/agent-ecosystem.md`。項目 5 の `check-skills.py` は共通層（本リポジトリ `skills/` 配下）のみを検証するため、プロジェクト層の skills 台帳はここで手動突合する。
+動画制作エコシステム（video-production-toolbox + video-production-\* workspaces）の座組み正本と各 repo の整合を確認する。座組みの正本は `video-production-toolbox/docs/agent-ecosystem.md`。項目 5 の `check-skills.py` は共通層（本リポジトリ `skills/` 配下）のみを検証するため、プロジェクト層の skills 台帳はここで手動突合する。
 
 ```bash
 GHQ=~/ghq/github.com/efoo-team
-test -f $GHQ/podcast-editor/docs/agent-ecosystem.md && echo map-ok
-grep -l "agent-ecosystem.md" $GHQ/podcast-editor/AGENTS.md $GHQ/video-production-podcast/AGENTS.md $GHQ/video-production-tabi/AGENTS.md $GHQ/video-production-cooking-lesson/AGENTS.md
+test -f $GHQ/video-production-toolbox/docs/agent-ecosystem.md && echo map-ok
+grep -l "agent-ecosystem.md" $GHQ/video-production-toolbox/AGENTS.md $GHQ/video-production-podcast/AGENTS.md $GHQ/video-production-tabi/AGENTS.md $GHQ/video-production-cooking-lesson/AGENTS.md
 for r in video-production-podcast video-production-tabi video-production-cooking-lesson; do echo "== $r"; ls $GHQ/$r/.agents/skills/; done
 ```
 
-期待結果: `map-ok` が出る。`grep -l` が 4 ファイルすべてを列挙する。`ls` の skill 一覧が本リポジトリ `manifest.yaml` の video-production 系 3 節と一致する。なお pin の追従はこの月次チェックでは監視しない — 遊休 workspace の pin 遅れは何も壊さないため、追従はエピソード開始時の実行時ルーチンに一本化されている（正本: `podcast-editor/docs/agent-ecosystem.md` §14）。
+期待結果: `map-ok` が出る。`grep -l` が 4 ファイルすべてを列挙する。`ls` の skill 一覧が本リポジトリ `manifest.yaml` の video-production 系 3 節と一致する。なお pin の追従はこの月次チェックでは監視しない — 遊休 workspace の pin 遅れは何も壊さないため、追従はエピソード開始時の実行時ルーチンに一本化されている（正本: `video-production-toolbox/docs/agent-ecosystem.md` §14）。
