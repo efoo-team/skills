@@ -165,9 +165,9 @@ project_owned:
   chefrepi:
     - name: "e2e-strategy"
       purpose: "Playwright MCPで実ブラウザの探索的検証を行い、視覚的・統合的な問題を発見して汎用テスト設計の方向性を提案する"
-  podcast-editor:
+  video-production-toolbox:
     skills: []
-    note: "ツール層repo（決定論toolbox+検証ゲート+artifact契約）でありAgent Skillsを持たない。operator向け判断skillの正本は video-production-podcast/.agents/skills/ にある。座組みの正本は podcast-editor/docs/agent-ecosystem.md。"
+    note: "ツール層repo（決定論toolbox+検証ゲート+artifact契約）でありAgent Skillsを持たない。operator向け判断skillの正本は video-production-podcast/.agents/skills/ にある。座組みの正本は video-production-toolbox/docs/agent-ecosystem.md。"
   video-production-podcast:
     - name: "bgm-boundary"
       purpose: "BGM境界選択（opening BGM終了/ending BGM開始の引用選定）判断とbgm-boundary-submission.json提出の手順"
@@ -176,7 +176,7 @@ project_owned:
     - name: "edit-rationale-report"
       purpose: "review state+監査ログから「何をなぜ切ったか」を人間可読レポートへ投影する（read-only）"
     - name: "episode-run"
-      purpose: "podcast-editorで1エピソードを非対話で最初から最後まで運用する統括手順（pin照合→doctor→start→判断タスク→submit→review→resume→公開準備）"
+      purpose: "video-production-toolboxで1エピソードを非対話で最初から最後まで運用する統括手順（pin照合→doctor→start→判断タスク→submit→review→resume→公開準備）"
     - name: "kb-maintenance"
       purpose: "entity KB（固有名詞辞書）のFACTS抽出+保守候補監査+split-validation統合判断とentity-kb-proposals.json提出"
     - name: "render-qa"
