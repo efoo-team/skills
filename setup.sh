@@ -51,6 +51,22 @@ trap cleanup EXIT
 
 echo "=== efoo-team skills setup ==="
 
+# Node.js version check (skills@1.5.14 requires Node >= 18)
+REQUIRED_NODE_MAJOR=18
+if command -v node >/dev/null 2>&1; then
+  NODE_VERSION="$(node --version 2>/dev/null)"
+  NODE_MAJOR="${NODE_VERSION#v}"
+  NODE_MAJOR="${NODE_MAJOR%%.*}"
+  if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] || [ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
+    echo "=== Warning: Node.js ${NODE_VERSION:-unknown} is too old; skills requires Node >= ${REQUIRED_NODE_MAJOR} ===" >&2
+    echo "    Upgrade Node and re-run, e.g.: nodebrew install-binary v22 && nodebrew use v22" >&2
+    exit 1
+  fi
+else
+  echo "=== Warning: node not found; skills requires Node >= ${REQUIRED_NODE_MAJOR}; install Node and re-run ===" >&2
+  exit 1
+fi
+
 # Team-owned skills
 npx skills@1.5.14 add efoo-team/skills -g -a '*' -y
 
