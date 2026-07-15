@@ -22,7 +22,7 @@ argument-hint: "[--create-new | --max-depth=N | 対象パス]"
 | 深さ制限 | `--max-depth=2` | 対象ディレクトリ深さの上限（既定 3） |
 | パス限定 | `/agents-md-sync packages/api` | 指定サブツリーのみ処理 |
 
-引数に「承認不要」「そのまま進めて」等の明示があれば Phase 2 の承認 Gate を省略してよい。それ以外では省略しない。
+引数に「承認不要」「そのまま進めて」等の明示があれば Phase 2 の承認 Gate を省略してよい。それ以外では省略しない。ただし「グローバル設定実体の保護」による停止は、これらの引数があっても省略しない。
 
 ## 実行モデル（担当の分離）
 
@@ -31,9 +31,17 @@ argument-hint: "[--create-new | --max-depth=N | 対象パス]"
 - サブエージェント機構が使えないツール（Codex 等）では縮退動作: 1階層ずつ「執筆パス → 独立したレビューパス」を順次実行し、階層をまたいで下書きを持ち越さない。結果（生成物の品質・構成）は同等に保つ。
 - タスク管理ツール（TodoWrite 等）が使えるなら、開始時に全 Phase を登録し、リアルタイムに in_progress / completed を更新する。
 
+## グローバル設定実体の保護（Hard Gate）
+
+ハーネスのグローバル設定ディレクトリ（`~/.claude` / `$CODEX_HOME`（既定 `~/.codex`）/ `$XDG_CONFIG_HOME/opencode`（既定 `~/.config/opencode`））が設定リポジトリへの symlink として運用されている環境では、その設定リポジトリのルート AGENTS.md / CLAUDE.md は「プロジェクト知識ベース」ではなく、**全セッション共通のグローバル指示の実体**である（例: `~/.codex/AGENTS.md` は全 Codex セッションに読み込まれる）。これを本スキルのテンプレートで生成・更新すると、次に起動する全セッションの挙動が変質する。
+
+- scan-repo.sh は対象リポジトリの realpath を上記3ディレクトリ（およびルート指示ファイルの inode）と照合し、一致すると `GLOBAL-CONFIG-REPO` を表示する。リポジトリ全体スキャンでは exit 3 で停止する。
+- `GLOBAL-CONFIG-REPO` が検出されたら、**Phase 2 以降へ進まず停止し、検出内容をユーザーに報告する**。
+- 継続できるのは、報告後にユーザーが明示的にサブパス指定の再実行（例: `/agents-md-sync scripts`）を指示した場合のみ。その場合も**ルート指示ファイルの生成・更新と、CLAUDE.md ブリッジ（symlink 作成・`@AGENTS.md` インポート提案）は恒久的に対象外**とする。設定ディレクトリ内の .md はハーネスに特別解釈されるため（例: `~/.claude/commands/*.md` はスラッシュコマンド、`~/.claude/agents/*.md` はサブエージェント定義）、ブリッジ symlink を置くだけで誤登録が生じる。
+
 ## Phase 1: 探索と drift 検出
 
-1. `scan-repo.sh` を**実行する**（参照として読むのではない）。スクリプトの実体は解析対象リポジトリではなくスキル導入先にあるため、`~/.agents/skills/agents-md-sync/scripts/scan-repo.sh`（無ければ checkout 側 `~/ghq/github.com/efoo-team/skills/skills/agents-md-sync/scripts/scan-repo.sh`）へパス解決し、**解析対象リポジトリのパスを必ず明示引数で渡す**（既定の `TARGET="."` に依存しない）: `bash <解決したscan-repo.sh> [--max-depth=N] <対象リポジトリのパス>`。ディレクトリ別ファイル数・言語分布・モジュール境界・既存 AGENTS.md / CLAUDE.md の一覧と、既存ファイルごとの drift 判定（NEEDS-UPDATE / OK / NO-METADATA / BRIDGE-MISSING）が出力される。
+1. `scan-repo.sh` を**実行する**（参照として読むのではない）。スクリプトの実体は解析対象リポジトリではなくスキル導入先にあるため、`~/.agents/skills/agents-md-sync/scripts/scan-repo.sh`（無ければ checkout 側 `~/ghq/github.com/efoo-team/skills/skills/agents-md-sync/scripts/scan-repo.sh`）へパス解決し、**解析対象リポジトリのパスを必ず明示引数で渡す**（既定の `TARGET="."` に依存しない）: `bash <解決したscan-repo.sh> [--max-depth=N] <対象リポジトリのパス>`。ディレクトリ別ファイル数・言語分布・モジュール境界・既存 AGENTS.md / CLAUDE.md の一覧と、既存ファイルごとの drift 判定（NEEDS-UPDATE / OK / NO-METADATA / BRIDGE-MISSING）が出力される。`GLOBAL-CONFIG-REPO` が表示された場合は「グローバル設定実体の保護」に従い停止する。
 2. 観点別の探索を、**観点ごとに個別のサブエージェント**で並列実行する（縮退時は順次）:
    - 規約: 設定ファイル（.eslintrc / pyproject.toml / tsconfig / .editorconfig 等）からプロジェクト固有ルールを抽出
    - アンチパターン: `DO NOT` / `NEVER` / `ALWAYS` / `DEPRECATED` コメント・lint 除外・レビューで繰り返される指摘
@@ -81,6 +89,7 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 1. Claude Code は AGENTS.md をネイティブに読まない（2026-07 時点）。各 AGENTS.md に CLAUDE.md ブリッジを保証する:
    - 既存 CLAUDE.md があるディレクトリ: `@AGENTS.md` インポート行の有無を確認し、無ければ追記を**ユーザーに提案**する（既存 CLAUDE.md を勝手に書き換えない）
    - CLAUDE.md が無いディレクトリ: `ln -s AGENTS.md CLAUDE.md` で symlink を作成する
+   - グローバル設定実体（GLOBAL-CONFIG-REPO）のリポジトリでは、サブパス限定の続行時であってもブリッジ（symlink 作成・インポート提案）を一切行わない
 2. 機械検証: 全生成ファイルが (a) 一律 1000 行以下 (b) テンプレートの必須節を含む (c) 生成メタデータ行あり (d) symlink 破損なし、を確認する。
 3. 最終レポートを出力する:
 
@@ -97,7 +106,7 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 ## チェックリスト（応答に貼って進捗管理する）
 
 ```
-- [ ] Phase 1: scan-repo.sh 実行 + 観点別並列探索 + 既存ファイル全読
+- [ ] Phase 1: scan-repo.sh 実行（GLOBAL-CONFIG-REPO 検出時は停止・報告）+ 観点別並列探索 + 既存ファイル全読
 - [ ] Phase 2: スコアリング → 配置案のユーザー承認（Gate）
 - [ ] Phase 3: ルート生成 → サブ並列生成（1階層=1執筆エージェント）
 - [ ] Phase 4: 階層別レビュー（1階層=1レビューエージェント、全PASS or 要確認化）
@@ -116,3 +125,4 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 | 根拠のない記述を書く | 全記述にコード上の根拠。確認できないものは〔要確認〕 |
 | update モードで全階層を無差別に再生成する | drift 判定が NEEDS-UPDATE の階層だけ更新する |
 | 探索を固定数のエージェントで済ませる | プロジェクト規模に応じて増員する（Phase 1 手順4） |
+| ハーネスのグローバル設定実体（symlink 先の設定リポジトリ）を知識ベース化する | scan-repo.sh の GLOBAL-CONFIG-REPO 検出で停止し、ユーザーに報告する |

@@ -8,6 +8,8 @@
 #
 # 出力: (1)ディレクトリ別ファイル数 (2)言語分布 (3)モジュール境界
 #       (4)既存 AGENTS.md / CLAUDE.md の一覧と drift 判定
+# 対象がハーネスのグローバル設定実体（~/.claude 等の symlink 先）の場合は
+# GLOBAL-CONFIG-REPO を表示し、リポジトリ全体スキャンでは exit 3 で停止する。
 set -euo pipefail
 
 MAX_DEPTH=3
@@ -51,6 +53,44 @@ cd "$ROOT"
 if ! HEAD_SHA=$(git rev-parse --short HEAD 2>/dev/null); then
   HEAD_SHA="no-commits"
   echo "WARN: コミットが存在しないため drift 検出は不可（構造解析のみ実行）" >&2
+fi
+
+# 保護: 対象リポジトリがハーネスのグローバル設定ディレクトリ（symlink 先）の実体である場合、
+# ルートの AGENTS.md / CLAUDE.md はプロジェクト知識ベースではなく全セッション共通のグローバル
+# 指示のため、生成・更新の対象にしてはならない（SKILL.md「グローバル設定実体の保護」）。
+GLOBAL_CFG=""
+ROOT_REAL=$(pwd -P)
+# 既定パスに加え、環境変数で移動された設定ディレクトリも常に候補へ含める
+# （例: Claude Code 内の Codex プラグインは CODEX_HOME を別パスに設定する）
+CFG_DIRS=("$HOME/.claude" "$HOME/.codex" "$HOME/.config/opencode")
+[ -n "${CODEX_HOME:-}" ] && CFG_DIRS+=("$CODEX_HOME")
+[ -n "${XDG_CONFIG_HOME:-}" ] && CFG_DIRS+=("$XDG_CONFIG_HOME/opencode")
+for cfg in "${CFG_DIRS[@]}"; do
+  cfg_real=$( (cd "$cfg" 2>/dev/null && pwd -P) || true )
+  [ -z "$cfg_real" ] && continue
+  case "$ROOT_REAL/" in "$cfg_real"/*) GLOBAL_CFG="$cfg -> $cfg_real"; break ;; esac
+done
+if [ -z "$GLOBAL_CFG" ]; then
+  # ディレクトリ単位でなくファイル単位の symlink 運用も検出する（-ef = inode 同一性）
+  for cfg in "${CFG_DIRS[@]}"; do
+    for f in AGENTS.md CLAUDE.md; do
+      if [ "$ROOT/$f" -ef "$cfg/$f" ]; then GLOBAL_CFG="$cfg/$f と同一実体"; break 2; fi
+    done
+  done
+fi
+if [ -n "$GLOBAL_CFG" ]; then
+  echo "=== GLOBAL-CONFIG-REPO: ハーネスのグローバル設定実体を検出 ==="
+  echo "対象リポジトリ: $ROOT"
+  echo "一致: $GLOBAL_CFG"
+  echo "ルートの AGENTS.md / CLAUDE.md は全セッション共通のグローバル指示の実体であり、"
+  echo "プロジェクト知識ベースとして生成・更新してはならない。"
+  if [ "$SCOPE" = "." ]; then
+    echo "→ Phase 2 以降へ進まず停止し、この検出をユーザーに報告すること。"
+    echo "→ 継続はユーザー明示のサブパス指定の再実行のみ（その場合もルート指示ファイルとブリッジは対象外）。"
+    exit 3
+  fi
+  echo "WARN: サブパス限定（scope: ${SCOPE}）のため構造解析は続行する。このリポジトリではブリッジ生成を行わないこと。"
+  echo ""
 fi
 
 # 除外1: 依存物・生成物（全セクション共通）
