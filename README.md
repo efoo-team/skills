@@ -113,7 +113,7 @@ scripts/check-skills.py    # CI チェック本体（frontmatter lint〔tags 必
 skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 
-Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The ledger (`manifest.yaml` `invocation`) is the source of truth and `check-skills.py` enforces consistency.
+Common-layer skills currently in `skills/` (27). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The ledger (`manifest.yaml` `invocation`) is the source of truth and `check-skills.py` enforces consistency.
 
 | Skill | Purpose | Invocation |
 |---|---|---|
@@ -121,6 +121,7 @@ Common-layer skills currently in `skills/` (26). "Invocation" is `explicit-only`
 | `agent-native-project-design` | Designing repos to be run reliably by Claude Code/Codex-style harnesses | auto |
 | `agents-md-sync` | Generates/updates hierarchical AGENTS.md knowledge bases with drift detection and per-layer writer/reviewer subagents | explicit-only |
 | `ask` | Read-only analysis and answers, no edits | explicit-only |
+| `cleanup-storage` | Investigates disk usage, proposes deletion candidates by safety category, deletes only after per-category approval | explicit-only |
 | `create-skill` | Interactive workflow for creating a new skill (interview → placement → author → register → verify) | explicit-only |
 | `database-design` | Naming DB tables/columns from persisted concepts, not processing purpose | auto |
 | `define` | Detailed requirements definition, outputs a requirements doc only | explicit-only |
