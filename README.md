@@ -111,7 +111,7 @@ scripts/check-skills.py    # 手動実行のチェックスクリプト（frontm
 skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 
-Common-layer skills currently in `skills/` (27). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The 3-piece artifacts themselves are the source of truth, and `check-skills.py` enforces their mutual consistency (if any piece is present, all three are required).
+Common-layer skills currently in `skills/` (28). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The 3-piece artifacts themselves are the source of truth, and `check-skills.py` enforces their mutual consistency (if any piece is present, all three are required).
 
 | Skill | Purpose | Invocation |
 |---|---|---|
@@ -131,6 +131,7 @@ Common-layer skills currently in `skills/` (27). "Invocation" is `explicit-only`
 | `mastra-ai-architecture-rules` | Responsibility boundaries for Mastra-based AI services | auto |
 | `mastra-framework-guide` | Verifying current Mastra API/docs and version-migration guidance | auto |
 | `module-boundary-design` | Module boundary and responsibility-split design judgment | auto |
+| `orca-automations` | Creating/managing scheduled Orca automations via the orca CLI, delegating flag details to the installed CLI | explicit-only |
 | `plan-explain` | Summarizes a plan file into a structured overview, facts only | explicit-only |
 | `pr` | Branch → stage → commit → push → PR, safely | explicit-only |
 | `pr-body` | Builds a structured, layered PR body (body generation only; formerly `github-pull-request`) | explicit-only |
