@@ -2,22 +2,26 @@
 """Check-only lint for efoo-team/skills.
 
 Validates SKILL.md frontmatter (incl. required metadata.tags and, as a
-warning, argument-hint quoting), manifest name collisions, invocation
-contract consistency (manifest invocation <-> disable-model-invocation <->
-agents/openai.yaml), auto-skill description budget, core-axiom parity
-between the two charter skills, and (as warnings) description similarity.
-This script performs NO fixes, generation, or sync; it only reports
-problems and fails so a human is notified.
+warning, argument-hint quoting), explicit-only 3-piece mutual consistency
+(disable-model-invocation <-> agents/openai.yaml <-> leading guard sentence),
+auto-skill description budget, core-axiom parity between the two charter
+skills, and (as warnings) description similarity. This script performs NO
+fixes, generation, or sync; it only reports problems and fails so a human is
+notified.
+
+There is no ledger: the explicit-only intent is derived from the artifacts
+themselves. If ANY of the 3 pieces is present, all 3 are required (the only
+exception is an agents/openai.yaml exclusion on a metadata.internal skill,
+which is a Codex leak guard, not an explicit-only declaration).
 
 Dependency policy
 -----------------
 - Frontmatter STRUCTURE checks (name / description presence, kebab-case,
   directory match, length) use only the standard library (re).
-- YAML PARSE-ability of each frontmatter block and reading manifest.yaml need
-  a real YAML parser. In CI, PyYAML is installed (`pip install pyyaml`).
+- YAML PARSE-ability of each frontmatter block needs a real YAML parser.
   Locally PyYAML is intentionally NOT installed, so the script falls back to
-  the system `ruby -ryaml` parser, or accepts a pre-converted manifest via
-  --manifest-json. The path actually used is printed for the evidence trail.
+  the system `ruby -ryaml` parser. The path actually used is printed for the
+  evidence trail.
 
 The YAML parse gate is the most important check: the skills CLI silently skips
 any SKILL.md whose frontmatter fails to parse (no error, exit 0), so a broken
@@ -27,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import json
 import re
 import shutil
 import subprocess
@@ -106,43 +109,10 @@ def unquote(value: str) -> str:
     return value
 
 
-def ruby_yaml_to_json(path: Path):
-    """Convert a YAML file to a python object via the system ruby.
-
-    ruby 2.6 / Psych 3.1 lacks YAML.unsafe_load_file / safe_load_file, so we
-    use YAML.load_file (full loader) which is the only available whole-file
-    parse on this platform.
-    """
-    if not HAVE_RUBY:
-        return None
-    script = 'require "yaml"; require "json"; print YAML.load_file(ARGV[0]).to_json'
-    try:
-        out = subprocess.run(
-            ["ruby", "-e", script, str(path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError:
-        return None
-    return json.loads(out.stdout)
-
-
-def load_manifest(manifest_path: Path, manifest_json: str | None):
-    """Return (data, path_used_description)."""
-    if manifest_json:
-        with open(manifest_json, encoding="utf-8") as f:
-            return json.load(f), f"--manifest-json ({manifest_json})"
-    if HAVE_PYYAML:
-        import yaml
-        with open(manifest_path, encoding="utf-8") as f:
-            return yaml.safe_load(f), "PyYAML (yaml.safe_load)"
-    data = ruby_yaml_to_json(manifest_path)
-    if data is not None:
-        return data, "ruby (YAML.load_file -> JSON)"
-    raise SystemExit(
-        "ERROR: no YAML loader available for manifest. Install pyyaml, or pass "
-        "--manifest-json, or make `ruby` available on PATH."
+def guard_sentence(name: str) -> str:
+    return (
+        f"Only use when the user explicitly invokes /{name} "
+        f"(or ${name} in Codex). Never auto-invoke."
     )
 
 
@@ -265,64 +235,121 @@ def check_frontmatter(skills_dir: Path, rep: Reporter) -> None:
     rep.info(f"[skill-lint] YAML parse backend(s): {', '.join(sorted(parse_backends))}")
 
 
-def collect_project_owned_names(project_owned) -> list[tuple[str, str]]:
-    """Return list of (repo, name) across all project-owned skills."""
-    result: list[tuple[str, str]] = []
-    if not project_owned:
-        return result
-    for repo, entries in project_owned.items():
-        if isinstance(entries, dict):
-            entries = entries.get("skills") or []
-        for entry in entries or []:
-            name = entry.get("name")
-            if name:
-                result.append((repo, name))
-    return result
+def _read_frontmatter(skill_dir: Path):
+    """Return frontmatter text of <skill_dir>/SKILL.md, or None if unreadable."""
+    skill_file = skill_dir / "SKILL.md"
+    if not skill_file.is_file():
+        return None
+    fm_match = FRONTMATTER_RE.match(skill_file.read_text(encoding="utf-8"))
+    return fm_match.group(1) if fm_match else None
 
 
-def check_collision(manifest, path_used: str, rep: Reporter) -> None:
-    rep.info(f"[name-collision] manifest loaded via: {path_used}")
-    common = [e.get("name") for e in (manifest.get("common") or []) if e.get("name")]
-    external = [e.get("name") for e in (manifest.get("external") or []) if e.get("name")]
-    shared = set(common) | set(external)
-    project = collect_project_owned_names(manifest.get("project_owned") or {})
+def _skill_pieces(skill_dir: Path, fm_text: str, rep: Reporter):
+    """Return (dmi_true, guard_present, implicit_false, is_internal) for a skill.
 
-    rep.info(
-        f"[name-collision] shared side (common+external): {len(shared)} names; "
-        f"project_owned: {len(project)} names"
-    )
-    found = False
-    for repo, name in project:
-        if name in shared:
-            found = True
+    agents/openai.yaml の YAML 妥当性もここで検査する（壊れていると Codex が
+    ポリシーを読めず、explicit-only のつもりが暗黙起動可能になるため）。"""
+    name = skill_dir.name
+    dmi_match = DMI_RE.search(fm_text)
+    dmi_true = bool(dmi_match) and unquote(dmi_match.group(1)).lower() == "true"
+    is_internal = bool(INTERNAL_RE.search(fm_text))
+    desc_match = DESC_RE.search(fm_text)
+    description = unquote(desc_match.group(1)) if desc_match else ""
+    guard_present = description.startswith(guard_sentence(name))
+    openai_yaml = skill_dir / "agents" / "openai.yaml"
+    implicit_false = False
+    if openai_yaml.is_file():
+        oy_text = openai_yaml.read_text(encoding="utf-8")
+        ok, detail, _ = yaml_parse_frontmatter(oy_text)
+        if not ok:
             rep.error(
-                f"name collision: project_owned '{repo}/{name}' duplicates a "
-                f"common/external skill name '{name}'"
+                f"{name}: agents/openai.yaml is not valid YAML: {detail}",
+                str(openai_yaml),
             )
-    if not found:
-        rep.info("[name-collision] no collisions between shared and project_owned")
+        implicit_false = bool(IMPLICIT_FALSE_RE.search(oy_text))
+    return dmi_true, guard_present, implicit_false, is_internal
 
 
-def collect_descriptions(manifest) -> list[tuple[str, str]]:
-    """Return (label, purpose) for every ledger skill that has a purpose."""
+def check_invocation(skills_dir: Path, rep: Reporter) -> None:
+    """explicit-only 3点セット（① frontmatter の disable-model-invocation: true、
+    ② agents/openai.yaml の allow_implicit_invocation: false、③ description 冒頭の
+    門番文）の相互整合を検査する。台帳は無いため、①または③が存在するスキルを
+    explicit-only 意図とみなして3点すべてを要求する。②のみの存在は
+    metadata.internal: true のエージェント限定スキル（Codex への暗黙起動リーク
+    防止が目的で explicit-only 宣言ではない）に限り許容する。
+    3点とも無いスキルは auto（説明文に基づく自動発動を許可）と解釈する。"""
+    rep.info(f"[invocation] skills dir: {skills_dir}")
+    checked = 0
+    explicit_only = 0
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        skill_dir = skill_file.parent
+        name = skill_dir.name
+        rel = str(skill_file)
+        fm_text = _read_frontmatter(skill_dir)
+        if fm_text is None:
+            continue  # check_frontmatter が error 済み
+        checked += 1
+        dmi_true, guard_present, implicit_false, is_internal = _skill_pieces(
+            skill_dir, fm_text, rep
+        )
+
+        if dmi_true or guard_present:
+            explicit_only += 1
+            if not dmi_true:
+                rep.error(
+                    f"{name}: explicit-only 意図（門番文あり）だが frontmatter に "
+                    "'disable-model-invocation: true' が無い（Claude Code 用）",
+                    rel,
+                )
+            if not implicit_false:
+                rep.error(
+                    f"{name}: explicit-only 意図だが agents/openai.yaml の "
+                    "'allow_implicit_invocation: false' が無い（Codex 用。Codex は "
+                    "disable-model-invocation を認識しない）",
+                    rel,
+                )
+            if not guard_present:
+                rep.error(
+                    f"{name}: explicit-only 意図（disable-model-invocation: true）だが "
+                    f"description が門番文 '{guard_sentence(name)}' で始まっていない "
+                    "(門番文は description 冒頭に置く)",
+                    rel,
+                )
+        elif implicit_false and not is_internal:
+            rep.error(
+                f"{name}: agents/openai.yaml だけで暗黙起動を止めている。explicit-only に "
+                "するなら3点セットを揃える。auto のままこれを許すのは "
+                "metadata.internal: true のエージェント限定スキルのみ",
+                rel,
+            )
+    rep.info(
+        f"[invocation] checked {checked} skill(s) "
+        f"({explicit_only} explicit-only by artifacts)"
+    )
+
+
+def _strip_guard(name: str, description: str) -> str:
+    guard = guard_sentence(name)
+    if description.startswith(guard):
+        return description[len(guard):].strip()
+    return description
+
+
+def check_similarity(skills_dir: Path, rep: Reporter) -> None:
+    """SKILL.md の description 同士を比較し、統合候補を警告する。explicit-only の
+    定型の門番文はスキル間で偽陽性を生むため、比較前に取り除く。"""
     items: list[tuple[str, str]] = []
-    for entry in manifest.get("common") or []:
-        name, purpose = entry.get("name"), entry.get("purpose")
-        if name and purpose:
-            items.append((name, purpose))
-    for repo, entries in (manifest.get("project_owned") or {}).items():
-        if isinstance(entries, dict):
-            entries = entries.get("skills") or []
-        for entry in entries or []:
-            name, purpose = entry.get("name"), entry.get("purpose")
-            if name and purpose:
-                items.append((f"{repo}/{name}", purpose))
-    return items
-
-
-def check_similarity(manifest, path_used: str, rep: Reporter) -> None:
-    rep.info(f"[description-similarity] manifest loaded via: {path_used}")
-    items = collect_descriptions(manifest)
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        name = skill_file.parent.name
+        fm_text = _read_frontmatter(skill_file.parent)
+        if fm_text is None:
+            continue
+        desc_match = DESC_RE.search(fm_text)
+        if not desc_match:
+            continue
+        description = _strip_guard(name, unquote(desc_match.group(1)))
+        if description:
+            items.append((name, description))
     rep.info(
         f"[description-similarity] comparing {len(items)} descriptions "
         f"(threshold {SIMILARITY_THRESHOLD}); findings are WARNINGS only"
@@ -346,123 +373,31 @@ def check_similarity(manifest, path_used: str, rep: Reporter) -> None:
         rep.info(f"[description-similarity] {hits} similar pair(s) reported as warnings")
 
 
-def _read_frontmatter(skill_dir: Path):
-    """Return frontmatter text of <skill_dir>/SKILL.md, or None if unreadable."""
-    skill_file = skill_dir / "SKILL.md"
-    if not skill_file.is_file():
-        return None
-    fm_match = FRONTMATTER_RE.match(skill_file.read_text(encoding="utf-8"))
-    return fm_match.group(1) if fm_match else None
-
-
-def check_invocation(manifest, path_used: str, skills_dir: Path, rep: Reporter) -> None:
-    """manifest の invocation（正本）と、explicit-only 3点セット
-    （① frontmatter の disable-model-invocation、② agents/openai.yaml の
-    allow_implicit_invocation: false、③ description 冒頭の門番文）の一致を検査する。"""
-    rep.info(f"[invocation] manifest loaded via: {path_used}")
-    checked = 0
-    for entry in manifest.get("common") or []:
-        name = entry.get("name")
-        if not name:
-            continue
-        invocation = entry.get("invocation")
-        skill_dir = skills_dir / name
-        rel = str(skill_dir / "SKILL.md")
-        fm_text = _read_frontmatter(skill_dir)
-        if fm_text is None:
-            rep.error(f"{name}: manifest common entry has no readable skills/{name}/SKILL.md")
-            continue
-        checked += 1
-
-        dmi_match = DMI_RE.search(fm_text)
-        dmi_true = bool(dmi_match) and unquote(dmi_match.group(1)).lower() == "true"
-        is_internal = bool(INTERNAL_RE.search(fm_text))
-        openai_yaml = skill_dir / "agents" / "openai.yaml"
-        implicit_false = False
-        if openai_yaml.is_file():
-            oy_text = openai_yaml.read_text(encoding="utf-8")
-            ok, detail, _ = yaml_parse_frontmatter(oy_text)
-            if not ok:
-                rep.error(
-                    f"{name}: agents/openai.yaml is not valid YAML: {detail}",
-                    str(openai_yaml),
-                )
-            implicit_false = bool(IMPLICIT_FALSE_RE.search(oy_text))
-
-        if invocation == "explicit-only":
-            if not dmi_true:
-                rep.error(
-                    f"{name}: manifest says explicit-only but frontmatter lacks "
-                    "'disable-model-invocation: true' (Claude Code 用)",
-                    rel,
-                )
-            if not implicit_false:
-                rep.error(
-                    f"{name}: manifest says explicit-only but agents/openai.yaml with "
-                    "'allow_implicit_invocation: false' is missing (Codex 用。Codex は "
-                    "disable-model-invocation を認識しない)",
-                    rel,
-                )
-            desc_match = DESC_RE.search(fm_text)
-            description = unquote(desc_match.group(1)) if desc_match else ""
-            guard = (
-                f"Only use when the user explicitly invokes /{name} "
-                f"(or ${name} in Codex). Never auto-invoke."
-            )
-            if not description.startswith(guard):
-                rep.error(
-                    f"{name}: manifest says explicit-only but description does not "
-                    f"start with the guard sentence 'Only use when the user explicitly "
-                    f"invokes /{name} (or ${name} in Codex). Never auto-invoke.' "
-                    "(門番文は description 冒頭に置く)",
-                    rel,
-                )
-        elif invocation == "auto":
-            if dmi_true:
-                rep.error(
-                    f"{name}: manifest says auto but frontmatter has "
-                    "'disable-model-invocation: true' (manifest か frontmatter を直す)",
-                    rel,
-                )
-            if implicit_false and not is_internal:
-                rep.error(
-                    f"{name}: manifest says auto but agents/openai.yaml disables implicit "
-                    "invocation (auto でこれを許すのは metadata.internal: true の"
-                    "エージェント限定スキルのみ)",
-                    rel,
-                )
-        else:
-            rep.error(
-                f"{name}: manifest invocation is '{invocation}' "
-                "(must be 'auto' or 'explicit-only')"
-            )
-    rep.info(f"[invocation] checked {checked} common skill(s)")
-
-
 def estimate_tokens(text: str) -> int:
     """o200k 近似の推定トークン数（ASCII 0.25 / 非ASCII 0.6 重み）。"""
     ascii_chars = sum(1 for c in text if ord(c) < 128)
     return round(ascii_chars * 0.25 + (len(text) - ascii_chars) * 0.6)
 
 
-def check_description_budget(manifest, path_used: str, skills_dir: Path, rep: Reporter) -> None:
-    """auto スキルの description 長を検査する（Codex の 2% スキル予算対策）。
-    explicit-only スキルと、agents/openai.yaml で Codex から除外済みのスキルは
-    コンテキストに載らないため対象外。"""
-    rep.info(f"[desc-budget] manifest loaded via: {path_used}")
+def check_description_budget(skills_dir: Path, rep: Reporter) -> None:
+    """auto スキル（disable-model-invocation が無いスキル）の description 長を
+    検査する（Codex の 2% スキル予算対策）。explicit-only スキルと、
+    agents/openai.yaml で Codex から除外済みのスキルはコンテキストに載らないため
+    対象外。"""
     rep.info(
         f"[desc-budget] auto skills only: warn > {AUTO_DESC_WARN_TOKENS} est. tokens, "
         f"error > {AUTO_DESC_ERROR_TOKENS} est. tokens"
     )
-    for entry in manifest.get("common") or []:
-        name = entry.get("name")
-        if not name or entry.get("invocation") != "auto":
-            continue
-        skill_dir = skills_dir / name
-        rel = str(skill_dir / "SKILL.md")
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        skill_dir = skill_file.parent
+        name = skill_dir.name
+        rel = str(skill_file)
         fm_text = _read_frontmatter(skill_dir)
         if fm_text is None:
-            continue  # check_invocation が error 済み
+            continue  # check_frontmatter が error 済み
+        dmi_match = DMI_RE.search(fm_text)
+        if dmi_match and unquote(dmi_match.group(1)).lower() == "true":
+            continue  # explicit-only はコンテキストに載らないため予算対象外
         openai_yaml = skill_dir / "agents" / "openai.yaml"
         if openai_yaml.is_file() and IMPLICIT_FALSE_RE.search(
             openai_yaml.read_text(encoding="utf-8")
@@ -550,7 +485,6 @@ def main() -> int:
         "--only",
         choices=[
             "frontmatter",
-            "collision",
             "similarity",
             "invocation",
             "desc-budget",
@@ -565,20 +499,6 @@ def main() -> int:
         default=str(REPO_ROOT / "skills"),
         help="directory containing <skill>/SKILL.md (default: <repo>/skills)",
     )
-    parser.add_argument(
-        "--manifest",
-        default=str(REPO_ROOT / "manifest.yaml"),
-        help="path to manifest.yaml (default: <repo>/manifest.yaml)",
-    )
-    parser.add_argument(
-        "--manifest-json",
-        default=None,
-        help=(
-            "path to a JSON file with manifest contents; local fallback for "
-            "when PyYAML is unavailable. Produce it with e.g. "
-            "`ruby -ryaml -rjson -e 'print YAML.load_file(ARGV[0]).to_json' manifest.yaml`"
-        ),
-    )
     args = parser.parse_args()
 
     rep = Reporter()
@@ -586,25 +506,18 @@ def main() -> int:
         f"check-skills.py: PyYAML={'yes' if HAVE_PYYAML else 'no'}, "
         f"ruby={'yes' if HAVE_RUBY else 'no'}"
     )
-
-    needs_manifest = args.only in ("collision", "similarity", "invocation", "desc-budget", "all")
-    manifest = None
-    path_used = ""
-    if needs_manifest:
-        manifest, path_used = load_manifest(Path(args.manifest), args.manifest_json)
+    skills_dir = Path(args.skills_dir)
 
     if args.only in ("frontmatter", "all"):
-        check_frontmatter(Path(args.skills_dir), rep)
-    if args.only in ("collision", "all"):
-        check_collision(manifest, path_used, rep)
+        check_frontmatter(skills_dir, rep)
     if args.only in ("similarity", "all"):
-        check_similarity(manifest, path_used, rep)
+        check_similarity(skills_dir, rep)
     if args.only in ("invocation", "all"):
-        check_invocation(manifest, path_used, Path(args.skills_dir), rep)
+        check_invocation(skills_dir, rep)
     if args.only in ("desc-budget", "all"):
-        check_description_budget(manifest, path_used, Path(args.skills_dir), rep)
+        check_description_budget(skills_dir, rep)
     if args.only in ("axioms", "all"):
-        check_axiom_parity(Path(args.skills_dir), rep)
+        check_axiom_parity(skills_dir, rep)
 
     rep.info("")
     rep.info(f"SUMMARY: {rep.errors} error(s), {rep.warnings} warning(s)")

@@ -55,17 +55,17 @@ print('skills:', len(d['skills']))
 "
 ```
 
-期待結果: `version` が単一の整数（現在 `3`）であり、想定外の値になっていないこと。`skills` の件数は項目5（manifest.yaml との一致確認）で得られる期待件数と突き合わせる。
+期待結果: `version` が単一の整数（現在 `3`）であり、想定外の値になっていないこと。`skills` の件数は「README.md Structure 節のスキル数 + setup.sh の external 購読行数」と突き合わせる。
 
-## 5. manifest.yaml と実体の一致確認
+## 5. 共通層スキルの規約検査
 
-`efoo-team/skills` の `manifest.yaml` と `skills/` 配下の実ディレクトリの一致を、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint〔metadata.tags 必須・argument-hint クオート検査を含む〕・名前衝突・description 類似度・起動契約整合・description 予算・コア公理等価の6チェックが同時に実行される）。
+`skills/` 配下の全スキルを、チェックスクリプト `scripts/check-skills.py` で検証する（frontmatter lint〔YAML パースゲート・metadata.tags 必須・argument-hint クオート検査を含む〕・description 類似度・explicit-only 3点セット相互整合・description 予算・コア公理等価の5チェックが同時に実行される）。
 
 ```bash
 python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
 ```
 
-期待結果: 不一致 0 件・`RESULT: PASS` で exit 0。
+期待結果: エラー 0 件・`RESULT: PASS` で exit 0。
 
 ## 6. 外部依存スキルの四半期鮮度再検証
 
@@ -79,13 +79,12 @@ grep -rn "Last verified:" ~/ghq/github.com/efoo-team/skills/skills/*/SKILL.md
 
 ## 7. 動画制作エコシステムの整合
 
-動画制作エコシステム（video-production-toolbox + video-production-\* workspaces）の座組み正本と各 repo の整合を確認する。座組みの正本は `video-production-toolbox/docs/agent-ecosystem.md`。項目 5 の `check-skills.py` は共通層（本リポジトリ `skills/` 配下）のみを検証するため、プロジェクト層の skills 台帳はここで手動突合する。
+動画制作エコシステム（video-production-toolbox + video-production-\* workspaces）の座組み正本と各 repo の整合を確認する。座組みの正本は `video-production-toolbox/docs/agent-ecosystem.md`。プロジェクト層のスキル自体は各リポジトリのオーナーに一任しており、この月次チェックでは突合しない。
 
 ```bash
 GHQ=~/ghq/github.com/efoo-team
 test -f $GHQ/video-production-toolbox/docs/agent-ecosystem.md && echo map-ok
 grep -l "agent-ecosystem.md" $GHQ/video-production-toolbox/AGENTS.md $GHQ/video-production-podcast/AGENTS.md $GHQ/video-production-tabi/AGENTS.md $GHQ/video-production-cooking-lesson/AGENTS.md
-for r in video-production-podcast video-production-tabi video-production-cooking-lesson; do echo "== $r"; ls $GHQ/$r/.agents/skills/; done
 ```
 
-期待結果: `map-ok` が出る。`grep -l` が 4 ファイルすべてを列挙する。`ls` の skill 一覧が本リポジトリ `manifest.yaml` の video-production 系 3 節と一致する。なお pin の追従はこの月次チェックでは監視しない — 遊休 workspace の pin 遅れは何も壊さないため、追従はエピソード開始時の実行時ルーチンに一本化されている（正本: `video-production-toolbox/docs/agent-ecosystem.md` §14）。
+期待結果: `map-ok` が出る。`grep -l` が 4 ファイルすべてを列挙する。なお pin の追従はこの月次チェックでは監視しない — 遊休 workspace の pin 遅れは何も壊さないため、追従はエピソード開始時の実行時ルーチンに一本化されている（正本: `video-production-toolbox/docs/agent-ecosystem.md` §14）。
