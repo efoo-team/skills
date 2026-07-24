@@ -36,14 +36,14 @@
 #       "collectedReviewThreads": int,       # 実際に収集できた thread 数
 #       "totalCountMatches": bool | null     # totalCount と収集数の一致（totalCount 不明時 null）
 #     },
-#     "entries": [                           # reviews.jsonl 互換エントリ。id は GraphQL node id で統一
+#     "entries": [                           # CLI 収集エントリ（reviews.json / reviews.jsonl）互換。id は GraphQL node id で統一
 #       # type=thread:        { id, type, action, is_resolved, source, comments:[{id,author,body,created_at}] }
 #       # type=issue_comment: { id, type, action, author, body, source }
 #       # type=review:        { id, type, action, author, state, body, source }
 #     ]
 #   }
 #   - entries[].id は全て GraphQL node id（IC_/PRR_/PRRT_/PRRC_…）で揃える。REST 応答は node_id を採用する。
-#     これにより CLI 収集済みの reviews.jsonl と id で突き合わせて重複排除できる。
+#     これにより CLI 収集済みの収集エントリファイル（reviews.json / reviews.jsonl）と id で突き合わせて重複排除できる。
 #   - action は reaction 由来の状態であり API から復元できないため、本スクリプトは一律 "pending" を付す。
 #     マージ側で CLI 収集済みエントリを優先すれば、既存の done/skip/in_progress は保持される。
 #   - source は取得元（rest/graphql）を示す provenance。thread の解決状態は is_resolved で持つ。
@@ -341,7 +341,7 @@ while true; do
 done
 
 # review_state は突合専用の内部フィールドのため、出力 entries からは除去して
-# CLI 収集済み reviews.jsonl とのスキーマ互換を保つ。
+# CLI 収集エントリ（reviews.json / reviews.jsonl）とのスキーマ互換を保つ。
 jq -cs '.' "$THREADS_FILE" >"$TMP/th_entries_raw.json"
 jq -c 'map(.comments |= map(del(.review_state)))' "$TMP/th_entries_raw.json" >"$TMP/th_entries.json"
 

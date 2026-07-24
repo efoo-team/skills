@@ -65,7 +65,7 @@ mutation {
 
 **条件付きマージ可能状態**:
 
-- `fallbackUsed == true` かつ `completenessState != complete` でも、fallback 後の `output_dir/reviews.jsonl` を正本として再分類し、`actionableOpenCount == 0` を確認できた場合は **条件付きマージ可能** とする
+- `fallbackUsed == true` かつ `completenessState != complete` でも、fallback 後の収集エントリファイル（`output_dir` 配下の `reviews.json` または `reviews.jsonl`）を正本として再分類し、`actionableOpenCount == 0` を確認できた場合は **条件付きマージ可能** とする
 - この場合は「収集は degraded だが、利用可能データでは actionable 指摘なし」と明示して報告する
 
 **最終報告**:
