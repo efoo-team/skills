@@ -175,30 +175,47 @@ FILTERED_SUPPLEMENT_PATH="${SUPPLEMENT_DIR}/reviews-supplement-filtered.jsonl"
 
 `collection-manifest.json` を読み込み、収集結果の完全性を検証する。この検証なしに `reviews.jsonl` を信頼してはならない。
 
+**完全性の定義**: `completenessState: "complete"` は「転送エラーが無かったこと」ではなく「検証された主張」である。CLI は REST `pulls/comments` のコメント集合と GraphQL `reviewThreads` 内の thread 化済みコメント集合（同一の `PRRC_*` node id 体系）を双方向で突合し、`reviewThreads.totalCount` と収集 thread 数の照合も行ったうえで、全一致した場合に限り `complete` を報告する。突合不一致は CLI 内で有界バックオフの再取得後も解消しなければ `inconclusive` へ降格され、欠落コメント id が `consistency.missingFromThreads` / `consistency.missingFromRest` に列挙される（GitHub の GraphQL は REST より数十秒〜数分遅れることがあり、その伝播遅延ウィンドウで thread が丸ごと欠落したまま complete を誤報告する事故を機械的に防ぐため）。
+
 **`collection-manifest.json` の構造**:
 
 ```json
 {
   "completenessState": "complete" | "incomplete" | "inconclusive",
   "fallbackUsed": boolean,
+  "consistency": {
+    "checked": boolean,
+    "consistent": boolean | null,
+    "retries": N,
+    "restReviewComments": N,
+    "threadedReviewComments": N,
+    "missingFromThreads": ["PRRC_..."],
+    "missingFromRest": ["PRRC_..."],
+    "reviewThreadsTotalCount": N,
+    "collectedReviewThreads": N,
+    "totalCountMatches": boolean | null
+  },
   "sources": {
     "reviewThreads": { "exhausted": boolean, "state": "...", "warnings": [], "errors": [] },
     "issueComments": { "exhausted": boolean, "state": "...", "warnings": [], "errors": [] },
     "reviewComments": { "exhausted": boolean, "state": "...", "warnings": [], "errors": [] }
   },
-  "counts": { "reviewThreads": N, "issueComments": N, "reviewComments": N }
+  "counts": { "reviewThreads": N, "issueComments": N, "reviewComments": N, "threadedReviewComments": N }
 }
 ```
+
+`counts.reviewComments` は REST 由来の件数、`counts.threadedReviewComments` は thread 化済みコメント件数である。旧版 CLI（`consistency` フィールドが無い manifest）に当たった場合、その `complete` は突合未検証の自己申告であり信頼できないため、`inconclusive` と同じ扱いでフォールバックを起動する。
 
 **検証手順**:
 
 1. `collection-manifest.json` を読み込む
 2. `completenessState` を確認:
-   - `complete`: 全ソースが完全に収集された。`reviews.jsonl` を信頼して進めてよい
+   - `complete`: 全ソースが完全に収集され、クロスソース突合も一致した。`reviews.jsonl` を信頼して進めてよい
    - `incomplete`: 一部ページの収集に失敗。`reviews.jsonl` は不完全の可能性がある
-   - `inconclusive`: GraphQLエラー（`errors[]`）やrate limit超過により、収集データの完全性が判定不能
-3. `fallbackUsed` を確認: `true` の場合、何らかのフォールバック処理が実行された
-4. 各ソースの `errors` 配列を確認し、重大なエラーがないか検証
+   - `inconclusive`: GraphQLエラー（`errors[]`）・rate limit超過・クロスソース突合の不一致により、収集データの完全性が判定不能
+3. `consistency` を確認: `consistent: false` の場合、`missingFromThreads` の id が「REST には存在するが thread 化されていないコメント」であり、最新レビューバッチの thread 欠落を示す最重要シグナルである
+4. `fallbackUsed` を確認: `true` の場合、何らかのフォールバック処理が実行された
+5. 各ソースの `errors` 配列を確認し、重大なエラーがないか検証
 
 **不完全な収集時の対応**:
 
@@ -254,7 +271,7 @@ GitHub API を直接呼び出して補完収集を行います...
 
 **STEP 2: `scripts/collect-review.sh` によるフォールバック収集**
 
-このスキル同梱の `scripts/collect-review.sh` を**実行**する（ソースを読む必要はない）。REST（issue comments / reviews）の全ページ取得、GraphQL reviewThreads のカーソルページネーション、**各スレッド内コメントの per-thread ページネーション（旧手順が punt していた 50 件超も完全取得）**、ID による重複排除、取得元（rest/graphql）と解決状態の provenance 付与までを、この 1 本のスクリプトが決定的に行う。以前の手書き gh/jq 手順はこのスクリプトに置き換わったため、parent が同等の収集手順を書き起こす必要はない。
+このスキル同梱の `scripts/collect-review.sh` を**実行**する（ソースを読む必要はない）。REST（issue comments / reviews / review comments）の全ページ取得、GraphQL reviewThreads のカーソルページネーション、**各スレッド内コメントの per-thread ページネーション（旧手順が punt していた 50 件超も完全取得）**、ID による重複排除、取得元（rest/graphql）と解決状態の provenance 付与、そして **REST review comments と GraphQL thread 化済みコメントの双方向クロスソース突合**（envelope の `consistency`）までを、この 1 本のスクリプトが決定的に行う。以前の手書き gh/jq 手順はこのスクリプトに置き換わったため、parent が同等の収集手順を書き起こす必要はない。
 
 **パス解決**（先に見つかった方を使う）:
 
@@ -274,8 +291,8 @@ COLLECT_EXIT=$?
 
 終了コードで分岐する（**exit 0 または 5 のときのみ STEP 3 へ進む**）:
 
-- `0`: 全ソース完全収集
-- `5`: degraded（一部ソースでエラー）。`${COLLECT_JSON_PATH}` の `.sources[].errors` / `.sources[].exhausted` を確認し、**degraded collection** として後続へ引き継ぐ。ユーザーにも通知する
+- `0`: 全ソース完全収集、かつクロスソース突合（`consistency.consistent`）が一致
+- `5`: degraded（一部ソースでエラー、またはクロスソース突合が不一致）。`${COLLECT_JSON_PATH}` の `.sources[].errors` / `.sources[].exhausted` / `.consistency` を確認し、**degraded collection** として後続へ引き継ぐ。ユーザーにも通知する。突合不一致時は `.consistency.missingFromThreads` が「REST には存在するが thread 化されていないコメント id」を列挙する
 - `2` / `3` / `4` / `6`: それぞれ引数不正 / 依存不足（gh・jq）/ gh 未認証 / 収集不能。スクリプトが stderr へ出す復旧手順（次の一手）に従って解消してから再実行する
 
 スクリプトはエラー時に stderr へ復旧手順を出して非 0 終了する。部分失敗を無言で握りつぶさないので、`COLLECT_EXIT` を必ず確認すること。

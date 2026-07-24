@@ -5,6 +5,8 @@
 #   gh pr-review-check（CLI）の収集が incomplete/inconclusive のとき、GitHub REST/GraphQL API を
 #   直接叩いて issue comment / review / review thread を漏れなく再収集する。CLI 側が punt していた
 #   「1 スレッドに 51 件以上のコメントがある場合」も per-thread ページネーションで完全取得する。
+#   完全収集の主張は転送成功だけでは行わず、REST review comments と GraphQL thread 化済み
+#   コメントの双方向 ID 突合（クロスソース整合）が一致した場合に限る。
 #
 # 使い方:
 #   collect-review.sh <pr-number> [-R <owner>/<repo>]
@@ -13,14 +15,26 @@
 #
 # 出力（stdout, 単一 JSON オブジェクト。後続フェーズはこの JSON をそのまま消費する）:
 #   {
-#     "schemaVersion": 1,
+#     "schemaVersion": 2,
 #     "pr":          { "owner": string, "repo": string, "number": int },
 #     "collectedAt": string,                # 収集時刻（UTC, ISO8601）
 #     "sources": {                           # ソース別の取得状況（provenance / 完全性）
 #       "issueComments": { "transport": "rest",    "exhausted": bool, "count": int, "errors": [string] },
 #       "reviews":       { "transport": "rest",    "exhausted": bool, "count": int, "errors": [string] },
+#       "reviewComments": { "transport": "rest",   "exhausted": bool, "count": int, "errors": [string] },
 #       "reviewThreads": { "transport": "graphql", "exhausted": bool, "count": int,
 #                          "threadCommentPages": int, "errors": [string] }
+#     },
+#     "consistency": {                       # クロスソース突合（REST review comments vs GraphQL thread 化）
+#       "checked": bool,                     # 両ソース exhausted のときのみ true（false なら以下は判定不能）
+#       "consistent": bool | null,           # 双方向差集合が空 かつ totalCount 照合が不一致でないこと
+#       "restReviewComments": int | null,    # REST pulls/comments の件数
+#       "threadedReviewComments": int | null,# thread 化済みコメント件数（PENDING review 分を除く）
+#       "missingFromThreads": [string],      # REST にあり thread 化されていないコメント node id
+#       "missingFromRest": [string],         # thread 化済みだが REST に無いコメント node id
+#       "reviewThreadsTotalCount": int|null, # GraphQL reviewThreads.totalCount
+#       "collectedReviewThreads": int,       # 実際に収集できた thread 数
+#       "totalCountMatches": bool | null     # totalCount と収集数の一致（totalCount 不明時 null）
 #     },
 #     "entries": [                           # reviews.jsonl 互換エントリ。id は GraphQL node id で統一
 #       # type=thread:        { id, type, action, is_resolved, source, comments:[{id,author,body,created_at}] }
@@ -33,13 +47,18 @@
 #   - action は reaction 由来の状態であり API から復元できないため、本スクリプトは一律 "pending" を付す。
 #     マージ側で CLI 収集済みエントリを優先すれば、既存の done/skip/in_progress は保持される。
 #   - source は取得元（rest/graphql）を示す provenance。thread の解決状態は is_resolved で持つ。
+#   - 突合で PENDING(draft) review のコメントを除外するのは、REST pulls/comments が draft review の
+#     コメントを返さず、除外しないと自分の下書きレビューが恒常的な偽不一致になるため。
+#   - 本スクリプトは突合不一致時のリトライを行わない（CLI 側が有界バックオフ済みで、呼び出し側の
+#     ポーリングループが時間軸の再収集を担うため）。不一致は degraded として即時報告する。
 #
 # 終了コード:
-#   0  完全収集（全ソース exhausted、エラーなし）
+#   0  完全収集（全ソース exhausted、エラーなし、かつクロスソース突合が一致）
 #   2  引数不正（PR 番号の欠落・非整数・不明オプション）
 #   3  依存不足（gh または jq が未導入）
 #   4  gh 未認証
-#   5  degraded（一部ソースでエラー。stdout には収集できた分を出力。sources[].errors に理由）
+#   5  degraded（一部ソースでエラー、またはクロスソース突合が不一致。stdout には収集できた分を出力。
+#      sources[].errors と consistency に理由）
 #   6  収集不能（リポジトリ解決不可・PR 不在など、何も収集できない）
 #   ※ 終了コード >= 2 のとき、stdout は「何も出力しない」「空 envelope を出力する」のどちらもありうる。
 #     消費側は stdout の有無ではなく終了コードで成否を判定すること。
@@ -160,15 +179,18 @@ fetch_rest() {
   return 0
 }
 
+# エントリ集合は変数（argv 経由の --argjson）ではなくファイルで受け渡す。巨大 PR では
+# エントリ JSON が ARG_MAX を超えて jq の exec 自体が失敗するため（--slurpfile で読む）。
+
 # --- issue comments（PR レベルコメント, REST） ---
 IC_EXHAUSTED="true"
 IC_ERRORS="[]"
-IC_ENTRIES="[]"
+printf '[]' >"$TMP/ic_entries.json"
 if fetch_rest "repos/${OWNER}/${REPO}/issues/${NUMBER}/comments?per_page=${REST_PAGE_SIZE}" "$TMP/issue_comments.json"; then
-  IC_ENTRIES=$(jq -c '[.[] | {
+  jq -c '[.[] | {
     id: .node_id, type: "issue_comment", action: "pending",
     author: (.user.login // null), body: .body, source: "rest"
-  }]' "$TMP/issue_comments.json")
+  }]' "$TMP/issue_comments.json" >"$TMP/ic_entries.json"
 else
   IC_EXHAUSTED="false"
   IC_ERRORS=$(jq -Rn --rawfile e "$TMP/issue_comments.json.err" '[$e]')
@@ -177,16 +199,31 @@ fi
 # --- reviews（レビューサマリー, REST） ---
 RV_EXHAUSTED="true"
 RV_ERRORS="[]"
-RV_ENTRIES="[]"
+printf '[]' >"$TMP/rv_entries.json"
 if fetch_rest "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews?per_page=${REST_PAGE_SIZE}" "$TMP/reviews.json"; then
-  RV_ENTRIES=$(jq -c '[.[] | {
+  jq -c '[.[] | {
     id: .node_id, type: "review", action: "pending",
     author: (.user.login // null), state: .state, body: .body, source: "rest"
-  }]' "$TMP/reviews.json")
+  }]' "$TMP/reviews.json" >"$TMP/rv_entries.json"
 else
   RV_EXHAUSTED="false"
   RV_ERRORS=$(jq -Rn --rawfile e "$TMP/reviews.json.err" '[$e]')
 fi
+
+# --- review comments（inline レビューコメント, REST）: クロスソース突合専用 ---
+# entries には thread 経由のコメントを載せるため、ここでは node id 集合だけを保持する。
+# REST と GraphQL は同一のコメント母集団を同一 node id 体系（PRRC_*）で観測しており、
+# どちらか一方だけに存在するコメントは伝播遅延または取りこぼしを意味する。
+RC_EXHAUSTED="true"
+RC_ERRORS="[]"
+printf '[]' >"$TMP/rc_ids.json"
+if fetch_rest "repos/${OWNER}/${REPO}/pulls/${NUMBER}/comments?per_page=${REST_PAGE_SIZE}" "$TMP/review_comments.json"; then
+  jq -c '[.[].node_id] | unique' "$TMP/review_comments.json" >"$TMP/rc_ids.json"
+else
+  RC_EXHAUSTED="false"
+  RC_ERRORS=$(jq -Rn --rawfile e "$TMP/review_comments.json.err" '[$e]')
+fi
+RC_COUNT=$(jq 'length' "$TMP/rc_ids.json")
 
 # ============================================================================
 # GraphQL 収集: review threads をカーソルページネーションで全取得。各スレッドのコメントが
@@ -197,13 +234,14 @@ query($owner: String!, $repo: String!, $number: Int!, $pageSize: Int!, $cursor: 
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       reviewThreads(first: $pageSize, after: $cursor) {
+        totalCount
         pageInfo { hasNextPage endCursor }
         nodes {
           id
           isResolved
           comments(first: $pageSize) {
             pageInfo { hasNextPage endCursor }
-            nodes { id author { login } body createdAt }
+            nodes { id author { login } body createdAt pullRequestReview { state } }
           }
         }
       }
@@ -219,7 +257,7 @@ query($threadId: ID!, $pageSize: Int!, $cursor: String!) {
     ... on PullRequestReviewThread {
       comments(first: $pageSize, after: $cursor) {
         pageInfo { hasNextPage endCursor }
-        nodes { id author { login } body createdAt }
+        nodes { id author { login } body createdAt pullRequestReview { state } }
       }
     }
   }
@@ -230,6 +268,8 @@ GRAPHQL
 TH_EXHAUSTED="true"
 TH_ERRORS="[]"
 TH_COMMENT_PAGES=0
+# GraphQL reviewThreads.totalCount。収集 thread 数との照合（突合の副次条件）に使う。
+TH_TOTAL_COUNT="null"
 
 record_thread_error() {
   # $1 = エラー内容（JSON 配列）。degraded として続行するためのフラグ設定に留める。
@@ -260,10 +300,14 @@ while true; do
     die 6 "PR #${NUMBER} が見つかりません: ${OWNER}/${REPO}"
   fi
 
+  page_total=$(printf '%s' "$result" | jq '.data.repository.pullRequest.reviewThreads.totalCount // "null"')
+  [ "$page_total" != '"null"' ] && TH_TOTAL_COUNT="$page_total"
+
   while IFS= read -r thread; do
     [ -n "$thread" ] || continue
     tid=$(printf '%s' "$thread" | jq -r '.id')
-    comments=$(printf '%s' "$thread" | jq -c '[.comments.nodes[] | {id, author: .author.login, body, created_at: .createdAt}]')
+    # コメントは JSONL ファイルへ蓄積する（argv 渡しは巨大 thread で ARG_MAX を超えるため）
+    printf '%s' "$thread" | jq -c '.comments.nodes[] | {id, author: .author.login, body, created_at: .createdAt, review_state: (.pullRequestReview.state // null)}' >"$TMP/tc.jsonl"
     has_more=$(printf '%s' "$thread" | jq -r '.comments.pageInfo.hasNextPage')
     c_cursor=$(printf '%s' "$thread" | jq -r '.comments.pageInfo.endCursor')
 
@@ -279,15 +323,15 @@ while true; do
         record_thread_error "$(printf '%s' "$extra" | jq -c '.errors')"
         break
       fi
-      more_nodes=$(printf '%s' "$extra" | jq -c '[.data.node.comments.nodes[] | {id, author: .author.login, body, created_at: .createdAt}]')
-      comments=$(jq -cn --argjson a "$comments" --argjson b "$more_nodes" '$a + $b')
+      printf '%s' "$extra" | jq -c '.data.node.comments.nodes[] | {id, author: .author.login, body, created_at: .createdAt, review_state: (.pullRequestReview.state // null)}' >>"$TMP/tc.jsonl"
       has_more=$(printf '%s' "$extra" | jq -r '.data.node.comments.pageInfo.hasNextPage')
       c_cursor=$(printf '%s' "$extra" | jq -r '.data.node.comments.pageInfo.endCursor')
     done
 
-    printf '%s' "$thread" | jq -c --argjson comments "$comments" '{
+    jq -cs '.' "$TMP/tc.jsonl" >"$TMP/tc_arr.json"
+    printf '%s' "$thread" | jq -c --slurpfile comments "$TMP/tc_arr.json" '{
       id, type: "thread", action: "pending",
-      is_resolved: .isResolved, source: "graphql", comments: $comments
+      is_resolved: .isResolved, source: "graphql", comments: $comments[0]
     }' >>"$THREADS_FILE"
   done < <(printf '%s' "$result" | jq -c '.data.repository.pullRequest.reviewThreads.nodes[]')
 
@@ -296,47 +340,110 @@ while true; do
   cursor=$(printf '%s' "$result" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
 done
 
-TH_ENTRIES=$(jq -cs '.' "$THREADS_FILE")
+# review_state は突合専用の内部フィールドのため、出力 entries からは除去して
+# CLI 収集済み reviews.jsonl とのスキーマ互換を保つ。
+jq -cs '.' "$THREADS_FILE" >"$TMP/th_entries_raw.json"
+jq -c 'map(.comments |= map(del(.review_state)))' "$TMP/th_entries_raw.json" >"$TMP/th_entries.json"
 
 # --- 統合 + ID による重複排除（同一 id は先着を残す。issue/review/thread をまたいで排除） ---
-ALL_ENTRIES=$(jq -cn --argjson a "$IC_ENTRIES" --argjson b "$RV_ENTRIES" --argjson c "$TH_ENTRIES" '
-  ($a + $b + $c)
+if ! jq -cn \
+  --slurpfile a "$TMP/ic_entries.json" \
+  --slurpfile b "$TMP/rv_entries.json" \
+  --slurpfile c "$TMP/th_entries.json" '
+  ($a[0] + $b[0] + $c[0])
   | reduce .[] as $e ({seen: {}, out: []};
       ($e.id | tostring) as $k
       | if .seen[$k] then . else .seen[$k] = true | .out += [$e] end)
-  | .out')
+  | .out' >"$TMP/all_entries.json"; then
+  die 6 '収集エントリの統合に失敗しました。一時ファイル領域と jq の動作を確認してください。'
+fi
 
-IC_COUNT=$(printf '%s' "$IC_ENTRIES" | jq 'length')
-RV_COUNT=$(printf '%s' "$RV_ENTRIES" | jq 'length')
-TH_COUNT=$(printf '%s' "$TH_ENTRIES" | jq 'length')
-TOTAL=$(printf '%s' "$ALL_ENTRIES" | jq 'length')
+IC_COUNT=$(jq 'length' "$TMP/ic_entries.json")
+RV_COUNT=$(jq 'length' "$TMP/rv_entries.json")
+TH_COUNT=$(jq 'length' "$TMP/th_entries.json")
+TOTAL=$(jq 'length' "$TMP/all_entries.json")
+
+# --- クロスソース突合（REST review comments vs GraphQL thread 化済みコメント） ---
+# 両ソースが exhausted のときだけ判定できる。PENDING(draft) review のコメントは REST が
+# 返さないため thread 側集合から除外する。
+CONS_CHECKED="false"
+CONS_CONSISTENT="null"
+CONS_MISSING_FROM_THREADS="[]"
+CONS_MISSING_FROM_REST="[]"
+CONS_TOTALCOUNT_MATCHES="null"
+jq -c '[.[].comments[] | select(.review_state != "PENDING") | .id] | unique' "$TMP/th_entries_raw.json" >"$TMP/threaded_ids.json"
+THREADED_COUNT=$(jq 'length' "$TMP/threaded_ids.json")
+if [ "$RC_EXHAUSTED" = "true" ] && [ "$TH_EXHAUSTED" = "true" ]; then
+  CONS_CHECKED="true"
+  CONS_MISSING_FROM_THREADS=$(jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$rest[0] - $th[0] | sort')
+  CONS_MISSING_FROM_REST=$(jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$th[0] - $rest[0] | sort')
+  if [ "$TH_TOTAL_COUNT" != "null" ]; then
+    if [ "$TH_TOTAL_COUNT" -eq "$TH_COUNT" ]; then
+      CONS_TOTALCOUNT_MATCHES="true"
+    else
+      CONS_TOTALCOUNT_MATCHES="false"
+    fi
+  fi
+  if [ "$(printf '%s' "$CONS_MISSING_FROM_THREADS" | jq 'length')" -eq 0 ] \
+    && [ "$(printf '%s' "$CONS_MISSING_FROM_REST" | jq 'length')" -eq 0 ] \
+    && [ "$CONS_TOTALCOUNT_MATCHES" != "false" ]; then
+    CONS_CONSISTENT="true"
+  else
+    CONS_CONSISTENT="false"
+  fi
+fi
 
 # --- 出力（envelope） ---
-jq -n \
+# envelope を生成できなければ stdout は消費不能なので、exit 0 で成功を装わず fatal にする。
+if ! jq -n \
   --arg owner "$OWNER" --arg repo "$REPO" --argjson number "$NUMBER" \
   --arg collectedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   --argjson icExhausted "$IC_EXHAUSTED" --argjson icCount "$IC_COUNT" --argjson icErrors "$IC_ERRORS" \
   --argjson rvExhausted "$RV_EXHAUSTED" --argjson rvCount "$RV_COUNT" --argjson rvErrors "$RV_ERRORS" \
+  --argjson rcExhausted "$RC_EXHAUSTED" --argjson rcCount "$RC_COUNT" --argjson rcErrors "$RC_ERRORS" \
   --argjson thExhausted "$TH_EXHAUSTED" --argjson thCount "$TH_COUNT" \
   --argjson thPages "$TH_COMMENT_PAGES" --argjson thErrors "$TH_ERRORS" \
-  --argjson entries "$ALL_ENTRIES" \
+  --argjson consChecked "$CONS_CHECKED" --argjson consConsistent "$CONS_CONSISTENT" \
+  --argjson threadedCount "$THREADED_COUNT" \
+  --argjson consMissingFromThreads "$CONS_MISSING_FROM_THREADS" \
+  --argjson consMissingFromRest "$CONS_MISSING_FROM_REST" \
+  --argjson thTotalCount "$TH_TOTAL_COUNT" \
+  --argjson consTotalCountMatches "$CONS_TOTALCOUNT_MATCHES" \
+  --slurpfile entries "$TMP/all_entries.json" \
   '{
-    schemaVersion: 1,
+    schemaVersion: 2,
     pr: { owner: $owner, repo: $repo, number: $number },
     collectedAt: $collectedAt,
     sources: {
       issueComments: { transport: "rest",    exhausted: $icExhausted, count: $icCount, errors: $icErrors },
       reviews:       { transport: "rest",    exhausted: $rvExhausted, count: $rvCount, errors: $rvErrors },
+      reviewComments: { transport: "rest",   exhausted: $rcExhausted, count: $rcCount, errors: $rcErrors },
       reviewThreads: { transport: "graphql", exhausted: $thExhausted, count: $thCount, threadCommentPages: $thPages, errors: $thErrors }
     },
-    entries: $entries
-  }'
+    consistency: {
+      checked: $consChecked,
+      consistent: $consConsistent,
+      restReviewComments: (if $consChecked then $rcCount else null end),
+      threadedReviewComments: (if $consChecked then $threadedCount else null end),
+      missingFromThreads: $consMissingFromThreads,
+      missingFromRest: $consMissingFromRest,
+      reviewThreadsTotalCount: $thTotalCount,
+      collectedReviewThreads: $thCount,
+      totalCountMatches: $consTotalCountMatches
+    },
+    entries: $entries[0]
+  }'; then
+  die 6 'envelope の生成に失敗しました。stdout は不完全であり消費してはならない。'
+fi
 
 # --- 終了コード判定 ---
-if [ "$IC_EXHAUSTED" = "true" ] && [ "$RV_EXHAUSTED" = "true" ] && [ "$TH_EXHAUSTED" = "true" ]; then
+# exit 0 は「全ソース転送完了」かつ「クロスソース突合一致」の両方を満たしたときに限る。
+# 突合不一致は収集欠落の兆候であり、degraded として消費側の判断（再収集・欠落分の個別取得）へ渡す。
+if [ "$IC_EXHAUSTED" = "true" ] && [ "$RV_EXHAUSTED" = "true" ] && [ "$TH_EXHAUSTED" = "true" ] \
+  && [ "$RC_EXHAUSTED" = "true" ] && [ "$CONS_CONSISTENT" = "true" ]; then
   exit 0
 elif [ "$TOTAL" -eq 0 ]; then
   die 6 '全ソースの収集に失敗しました。gh の認証状態・ネットワーク・リポジトリ/PR 番号を確認してください（stdout の sources[].errors に詳細）。'
 else
-  die 5 '一部ソースの収集が不完全です（degraded）。stdout の sources[].exhausted と errors を確認し、degraded collection として後続処理してください。'
+  die 5 '一部ソースの収集が不完全、またはクロスソース突合が不一致です（degraded）。stdout の sources[].exhausted・consistency・errors を確認し、degraded collection として後続処理してください。'
 fi
