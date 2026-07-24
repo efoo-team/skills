@@ -11,7 +11,7 @@ metadata:
 
 ## 目的
 
-このコマンドは control plane として動作する。収集は `gh pr-review-check` を実行する収集ワーカーに委譲し、分類・グループ化・ワークパケット生成は**レビュー分類用サブエージェント（環境が提供するもの。デフォルト例: Oracle）**に委譲し、実装・返信・resolve などの実作業は実行ワーカーに委譲する。サブエージェント機構が無い環境（例: Codex）では、parent 自身がこれらを縮退実行する（「サブエージェントが無い環境での縮退」を参照）。parent は basic-set（`output_dir`, `pr-meta.json`, `reviews.jsonl`, `collection-manifest.json`、必要に応じて収集サイクル識別子）を受け取り、完全性ゲート・fallback 起動・Phase 3 の軽量前処理・Phase 7/8 のループ継続判定を管理する。
+このコマンドは control plane として動作する。収集は `gh pr-review-check` を実行する収集ワーカーに委譲し、分類・グループ化・ワークパケット生成は**レビュー分類用サブエージェント（環境が提供するもの。デフォルト例: Oracle）**に委譲し、実装・返信・resolve などの実作業は実行ワーカーに委譲する。サブエージェント機構が無い環境（例: Codex）では、parent 自身がこれらを縮退実行する（「サブエージェントが無い環境での縮退」を参照）。parent は basic-set（`output_dir`, `pr-meta.json`, 収集エントリファイル（`reviews.json` または `reviews.jsonl`）, `collection-manifest.json`、必要に応じて収集サイクル識別子）を受け取り、完全性ゲート・fallback 起動・Phase 3 の軽量前処理・Phase 7/8 のループ継続判定を管理する。
 
 ## 最重要遵守ルール
 
@@ -25,7 +25,7 @@ metadata:
 8. **ステータス管理はGitHub Reactionsで行う（+1=完了, -1=スキップ, eyes=対応中）**
 9. **Phase 7 の待機は固定 `sleep 600` ではなく、初回 2〜3 分待機 → 以後は指数バックオフでポーリングする（根拠と縮退は `references/orchestration-protocol.md` の Phase 7）。長時間のブロッキング sleep が実行できないハーネスでは、待機は「次の再収集までの間隔確保」と読み替えてよい。ただし Phase 7 自体の省略・即完了は禁止。**
 10. **Phase 6完了後、Phase 7→8のポーリングループを必ず実行すること。ループをスキップして完了とすることは禁止。新規の actionable entry がなくなるまでループを継続すること。**
-11. **通常収集は必ず収集ワーカーに委譲し、`gh pr-review-check` の出力として得られる basic-set（`output_dir`, `pr-meta.json`, `reviews.jsonl`, `collection-manifest.json`、必要に応じて収集サイクル識別子）を parent が受け取って後続フェーズへ渡す。**
+11. **通常収集は必ず収集ワーカーに委譲し、`gh pr-review-check` の出力として得られる basic-set（`output_dir`, `pr-meta.json`, 収集エントリファイル（`reviews.json` または `reviews.jsonl`）, `collection-manifest.json`、必要に応じて収集サイクル識別子）を parent が受け取って後続フェーズへ渡す。**
 12. **parent は `collection-manifest.json` の完全性ゲート、`incomplete/inconclusive` 時の fallback 起動判断、Phase 3 の軽量前処理、Phase 7/8 のループ所有だけを担う。parent 自身が妥当性判断・skip/fix判断・実装判断を抱え込んではならない。**
 13. **分類担当サブエージェントは環境が提供するレビュー分類用サブエージェント（デフォルト例: Oracle）を使う。small run では basic-set 一式を分類サブエージェント1体へ渡してよいが、medium/large run では parent が coarse shard を作成し、分類サブエージェント複数体へ並列委譲する。サブエージェント機構が無い環境では parent 自身が縮退実行する（「サブエージェントが無い環境での縮退」参照）。**
 14. **parent に許可される前処理は coarse grouping を含む索引化・分割・圧縮である。`path` / `directory prefix` / `feature proxy` / `dependency hint` に基づく「ざっくりグルーピング」までは parent が行ってよいが、validity 判定、`fix/skip/hold` 判定、優先度判断は分類サブエージェント以降（縮退時は parent の分類フェーズ）の責務であり、coarse grouping の段階で先取りしてはならない。**
