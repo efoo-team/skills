@@ -366,17 +366,19 @@ TOTAL=$(jq 'length' "$TMP/all_entries.json")
 # --- クロスソース突合（REST review comments vs GraphQL thread 化済みコメント） ---
 # 両ソースが exhausted のときだけ判定できる。PENDING(draft) review のコメントは REST が
 # 返さないため thread 側集合から除外する。
+# 差集合はコメント総数に比例して伸びうるため、シェル変数を経由させずファイルで受け渡す
+# （argv 渡しに戻すと ARG_MAX 超過の再導入になる）。
 CONS_CHECKED="false"
 CONS_CONSISTENT="null"
-CONS_MISSING_FROM_THREADS="[]"
-CONS_MISSING_FROM_REST="[]"
 CONS_TOTALCOUNT_MATCHES="null"
+printf '[]' >"$TMP/cons_missing_from_threads.json"
+printf '[]' >"$TMP/cons_missing_from_rest.json"
 jq -c '[.[].comments[] | select(.review_state != "PENDING") | .id] | unique' "$TMP/th_entries_raw.json" >"$TMP/threaded_ids.json"
 THREADED_COUNT=$(jq 'length' "$TMP/threaded_ids.json")
 if [ "$RC_EXHAUSTED" = "true" ] && [ "$TH_EXHAUSTED" = "true" ]; then
   CONS_CHECKED="true"
-  CONS_MISSING_FROM_THREADS=$(jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$rest[0] - $th[0] | sort')
-  CONS_MISSING_FROM_REST=$(jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$th[0] - $rest[0] | sort')
+  jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$rest[0] - $th[0] | sort' >"$TMP/cons_missing_from_threads.json"
+  jq -cn --slurpfile rest "$TMP/rc_ids.json" --slurpfile th "$TMP/threaded_ids.json" '$th[0] - $rest[0] | sort' >"$TMP/cons_missing_from_rest.json"
   if [ "$TH_TOTAL_COUNT" != "null" ]; then
     if [ "$TH_TOTAL_COUNT" -eq "$TH_COUNT" ]; then
       CONS_TOTALCOUNT_MATCHES="true"
@@ -384,8 +386,8 @@ if [ "$RC_EXHAUSTED" = "true" ] && [ "$TH_EXHAUSTED" = "true" ]; then
       CONS_TOTALCOUNT_MATCHES="false"
     fi
   fi
-  if [ "$(printf '%s' "$CONS_MISSING_FROM_THREADS" | jq 'length')" -eq 0 ] \
-    && [ "$(printf '%s' "$CONS_MISSING_FROM_REST" | jq 'length')" -eq 0 ] \
+  if [ "$(jq 'length' "$TMP/cons_missing_from_threads.json")" -eq 0 ] \
+    && [ "$(jq 'length' "$TMP/cons_missing_from_rest.json")" -eq 0 ] \
     && [ "$CONS_TOTALCOUNT_MATCHES" != "false" ]; then
     CONS_CONSISTENT="true"
   else
@@ -405,8 +407,8 @@ if ! jq -n \
   --argjson thPages "$TH_COMMENT_PAGES" --argjson thErrors "$TH_ERRORS" \
   --argjson consChecked "$CONS_CHECKED" --argjson consConsistent "$CONS_CONSISTENT" \
   --argjson threadedCount "$THREADED_COUNT" \
-  --argjson consMissingFromThreads "$CONS_MISSING_FROM_THREADS" \
-  --argjson consMissingFromRest "$CONS_MISSING_FROM_REST" \
+  --slurpfile consMissingFromThreads "$TMP/cons_missing_from_threads.json" \
+  --slurpfile consMissingFromRest "$TMP/cons_missing_from_rest.json" \
   --argjson thTotalCount "$TH_TOTAL_COUNT" \
   --argjson consTotalCountMatches "$CONS_TOTALCOUNT_MATCHES" \
   --slurpfile entries "$TMP/all_entries.json" \
@@ -425,8 +427,8 @@ if ! jq -n \
       consistent: $consConsistent,
       restReviewComments: (if $consChecked then $rcCount else null end),
       threadedReviewComments: (if $consChecked then $threadedCount else null end),
-      missingFromThreads: $consMissingFromThreads,
-      missingFromRest: $consMissingFromRest,
+      missingFromThreads: $consMissingFromThreads[0],
+      missingFromRest: $consMissingFromRest[0],
       reviewThreadsTotalCount: $thTotalCount,
       collectedReviewThreads: $thCount,
       totalCountMatches: $consTotalCountMatches
