@@ -127,7 +127,9 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 以下の操作は**絶対に行ってはならない**:
 
 1. **ノイズエントリへの操作禁止**: Phase 3 で「ノイズ」と判定した `issue_comment` に対して、Reaction 付与・コメント投稿・`gh pr-review-check resolve` の呼び出しを行ってはならない
-2. **新規トップレベルコメントの投稿禁止**: PR に対する新規の `issue_comment`（トップレベルコメント）を投稿してはならない。コメントは必ず既存スレッドへの返信（`addPullRequestReviewThreadReply`）として行う
+2. **新規トップレベルコメントの投稿禁止**: PR に対する新規の `issue_comment`（トップレベルコメント）を投稿してはならない。コメントは必ず既存スレッドへの返信（`addPullRequestReviewThreadReply`）として行う。**例外は次の2つのみ**:
+   - **返信先スレッドが存在しない指摘への対応報告**: `type: review` 本文内の outside-diff 指摘（プラットフォーム制約で inline thread 化されない指摘。CodeRabbit は review 本文冒頭に「Some comments are outside the diff and can't be posted inline」と明記する）は、スレッド返信が原理的に不可能で放置すると未応答に見えるため、対象ファイル・行と指摘の fingerprint（例: `cr-comment:v1:...`）を明記した**集約トップレベルコメント1件**で対応報告してよい（投稿手順は `status-and-resolve.md` を参照）
+   - **AI 再レビューのトリガー投稿**: Phase 7 でレート制限等により push 後の自動再レビューが走らない場合に限り、`@coderabbitai review` 等の再レビュー運用コマンドを投稿してよい
 3. **resolve 不可能な type への resolve 禁止**: `type: issue_comment` および `type: review` に対して `resolveReviewThread` を呼び出してはならない（GitHub API の制約上エラーになる）
 4. **人間レビュアー起票スレッドの自動 resolve 禁止**: 人間（非 bot）が起票したスレッドを自動的に resolve してはならない。返信と reaction のみ行い、resolve は人間レビュアーに委ねる
 5. **push 失敗時の resolve 禁止**: テストやプッシュが失敗した状態でスレッドを resolve してはならない。`in_progress` のまま維持する
