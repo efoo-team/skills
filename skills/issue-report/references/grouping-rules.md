@@ -43,12 +43,16 @@
 ## 5. 既存 issue 照合規則
 
 - 照合対象は **open issue 全件**（`issue-index.json`）。closed issue は照合しない
-- 各既存 issue の対象領域は、本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読む。定型記載が無い issue（本スキル以外で作られたもの等）は、タイトルと本文から領域を推定し `areaSource: "inferred"` とする
+- 各既存 issue の対象領域は、本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読む。定型記載が無い issue（本スキル以外で作られたもの等）は、タイトルと本文から領域を推定し `areaSource: "inferred"` とする。タイトル・本文からも領域を推定できない issue（実行ログ・作業記録などのメタ issue が該当しうる）は `areas: []`・`areaSource: "none"` とし、**統合先候補にしない**（あてずっぽうの推定で課題以外の issue へ本文統合することを防ぐ）
 - ケースの想定変更領域と既存 issue の対象領域に §2 の重なりがあれば、そのケースは**既存 issue への統合候補**（`action: merge`）とする。ただし:
   - 横断ラベル付き issue への統合は、ケースの主対象が同一の横断領域である場合（§3 規則2）に限る
   - 通常ケースが横断領域への接触だけで既存の横断 issue と重なっても、統合しない（§3 規則1）
 - 複数の既存 issue と重なる場合は、主対象（`primary`）の重なりが最も強い1件へ統合する
-- 統合先が進行中かどうか（アサイン・リンクされた PR の有無）は考慮しない。仕組みをシンプルに保つため、重なりがあれば統合する
+- **統合先候補に、その issue を参照する open PR が存在する場合は統合先不適格**とする。該当ケースは `action: new` へ切替えて新規 issue とし、統合しなかった関連 issue を `relatedInFlight` に記録する（起草ワーカーが開発者向け参考情報の「関連:」行に書く）。open PR には `Closes #<番号>` 参照を含むものがあり、統合直後に PR がマージされると issue が閉じ、追記したケースが未対応のまま消えるためである（本文書き換えは購読者への通知を生まないため、消失には誰も気づけない）
+- open 参照 PR の確認は、merge 候補となった issue に対してのみ、次の2系統を併用して行う（テキスト検索は GitHub の Development 欄でのみリンクされた PR を、closing 参照の照会は closing キーワード無しで本文が番号に触れるだけの PR を、それぞれ取りこぼすため）。どちらかで open PR が1件でも見つかれば不適格とする:
+  - `gh pr list --state open --limit 100 --search "#<番号> in:title,body" --json number`
+  - `gh api graphql -F owner='{owner}' -F name='{repo}' -F number=<番号> -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { closedByPullRequestsReferences(first: 100, includeClosedPrs: true) { nodes { number state } pageInfo { hasNextPage endCursor } } } } }'` — `state` が `OPEN` のものだけを採用する。`pageInfo.hasNextPage` が true の間は `after` 引数へ `endCursor` を渡して同じクエリを繰り返し、全ページを取得する
+- 統合先の不適格条件は上記の open 参照 PR の存在のみとする。アサインの有無は従来どおり考慮せず、マージされず closed になった PR の存在も統合を妨げない（closed PR は修正の試みの却下であり、課題の集約自体を妨げる理由にならない）
 
 ## 6. 出力に必ず含めるもの
 
@@ -56,3 +60,4 @@
 
 - `rationale`: どの領域の重なり（またはどの規則の適用）で統合・分離したかの根拠。開発者向けの技術表現でよい
 - `userExplanation`: parent がそのままユーザーへ提示できる、技術用語・ファイルパスを使わないグルーピング理由（例: 「1つ目と3つ目は同じ『注文履歴』の画面の仕組みに関係するため、1つの課題にまとめます」）
+- `relatedInFlight`: open 参照 PR の存在により `merge` から `new` へ切替えたグループのみ必須。統合しなかった関連 issue と open PR の番号を書く。切替えたグループでは、`rationale` に切替えの根拠を、`userExplanation` に「同じ場所の課題がいま対応中のため、混ざらないよう新しい課題として登録します」のような画面の言葉での説明を含める

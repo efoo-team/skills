@@ -127,7 +127,7 @@ Common-layer skills currently in `skills/` (28). "Invocation" is `explicit-only`
 | `documentation-sync` | Verifies/syncs docs against code changes from git diff | auto |
 | `execute` | Orchestrates and delegates a complex task | explicit-only |
 | `formation-designer` | oh-my-openagent (formerly oh-my-opencode) formation (agent-model) design guide (internal, opencode only) | auto |
-| `issue-report` | Takes multi-case reports from non-engineers, investigates each case with parallel subagents, groups them by touch-set overlap into conflict-free issues for parallel worktree development, then files new GitHub issues or merges into existing ones after approval | explicit-only |
+| `issue-report` | Takes multi-case reports from non-engineers, investigates each case with parallel subagents, groups them by touch-set overlap into conflict-free issues for parallel worktree development, then files new GitHub issues or merges into existing ones after approval, labeling each touched issue `needs-triage` as an engineer review gate | explicit-only |
 | `mastra-ai-architecture-rules` | Responsibility boundaries for Mastra-based AI services | auto |
 | `mastra-framework-guide` | Verifying current Mastra API/docs and version-migration guidance | auto |
 | `module-boundary-design` | Module boundary and responsibility-split design judgment | auto |
