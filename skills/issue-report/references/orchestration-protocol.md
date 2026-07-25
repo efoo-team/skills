@@ -217,7 +217,8 @@ parent は次の2系統を**同時並行**で起動し、完了を待つ。paren
 
 **issue 索引ワーカー（1体）への依頼**: `gh issue list --state open` を全件取得し、各 issue の本文から対象領域を抽出して `issue-index.json` を出力させる。
 
-- 全件取得の確認: 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、limit を倍にして再取得し、取得件数が limit を下回って全 open issue を取得したことを確認する。固定上限での打ち切りは、上限を超えた issue が照合から恒久的に漏れ、統合先の見逃し（重複 issue の温床）につながる
+- 全件取得の確認: 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、**取得件数が limit を下回るまで** limit を倍にした再取得を繰り返す。倍増は1回では足りないことがある（open issue が初回上限の2倍以上あるリポジトリでは、倍増後も再び上限に達する）。繰り返しに代えて、`gh api graphql` で `pageInfo.hasNextPage` を辿り最後まで走査してもよい（REST の `/issues` は PR も返すため、issue のみを返す方法を選ぶ）
+- 取得件数が limit と一致したまま打ち切ってはならない。上限を超えた issue は照合から恒久的に漏れ、統合先の見逃し（重複 issue の温床）につながる
 - 対象領域は本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読み、無い issue は本文テキストから推定して `areaSource: "inferred"` を付ける。タイトル・本文からも推定できない issue（実行ログ等のメタ issue が該当しうる）は `areas: []`・`areaSource: "none"` とする
 - `crossCutting` はラベル `scope:cross-cutting` の有無のみで判定する
 
@@ -328,19 +329,32 @@ parent が登録計画をサマリー表で一括提示する:
 
 ### 7-2: 登録実行
 
+**ラベルの事前準備（parent が実行ワーカー起動前に1回・直列）**: 確認待ちラベル `needs-triage` と、横断グループが1つ以上ある場合は `scope:cross-cutting` が対象リポジトリに存在する状態を先に作る。ラベルはリポジトリ全体の前提条件であって packet ごとの issue 操作ではないため、並列で動く実行ワーカー側では `gh label create` を実行しない（複数ワーカーによる同時作成の競合を避ける）:
+
+- `gh label list --json name` で既存ラベルを確認し、不足しているものだけを作成する: `gh label create needs-triage --description "issue-report による起票。エンジニアの内容確認待ち（確認後にこのラベルを外す）" --color FBCA04` / `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7`
+- 作成が「already exists」で失敗した場合は成功として扱う（別経路で用意済みのため。冪等）。既存ラベルの色・説明は上書きしない（`--force` は使わない）
+- 必要なラベルを用意できなかった場合は**実行ワーカーを起動しない**。確認待ちラベルの付かない issue はエンジニアのレビューゲート（オートメーションによる後段処理を含む）をすり抜けるため、登録を進めず 7-3 の手動登録案内へ倒す（gh が使えない場合と同じ扱い）
+
 **実行ワーカー（1 issue 操作 = 1 packet・並列）への依頼**: 承認済みの packet 1件（draft ファイルのパス〈`merge` は付随する `.meta.json` を含む〉・操作種別・統合先番号・ラベル指示のみ）を渡す。計画全体や他グループの情報を渡してはならない。
 
-- `action: new`: `gh issue create --title "<grouping-plan の title>" --body-file <draft>` で登録する。種別ラベルは `gh label list` で既存ラベルを確認し、グループに含まれるケースの種別に対応する bug / enhancement 相当のものを**すべて**付与する（不具合系と要望系が混在するグループは両方。相当ラベルが無ければ種別ラベルなしで登録する）
-- `action: new` の全件: 確認待ちラベル `needs-triage` を付与する。ラベルが存在しなければ `gh label create needs-triage --description "issue-report による起票。エンジニアの内容確認待ち（確認後にこのラベルを外す）" --color FBCA04` で作成してから付与する
-- `action: new` かつ `crossCutting: true`: 追加でラベル `scope:cross-cutting` を付与する（`【横断】` 接頭辞は分類エージェントが `title` に含めて確定済みのため、実行ワーカーはタイトルへ手を加えない）。ラベルが存在しなければ `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7` で作成してから付与する
-- `action: merge` の直前再検証: `gh issue edit` の実行直前に次の2点を確認する。いずれかが満たされない場合は**書き込まずに**中断し、検出した変化を parent へ返す。parent は 7-1 の差し戻しループを再利用し、open PR の出現なら該当グループを `action: new` へ切替えて再起草、本文の変化なら現行本文を再取得して再起草し、再承認を得てから実行し直す:
+- `action: new`: `gh issue create --title "<grouping-plan の title>" --body-file <draft> --label needs-triage[,<種別ラベル>][,scope:cross-cutting]` の**1コマンド**で、本文とラベルを同時に確定して登録する。issue を作ってからラベルを後付けする手順にしてはならない（付与が失敗すると確認待ちラベルなしの issue が残る）
+  - 確認待ちラベル `needs-triage` は `action: new` の全件で必ず指定する
+  - 種別ラベル: `gh label list` で既存ラベルを確認し、グループに含まれるケースの種別に対応する bug / enhancement 相当のものを**すべて**指定する（不具合系と要望系が混在するグループは両方。相当ラベルが無ければ種別ラベルなしで登録する）
+  - `crossCutting: true` のグループ: `scope:cross-cutting` も同時に指定する（`【横断】` 接頭辞は分類エージェントが `title` に含めて確定済みのため、実行ワーカーはタイトルへ手を加えない）
+  - 登録後に `gh issue view <番号> --json labels` で `needs-triage` が付いていることを確認する（権限が不足するアカウントではラベル指定が黙って無視されることがある）。付いていなければ `gh issue edit <番号> --add-label needs-triage` で付与し、それも失敗した場合は成功扱いにせず parent へ返す
+  - コマンドが失敗した場合は成功扱いにせず、**ラベル指定を外した再実行もしない**。issue が作られていないことを確認したうえで、失敗として parent へ返す
+- `action: merge` の直前再検証: `gh issue edit` の実行直前に `gh issue view <番号> --json body,updatedAt` と open PR の確認を行い、次の2点がともに満たされることを確認する。満たされない場合、および確認自体が完了しなかった場合（API エラー・応答から判断できない場合）は**書き込まずに**中断し、再取得した現行本文・`updatedAt`・検出した変化を parent へ返す。parent は 7-1 の差し戻しループを再利用し、open PR の出現なら該当グループを `action: new` へ切替えて再起草、本文の変化なら返された現行本文から再起草し、再承認を得てから実行し直す（同じ draft のまま自動で再試行してはならない）:
   - その issue を参照する open PR が新たに現れていないこと（[`grouping-rules.md`](grouping-rules.md) §5 と同じ2系統の確認）
-  - `gh issue view <番号> --json updatedAt` の値が、起草時に `drafts/update-<issue番号>.meta.json` へ記録した値と一致すること（不一致は起草後に本文が書き換えられた印であり、そのまま上書きすると第三者の編集を消してしまう）
-- `action: merge`: 直前再検証を通過したら `gh issue edit <番号> --body-file <draft> --add-label needs-triage` で本文書き換えと確認待ちラベル付与を同時に行う（`needs-triage` が存在しなければ `action: new` と同じコマンドで作成してから実行する。タイトルは原則変更しない。変更が承認済み計画に含まれる場合のみ `--title` を併用する）
-- 操作結果（issue URL・成功/失敗・直前再検証による中断とその理由）を parent へ返す
+  - `updatedAt` が、起草時に `drafts/update-<issue番号>.meta.json` へ記録した値と一致すること（不一致は起草後に issue が更新された印であり、本文が書き換えられていればそのまま上書きすると第三者の編集を消してしまう）。`updatedAt` はコメント追加・ラベル変更でも進むため不一致が必ず本文改変を意味するわけではないが、区別せず中断する（fail-closed）
+- **再検証と書き込みを連続して実行する**: GitHub Issues の更新 API には条件付き更新（`If-Match` / ETag）が無く、再検証の後に入った第三者編集を書き込み側で弾く手段が存在しない。再検証と `gh issue edit` の間にユーザー確認・他 packet の処理・待機を挟まず、この2つを間隔を空けずに実行して競合が入り込む時間を最小化する
+- `action: merge` の書き込み: 直前再検証を通過したら `gh issue edit <番号> --body-file <draft> --add-label needs-triage` で本文書き換えと確認待ちラベル付与を同時に行う（ラベルは事前準備済みのため、ここで `gh label create` は行わない。タイトルは原則変更しない。変更が承認済み計画に含まれる場合のみ `--title` を併用する）。コマンドが失敗した場合は成功扱いにせず、`--add-label` を外した再実行もしない。`gh issue view <番号> --json body,labels` で現状（本文が書き換わったか・ラベルが付いたか）を確認し、結果を parent へ返す
+- `action: merge` の書き込み後確認: `gh issue view <番号> --json body,updatedAt` を取得し、本文が書き込んだ draft と一致しない場合は、再検証から書き込みまでの間に第三者編集が入った（またはこちらが上書きした）可能性があるため、書き込み直前に取得していた本文とあわせて parent へ報告する。自動での復元・再書き込みは行わない
+- 操作結果（issue URL・成功/失敗・直前再検証による中断とその理由・書き込み後確認の結果）を parent へ返す
 
 ### 7-3: 完了報告
 
 parent が登録・更新した issue の URL 一覧をユーザーに報告する。あわせて「登録した課題にはエンジニアの内容確認待ちの印が付いています。確認が済むと対応の順番に入ります」と平易に案内する。失敗した packet があれば、失敗内容と再試行または手動登録の案内を平易な言葉で伝える。
 
-**gh コマンドが使えない・認証されていない場合**: エラーで止めず、承認済みの各 draft（タイトルと本文）をコピーできる形で提示し、手動登録の手順（GitHub でこのプロジェクトのページを開く → Issues タブ → New issue → 貼り付けて Submit）を平易な言葉で案内する。
+書き込み後確認で本文の不一致が報告された packet があれば、その issue を「エンジニアに内容を見てもらう必要がある課題」として URL つきでユーザーへ伝え、実行ワーカーが返した書き込み直前の本文を parent の応答に残す（どちらの内容を残すかの判断・復元はエンジニアが行い、parent は再書き込みをしない）。
+
+**gh コマンドが使えない・認証されていない場合、および 7-2 のラベル事前準備に失敗した場合**: エラーで止めず、承認済みの各 draft（タイトルと本文）をコピーできる形で提示し、手動登録の手順（GitHub でこのプロジェクトのページを開く → Issues タブ → New issue → 貼り付けて Submit）を平易な言葉で案内する。

@@ -38,7 +38,7 @@
 
 - **正本はラベル `scope:cross-cutting`**。横断 issue かどうかの判定は、このラベルの有無**のみ**で行う
 - タイトル接頭辞 **`【横断】`** は人間が issue 一覧で識別するための表示であり、判定には使わない（「横断」「共通」等の語がタイトルに含まれていても、ラベルが無ければ横断 issue として扱わない）
-- 新規の横断 issue では、分類エージェントが `grouping-plan.json` の `title` に `【横断】` 接頭辞を含めて確定し、実行ワーカーがラベル `scope:cross-cutting` を付与する。ラベルがリポジトリに存在しない場合は `gh label create` で作成する（コマンドは `orchestration-protocol.md` Phase 7-2）
+- 新規の横断 issue では、分類エージェントが `grouping-plan.json` の `title` に `【横断】` 接頭辞を含めて確定し、実行ワーカーがラベル `scope:cross-cutting` を付与する。ラベルがリポジトリに存在しない場合は、実行ワーカー起動前に parent が作成する（コマンドは `orchestration-protocol.md` Phase 7-2）
 
 ## 5. 既存 issue 照合規則
 
@@ -49,9 +49,9 @@
   - 通常ケースが横断領域への接触だけで既存の横断 issue と重なっても、統合しない（§3 規則1）
 - 複数の既存 issue と重なる場合は、主対象（`primary`）の重なりが最も強い1件へ統合する
 - **統合先候補に、その issue を参照する open PR が存在する場合は統合先不適格**とする。該当ケースは `action: new` へ切替えて新規 issue とし、統合しなかった関連 issue を `relatedInFlight` に記録する（起草ワーカーが開発者向け参考情報の「関連:」行に書く）。open PR には `Closes #<番号>` 参照を含むものがあり、統合直後に PR がマージされると issue が閉じ、追記したケースが未対応のまま消えるためである（本文書き換えは購読者への通知を生まないため、消失には誰も気づけない）
-- open 参照 PR の確認は、merge 候補となった issue に対してのみ、次の2系統を併用して行う（テキスト検索は GitHub の Development 欄でのみリンクされた PR を、closing 参照の照会は closing キーワード無しで本文が番号に触れるだけの PR を、それぞれ取りこぼすため）。どちらかで open PR が1件でも見つかれば不適格とする:
-  - `gh pr list --state open --limit 100 --search "#<番号> in:title,body" --json number`
-  - `gh api graphql -F owner='{owner}' -F name='{repo}' -F number=<番号> -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { issue(number: $number) { closedByPullRequestsReferences(first: 100, includeClosedPrs: true) { nodes { number state } pageInfo { hasNextPage endCursor } } } } }'` — `state` が `OPEN` のものだけを採用する。`pageInfo.hasNextPage` が true の間は `after` 引数へ `endCursor` を渡して同じクエリを繰り返し、全ページを取得する
+- open 参照 PR の確認は、merge 候補となった issue に対してのみ、次の2系統を併用して行う（テキスト検索は GitHub の Development 欄でのみリンクされた PR を、closing 参照の照会は closing キーワード無しで本文が番号に触れるだけの PR を、それぞれ取りこぼすため）。**どちらの系統も固定上限で打ち切らず全件取得する**（打ち切りは open PR の見落とし、すなわち不適格判定の取りこぼしを生み、このガードが無言で無効化される）。どちらかで open PR が1件でも見つかれば不適格とする:
+  - `gh pr list --state open --limit 100 --search "#<番号> in:title,body" --json number` — 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、**取得件数が limit を下回るまで** limit を倍にした再取得を繰り返す（倍増1回では足りないことがある。参照 PR が初回上限の2倍以上ある issue では、倍増後も再び上限に達する）。issue 索引の全件取得と同じ確認手順である（`orchestration-protocol.md` Phase 2）
+  - `gh api graphql -F owner='{owner}' -F name='{repo}' -F number=<番号> -f query='query($owner: String!, $name: String!, $number: Int!, $after: String) { repository(owner: $owner, name: $name) { issue(number: $number) { closedByPullRequestsReferences(first: 100, includeClosedPrs: true, after: $after) { nodes { number state } pageInfo { hasNextPage endCursor } } } } }'` — `state` が `OPEN` のものだけを採用する。初回は `after` を渡さない（宣言済みの `$after` は未指定なら null として扱われ、先頭ページが返る）。`pageInfo.hasNextPage` が true の間は `-f after='<endCursor>'` を追加して同じクエリを繰り返し、全ページの `nodes` を統合して判定する（カーソルは文字列であり、`-F` は数値に見える値を Int へ変換してしまうため、`after` は `-f` で渡す）
 - 統合先の不適格条件は上記の open 参照 PR の存在のみとする。アサインの有無は従来どおり考慮せず、マージされず closed になった PR の存在も統合を妨げない（closed PR は修正の試みの却下であり、課題の集約自体を妨げる理由にならない）
 
 ## 6. 出力に必ず含めるもの
