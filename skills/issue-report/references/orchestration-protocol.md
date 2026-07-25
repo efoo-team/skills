@@ -30,7 +30,8 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 ├── grouping-plan.json        # 分類エージェント出力
 └── drafts/
     ├── new-<groupId>.md      # 新規 issue の起草本文（本文のみ。タイトルは grouping-plan.json の title）
-    └── update-<issue番号>.md # 統合先 issue の書き換え後完成本文（本文のみ）
+    ├── update-<issue番号>.md # 統合先 issue の書き換え後完成本文（本文のみ）
+    └── update-<issue番号>.meta.json # 統合先の起草時 updatedAt（実行ワーカーの直前再検証用）
 ```
 
 ### cases.json
@@ -72,6 +73,9 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
   "missingInfo": [
     { "item": "再現手順", "critical": true },
     { "item": "発生頻度", "critical": false }
+  ],
+  "intentSignals": [
+    "並び替え時に一覧を全件再取得する挙動を明示的に検証する既存テストが存在する"
   ]
 }
 ```
@@ -80,6 +84,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 - `touchAreas`: 想定変更領域。粒度は領域単位（画面 / ルート / モジュール / ディレクトリ prefix）とし、ファイル単位の変更予測はしない（[`grouping-rules.md`](grouping-rules.md)）。`primary` はケースの主対象、`crossCutting` は横断領域（共有コンポーネント等）への接触
 - `confidence`: `high` | `low`。対象特定の確度（Phase 3 のトリアージに使う）
 - `missingInfo`: 開発者がそのまま動くために不足している情報。`critical: true` は開発着手を左右する不足
+- `intentSignals`: 任意。報告された挙動が意図的な実装に見えることを示す、読み取りで確認できた**事実のみ**（その挙動を明示する条件分岐・既存テスト・ドキュメント記述の存在等）。仕様の正否の判断や推測は書かない。該当が無ければ省略する。起草ワーカーが issue の開発者向け参考情報へ転記する
 
 ### hearing-<id>.json
 
@@ -117,7 +122,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 ```
 
 - `crossCutting`: ラベル `scope:cross-cutting` の有無（ラベルのみで判定。タイトル文言では判定しない）
-- `areaSource`: `declared`（本文の「対象領域:」定型記載から取得）| `inferred`（定型記載が無く本文から推定）
+- `areaSource`: `declared`（本文の「対象領域:」定型記載から取得）| `inferred`（定型記載が無く本文から推定）| `none`（推定も不能。`areas` は空配列とし、分類エージェントは統合先候補にしない）
 
 ### grouping-plan.json
 
@@ -154,6 +159,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 - `action`: `new`（新規登録）| `merge`（既存 issue へ本文統合）
 - `title`: 新規グループの issue タイトル（「どこで・何が」形式。横断グループは分類エージェントが `【横断】` 接頭辞を含めて確定する）。`merge` グループは `null`
 - `userExplanation`: parent がユーザーへ提示する、技術用語を使わないグルーピング理由（分類エージェントが必ず書く）
+- `relatedInFlight`: 任意。open な参照 PR により統合先不適格となった候補があるグループに書く（`new` へ切替えた場合も、次点候補へ統合した場合も）: `[{"issue": 12, "openPrs": [345]}]`（判定規則は [`grouping-rules.md`](grouping-rules.md) §5）。起草ワーカーが開発者向け参考情報の「関連:」行に使う
 
 ## ユーザー対話のスケール設計
 
@@ -206,11 +212,14 @@ parent は次の2系統を**同時並行**で起動し、完了を待つ。paren
 - ユーザーの言葉は画面の言葉であるため、UI に表示される文言（ボタンラベル・見出し・メッセージ）でのテキスト検索が最も有効
 - 画面・ルーティング・主要機能のディレクトリ構造も確認する。セマンティック検索が利用可能なら併用する
 - 想定変更領域（`touchAreas`）は領域単位で見積もり、主対象（`primary`）と横断領域への接触（`crossCutting`）を区別する（判定基準は [`grouping-rules.md`](grouping-rules.md)）
+- 報告された挙動に、それを意図した明示的な条件分岐・既存テスト・ドキュメント記述が見つかった場合は、確認できた事実のみを `intentSignals` に記録する（仕様の正否の判断・推測は書かない）
 - ソースコード・設定ファイルの編集は禁止（出力は成果物 JSON のみ）
 
-**issue 索引ワーカー（1体）への依頼**: `gh issue list --state open` を全件取得し（`--limit` を十分大きく指定する）、各 issue の本文から対象領域を抽出して `issue-index.json` を出力させる。
+**issue 索引ワーカー（1体）への依頼**: `gh issue list --state open` を全件取得し、各 issue の本文から対象領域を抽出して `issue-index.json` を出力させる。
 
-- 対象領域は本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読み、無い issue は本文テキストから推定して `areaSource: "inferred"` を付ける
+- 全件取得の確認: 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、**取得件数が limit を下回るまで** limit を倍にした再取得を繰り返す。倍増は1回では足りないことがある（open issue が初回上限の2倍以上あるリポジトリでは、倍増後も再び上限に達する）。繰り返しに代えて、`gh api graphql` で `pageInfo.hasNextPage` を辿り最後まで走査してもよい（REST の `/issues` は PR も返すため、issue のみを返す方法を選ぶ）
+- 取得件数が limit と一致したまま打ち切ってはならない。上限を超えた issue は照合から恒久的に漏れ、統合先の見逃し（重複 issue の温床）につながる
+- 対象領域は本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読み、無い issue は本文テキストから推定して `areaSource: "inferred"` を付ける。タイトル・本文からも推定できない issue（実行ログ等のメタ issue が該当しうる）は `areas: []`・`areaSource: "none"` とする
 - `crossCutting` はラベル `scope:cross-cutting` の有無のみで判定する
 
 ## Phase 3: 対象の特定確認
@@ -272,7 +281,8 @@ parent が `missingInfo` を束ね、不足している情報だけを質問す�
 
 分類エージェントが行うこと:
 
-- 各ケースの `touchAreas` と既存 issue の `areas` の重なり判定（既存 issue と重なるケースは `action: merge`）
+- 各ケースの `touchAreas` と既存 issue の `areas` の重なり判定（既存 issue と重なるケースは `action: merge`。`areaSource: "none"` の issue は統合先候補にしない）
+- `merge` 候補ごとの open 参照 PR 確認（[`grouping-rules.md`](grouping-rules.md) §5 の2系統コマンド。対象は merge 候補のみ）。open PR が見つかった候補は統合先不適格とし、重なりの強い順に次点候補へ繰り下げて同じ確認を行い、最初に適格となった候補へ統合する（適格候補が尽きた場合にのみ `action: new` へ切替える）。不適格化した候補は `relatedInFlight` に記録する
 - 新規ケース同士の重なり判定（重なるケースは同一グループへ統合）
 - 横断判定（主対象が横断領域のケースの昇格・分離）
 - グループごとの `rationale`（開発者向けの根拠）と `userExplanation`（画面の言葉での説明）の記述
@@ -284,8 +294,9 @@ parent は結果の意味判断をしない。`summary` の件数と構成だけ
 **起草ワーカー（グループごとに1体・並列）への依頼**: 担当グループ1件分の材料（`grouping-plan.json` の該当グループ、含まれるケースの `investigation-*.json` / `hearing-*.json` のパス）を渡し、[`issue-format.md`](issue-format.md) に従って本文を起草させる。
 
 - `action: new` → 本文のみを `drafts/new-<groupId>.md` に出力する（タイトルは `grouping-plan.json` の `title` を正とする）
-- `action: merge` → 起草ワーカー自身が `gh issue view <番号> --json body,title` で現行本文を取得し、書き換え後の**完成本文**を `drafts/update-<issue番号>.md` に出力する（書き換え手順は [`issue-format.md`](issue-format.md)。この時点では GitHub へ書き込まない）。統合によりタイトル変更を提案する場合は、完了報告で変更後タイトルを parent へ返し、parent が登録計画に「タイトル変更」として含める
+- `action: merge` → 起草ワーカー自身が `gh issue view <番号> --json body,title,updatedAt` で現行本文を取得し、書き換え後の**完成本文**を `drafts/update-<issue番号>.md` に、取得した `updatedAt` を `drafts/update-<issue番号>.meta.json` に出力する（書き換え手順は [`issue-format.md`](issue-format.md)。この時点では GitHub へ書き込まない）。統合によりタイトル変更を提案する場合は、完了報告で変更後タイトルを parent へ返し、parent が登録計画に「タイトル変更」として含める
 - 対象リポジトリの `.github/ISSUE_TEMPLATE/` を確認し、該当する種類のテンプレートがあればその構成を優先する
+- グループに `relatedInFlight` がある場合は開発者向け参考情報へ「関連:」定型行を書き、担当ケースの `investigation` に `intentSignals` がある場合は「現在の挙動に関する観察（事実）:」定型行として転記する（いずれも書式は [`issue-format.md`](issue-format.md)）
 - わからなかった項目は削除せず「不明」と書いて残す
 
 ## Phase 7: 登録計画の承認と実行
@@ -306,6 +317,8 @@ parent が登録計画をサマリー表で一括提示する:
 
 - [グループごとの userExplanation を箇条書きで]
 
+登録・更新した課題には「エンジニアの内容確認待ち」の印（ラベル）が自動で付きます。エンジニアが内容を確認して印を外すと、開発の対象に入ります。
+
 それぞれの詳しい文面を見たい場合は番号で教えてください。この内容で登録してよいですか？
 ```
 
@@ -316,15 +329,37 @@ parent が登録計画をサマリー表で一括提示する:
 
 ### 7-2: 登録実行
 
-**実行ワーカー（1 issue 操作 = 1 packet・並列）への依頼**: 承認済みの packet 1件（draft ファイルのパス・操作種別・統合先番号・ラベル指示のみ）を渡す。計画全体や他グループの情報を渡してはならない。
+**ラベルの事前準備（parent が実行ワーカー起動前に1回・直列）**: 確認待ちラベル `needs-triage` と、横断グループが1つ以上ある場合は `scope:cross-cutting` が対象リポジトリに存在する状態を先に作る。ラベルはリポジトリ全体の前提条件であって packet ごとの issue 操作ではないため、並列で動く実行ワーカー側では `gh label create` を実行しない（複数ワーカーによる同時作成の競合を避ける）:
 
-- `action: new`: `gh issue create --title "<grouping-plan の title>" --body-file <draft>` で登録する。ラベルは `gh label list` で既存ラベルを確認し、bug / enhancement 相当のものがあれば付与する（無ければラベルなしで登録する）
-- `action: new` かつ `crossCutting: true`: 追加でラベル `scope:cross-cutting` を付与する（`【横断】` 接頭辞は分類エージェントが `title` に含めて確定済みのため、実行ワーカーはタイトルへ手を加えない）。ラベルが存在しなければ `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7` で作成してから付与する
-- `action: merge`: `gh issue edit <番号> --body-file <draft>` で本文を書き換える（タイトルは原則変更しない。変更が承認済み計画に含まれる場合のみ `--title` を併用する）
-- 操作結果（issue URL・成功/失敗）を parent へ返す
+- `gh label list --json name` で既存ラベルを確認し、不足しているものだけを作成する: `gh label create needs-triage --description "issue-report による起票。エンジニアの内容確認待ち（確認後にこのラベルを外す）" --color FBCA04` / `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7`
+- 作成が「already exists」で失敗した場合は成功として扱う（別経路で用意済みのため。冪等）。既存ラベルの色・説明は上書きしない（`--force` は使わない）
+- 必要なラベルを用意できなかった場合は**実行ワーカーを起動しない**。確認待ちラベルの付かない issue はエンジニアのレビューゲート（オートメーションによる後段処理を含む）をすり抜けるため、登録を進めず 7-3 の手動登録案内へ倒す（gh が使えない場合と同じ扱い）
+
+**実行ワーカー（1 issue 操作 = 1 packet・並列）への依頼**: 承認済みの packet 1件（draft ファイルのパス〈`merge` は付随する `.meta.json` を含む〉・操作種別・統合先番号・ラベル指示のみ）を渡す。計画全体や他グループの情報を渡してはならない。
+
+- `action: new`: `gh issue create --title "<grouping-plan の title>" --body-file <draft> --label needs-triage[,<種別ラベル>][,scope:cross-cutting]` の**1コマンド**で、本文とラベルを同時に確定して登録する。issue を作ってからラベルを後付けする手順にしてはならない（付与が失敗すると確認待ちラベルなしの issue が残る）
+  - 確認待ちラベル `needs-triage` は `action: new` の全件で必ず指定する
+  - 種別ラベル: `gh label list` で既存ラベルを確認し、グループに含まれるケースの種別に対応する bug / enhancement 相当のものを**すべて**指定する（不具合系と要望系が混在するグループは両方。相当ラベルが無ければ種別ラベルなしで登録する）
+  - `crossCutting: true` のグループ: `scope:cross-cutting` も同時に指定する（`【横断】` 接頭辞は分類エージェントが `title` に含めて確定済みのため、実行ワーカーはタイトルへ手を加えない）
+  - 登録後に `gh issue view <番号> --json labels` で `needs-triage` が付いていることを確認する（権限が不足するアカウントではラベル指定が黙って無視されることがある）。付いていなければ `gh issue edit <番号> --add-label needs-triage` で付与し、**付与コマンドの成功で終わらせず `--json labels` を再取得して `needs-triage` の存在を確認する**（ラベル変更も黙って破棄されうるため、コマンドが成功を返したことは付与の証拠にならない）
+  - この最終確認で `needs-triage` の存在を確認できるまで packet を成功扱いにしない。再付与コマンドが失敗した場合・再取得でも欠落していた場合は、issue URL とラベル欠落の事実を失敗として parent へ返す（issue は作成済みだが確認待ちラベルが無く、レビューゲートの外に置かれている状態であることを明記する）
+  - コマンドが失敗した場合は成功扱いにせず、**ラベル指定を外した再実行もしない**。issue が作られていないことを確認したうえで、失敗として parent へ返す
+- `action: merge` の直前再検証: `gh issue edit` の実行直前に `gh issue view <番号> --json body,updatedAt` と open PR の確認を行い、次の2点がともに満たされることを確認する。満たされない場合、および確認自体が完了しなかった場合（API エラー・応答から判断できない場合）は**書き込まずに**中断し、再取得した現行本文・`updatedAt`・検出した変化を parent へ返す。parent は 7-1 の差し戻しループを再利用し、open PR の出現なら該当グループを `action: new` へ切替えて再起草（この段では [`grouping-rules.md`](grouping-rules.md) §5 の次点候補への繰り下げは行わず `new` へ倒す。書き込み直前の競合を避けることを優先し、候補の再ランキングのために分類フェーズへ戻らない）、本文の変化なら返された現行本文から再起草し、再承認を得てから実行し直す（同じ draft のまま自動で再試行してはならない）:
+  - その issue を参照する open PR が新たに現れていないこと（[`grouping-rules.md`](grouping-rules.md) §5 と同じ2系統の確認）
+  - `updatedAt` が、起草時に `drafts/update-<issue番号>.meta.json` へ記録した値と一致すること（不一致は起草後に issue が更新された印であり、本文が書き換えられていればそのまま上書きすると第三者の編集を消してしまう）。`updatedAt` はコメント追加・ラベル変更でも進むため不一致が必ず本文改変を意味するわけではないが、区別せず中断する（fail-closed）
+- **再検証と書き込みを連続して実行する**: GitHub Issues の更新 API には条件付き更新（`If-Match` / ETag）が無く、再検証の後に入った第三者編集を書き込み側で弾く手段が存在しない。再検証と `gh issue edit` の間にユーザー確認・他 packet の処理・待機を挟まず、この2つを間隔を空けずに実行して競合が入り込む時間を最小化する
+- `action: merge` の書き込み: 直前再検証を通過したら `gh issue edit <番号> --body-file <draft> --add-label needs-triage` で本文書き換えと確認待ちラベル付与を同時に行う（ラベルは事前準備済みのため、ここで `gh label create` は行わない。タイトルは原則変更しない。変更が承認済み計画に含まれる場合のみ `--title` を併用する）。コマンドが失敗した場合は成功扱いにせず、`--add-label` を外した再実行もしない。失敗時は `gh issue view <番号> --json body,labels` で現状（本文が書き換わったか・ラベルが付いたか）を確認し、結果を parent へ返す
+- `action: merge` の書き込み後確認: 書き込みが成功を返した場合も `gh issue view <番号> --json body,labels,updatedAt` を**必ず**取得し、次の2点を確認する:
+  - `needs-triage` が付いていること。**この確認が取れるまで packet を成功扱いにしない**（ラベル変更は権限が不足するアカウントで黙って破棄されうるため、`gh issue edit` が成功を返したことは付与の証拠にならない）。欠落していれば `gh issue edit <番号> --add-label needs-triage` で付与し直し、再取得でも欠落する場合は issue URL とラベル欠落の事実を失敗として parent へ返す（本文は書き換わっているが確認待ちラベルが無く、レビューゲートの外に置かれている状態であることを明記する）
+  - 本文が書き込んだ draft と一致すること。一致しない場合は、再検証から書き込みまでの間に第三者編集が入った（またはこちらが上書きした）可能性があるため、書き込み直前に取得していた本文とあわせて parent へ報告する。自動での復元・再書き込みは行わない
+- 操作結果（issue URL・成功/失敗・確認待ちラベルの最終確認結果・直前再検証による中断とその理由・書き込み後確認の結果）を parent へ返す
 
 ### 7-3: 完了報告
 
-parent が登録・更新した issue の URL 一覧をユーザーに報告する。失敗した packet があれば、失敗内容と再試行または手動登録の案内を平易な言葉で伝える。
+parent が登録・更新した issue の URL 一覧をユーザーに報告する。あわせて「登録した課題にはエンジニアの内容確認待ちの印が付いています。確認が済むと対応の順番に入ります」と平易に案内する。失敗した packet があれば、失敗内容と再試行または手動登録の案内を平易な言葉で伝える。
 
-**gh コマンドが使えない・認証されていない場合**: エラーで止めず、承認済みの各 draft（タイトルと本文）をコピーできる形で提示し、手動登録の手順（GitHub でこのプロジェクトのページを開く → Issues タブ → New issue → 貼り付けて Submit）を平易な言葉で案内する。
+書き込み後確認で本文の不一致が報告された packet があれば、その issue を「エンジニアに内容を見てもらう必要がある課題」として URL つきでユーザーへ伝え、実行ワーカーが返した書き込み直前の本文を parent の応答に残す（どちらの内容を残すかの判断・復元はエンジニアが行い、parent は再書き込みをしない）。
+
+確認待ちラベル `needs-triage` の欠落が報告された packet（`new` / `merge` とも）は成功として報告しない。その issue の URL を示し、「エンジニアの確認待ちの印を付けられなかったため、エンジニアに印を付けてもらう必要があります」と平易に伝える。印が付くまでその issue はレビューゲートの外にあり、オートメーションによる後段処理の対象にならないためである。
+
+**gh コマンドが使えない・認証されていない場合、および 7-2 のラベル事前準備に失敗した場合**: エラーで止めず、承認済みの各 draft（タイトルと本文）をコピーできる形で提示し、手動登録の手順（GitHub でこのプロジェクトのページを開く → Issues タブ → New issue → 貼り付けて Submit）を平易な言葉で案内する。

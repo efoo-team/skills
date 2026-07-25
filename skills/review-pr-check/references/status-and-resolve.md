@@ -47,6 +47,42 @@ mutation {
 }'
 ```
 
+### 返信本文のファイル渡し（エスケープ事故と `-f`/`-F` 取り違えの防止）
+
+日本語・複数行・バックティックを含む返信本文をミューテーション literal に直接埋め込むと、GraphQL 文字列のエスケープ事故を招く。本文はファイルに保存して変数で渡すこと。ただし `gh api` の `@<ファイル>` によるファイル読み込みを解釈するのは **`-F/--field` のみ**であり、`-f/--raw-field` は値を常にリテラル文字列として送る（`-f body=@<path>` はパス文字列そのものが本文として投稿される。実際に発生した事故パターン）:
+
+```bash
+# 返信本文をファイルで渡す（@<path> を展開するのは -F。-f は展開しない）
+gh api graphql -F body=@<返信本文ファイル> -f query='
+mutation($body: String!) {
+  addPullRequestReviewThreadReply(input: {
+    pullRequestReviewThreadId: "<thread-id>",
+    body: $body
+  }) { comment { id } }
+}'
+
+# トップレベルコメント（reporting-and-policy.md 禁止事項2の例外に該当する場合のみ）
+gh pr comment <pr-number> -R <owner>/<repo> --body-file <本文ファイル>
+```
+
+投稿後は必ず本文を読み戻して照合する（例: `gh api /repos/<owner>/<repo>/pulls/comments/<数値id> --jq .body`）。確認項目: プレースホルダ（`<hash>` 等）の残存が無いこと、ローカル絶対パスの混入が無いこと、本文がリテラルのファイルパスになっていないこと。
+
+### `type: review` エントリのステータス可視化（GraphQL addReaction）
+
+`gh pr-review-check resolve` は `type: review` のエントリに対して `Error: Reviews cannot be resolved directly` で失敗する。ただし `PullRequestReview` ノード自体は Reactable であり、GraphQL の `addReaction` で reaction を直接付与できる（`in_progress` 相当 = `EYES`、`done` 相当 = `THUMBS_UP`）:
+
+```bash
+gh api graphql -f query='
+mutation {
+  addReaction(input: {
+    subjectId: "<PRR_... の node id>",
+    content: THUMBS_UP
+  }) { reaction { content } }
+}'
+```
+
+review 本文内の outside-diff 指摘へ対応した場合は、この reaction と、集約トップレベルコメント1件による対応報告（`reporting-and-policy.md` 禁止事項2の例外）をあわせて用いる。
+
 ---
 
 ## マージ可能状態
