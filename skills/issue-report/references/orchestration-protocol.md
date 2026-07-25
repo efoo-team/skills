@@ -159,7 +159,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 - `action`: `new`（新規登録）| `merge`（既存 issue へ本文統合）
 - `title`: 新規グループの issue タイトル（「どこで・何が」形式。横断グループは分類エージェントが `【横断】` 接頭辞を含めて確定する）。`merge` グループは `null`
 - `userExplanation`: parent がユーザーへ提示する、技術用語を使わないグルーピング理由（分類エージェントが必ず書く）
-- `relatedInFlight`: 任意。open な参照 PR の存在により `merge` から `new` へ切替えたグループに書く: `[{"issue": 12, "openPrs": [345]}]`（判定規則は [`grouping-rules.md`](grouping-rules.md) §5）。起草ワーカーが開発者向け参考情報の「関連:」行に使う
+- `relatedInFlight`: 任意。open な参照 PR により統合先不適格となった候補があるグループに書く（`new` へ切替えた場合も、次点候補へ統合した場合も）: `[{"issue": 12, "openPrs": [345]}]`（判定規則は [`grouping-rules.md`](grouping-rules.md) §5）。起草ワーカーが開発者向け参考情報の「関連:」行に使う
 
 ## ユーザー対話のスケール設計
 
@@ -282,7 +282,7 @@ parent が `missingInfo` を束ね、不足している情報だけを質問す�
 分類エージェントが行うこと:
 
 - 各ケースの `touchAreas` と既存 issue の `areas` の重なり判定（既存 issue と重なるケースは `action: merge`。`areaSource: "none"` の issue は統合先候補にしない）
-- `merge` 候補ごとの open 参照 PR 確認（[`grouping-rules.md`](grouping-rules.md) §5 の2系統コマンド。対象は merge 候補のみ）。open PR が見つかった候補は `action: new` へ切替え、`relatedInFlight` に記録する
+- `merge` 候補ごとの open 参照 PR 確認（[`grouping-rules.md`](grouping-rules.md) §5 の2系統コマンド。対象は merge 候補のみ）。open PR が見つかった候補は統合先不適格とし、重なりの強い順に次点候補へ繰り下げて同じ確認を行い、最初に適格となった候補へ統合する（適格候補が尽きた場合にのみ `action: new` へ切替える）。不適格化した候補は `relatedInFlight` に記録する
 - 新規ケース同士の重なり判定（重なるケースは同一グループへ統合）
 - 横断判定（主対象が横断領域のケースの昇格・分離）
 - グループごとの `rationale`（開発者向けの根拠）と `userExplanation`（画面の言葉での説明）の記述
@@ -343,7 +343,7 @@ parent が登録計画をサマリー表で一括提示する:
   - `crossCutting: true` のグループ: `scope:cross-cutting` も同時に指定する（`【横断】` 接頭辞は分類エージェントが `title` に含めて確定済みのため、実行ワーカーはタイトルへ手を加えない）
   - 登録後に `gh issue view <番号> --json labels` で `needs-triage` が付いていることを確認する（権限が不足するアカウントではラベル指定が黙って無視されることがある）。付いていなければ `gh issue edit <番号> --add-label needs-triage` で付与し、それも失敗した場合は成功扱いにせず parent へ返す
   - コマンドが失敗した場合は成功扱いにせず、**ラベル指定を外した再実行もしない**。issue が作られていないことを確認したうえで、失敗として parent へ返す
-- `action: merge` の直前再検証: `gh issue edit` の実行直前に `gh issue view <番号> --json body,updatedAt` と open PR の確認を行い、次の2点がともに満たされることを確認する。満たされない場合、および確認自体が完了しなかった場合（API エラー・応答から判断できない場合）は**書き込まずに**中断し、再取得した現行本文・`updatedAt`・検出した変化を parent へ返す。parent は 7-1 の差し戻しループを再利用し、open PR の出現なら該当グループを `action: new` へ切替えて再起草、本文の変化なら返された現行本文から再起草し、再承認を得てから実行し直す（同じ draft のまま自動で再試行してはならない）:
+- `action: merge` の直前再検証: `gh issue edit` の実行直前に `gh issue view <番号> --json body,updatedAt` と open PR の確認を行い、次の2点がともに満たされることを確認する。満たされない場合、および確認自体が完了しなかった場合（API エラー・応答から判断できない場合）は**書き込まずに**中断し、再取得した現行本文・`updatedAt`・検出した変化を parent へ返す。parent は 7-1 の差し戻しループを再利用し、open PR の出現なら該当グループを `action: new` へ切替えて再起草（この段では [`grouping-rules.md`](grouping-rules.md) §5 の次点候補への繰り下げは行わず `new` へ倒す。書き込み直前の競合を避けることを優先し、候補の再ランキングのために分類フェーズへ戻らない）、本文の変化なら返された現行本文から再起草し、再承認を得てから実行し直す（同じ draft のまま自動で再試行してはならない）:
   - その issue を参照する open PR が新たに現れていないこと（[`grouping-rules.md`](grouping-rules.md) §5 と同じ2系統の確認）
   - `updatedAt` が、起草時に `drafts/update-<issue番号>.meta.json` へ記録した値と一致すること（不一致は起草後に issue が更新された印であり、本文が書き換えられていればそのまま上書きすると第三者の編集を消してしまう）。`updatedAt` はコメント追加・ラベル変更でも進むため不一致が必ず本文改変を意味するわけではないが、区別せず中断する（fail-closed）
 - **再検証と書き込みを連続して実行する**: GitHub Issues の更新 API には条件付き更新（`If-Match` / ETag）が無く、再検証の後に入った第三者編集を書き込み側で弾く手段が存在しない。再検証と `gh issue edit` の間にユーザー確認・他 packet の処理・待機を挟まず、この2つを間隔を空けずに実行して競合が入り込む時間を最小化する
