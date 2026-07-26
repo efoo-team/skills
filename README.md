@@ -2,7 +2,7 @@
 
 Shared agent skills for efoo-team.
 
-このリポジトリはスキル本体に加えて、ツール横断の台帳1つも保有する: `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）。スキルの横断台帳は持たない（外部購読の記録は `setup.sh` のインストール行、プロジェクト層は各リポジトリの `.agents/skills/` が直接の一覧である）。
+このリポジトリはスキル本体に加えて、ツール横断の MCP 管理2ファイルも保有する: `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）と `mcp-servers.json`（3ツールへ横断配布する global MCP サーバー定義の機械可読な正本。`sync-mcp.sh` が各ツールへ配布する）。スキルの横断台帳は持たない（外部購読の記録は `setup.sh` のインストール行、プロジェクト層は各リポジトリの `.agents/skills/` が直接の一覧である）。
 
 `setup.sh` installs the recommended skills and then removes any names listed in `remove-skills.txt`.
 
@@ -26,7 +26,7 @@ ln -sfn "$(ghq root)/github.com/efoo-team/opencode-setting"    ~/.config/opencod
 | [`efoo-team/claude-code-setting`](https://github.com/efoo-team/claude-code-setting) | `~/.claude` | Claude Code の設定（`settings.json`、`commands/`（4ペルソナのみ）、`agents/`、`CLAUDE.md`、MCP 設定） | 管理しない。`skills/` は gitignore（中身はインストール時に張られる symlink のみ） |
 | [`efoo-team/codex-code-setting`](https://github.com/efoo-team/codex-code-setting) | `~/.codex` | Codex の設定（`config.toml`、`AGENTS.md`、`automations/`、`scripts/`） | 管理しない。`skills/` は gitignore。旧 custom prompts（`prompts/`）は全廃し、スキルへ移行済み |
 | [`efoo-team/opencode-setting`](https://github.com/efoo-team/opencode-setting) | `~/.config/opencode` | opencode の設定（`formations/`、`agents/`、`prompts/`（ペルソナ追記ファイル）、`tui.json`、`omo-profile`） | 管理しない。スキル実体は一切 git 追跡していない |
-| `efoo-team/skills`（this repo） | `~/.agents/skills/`（`setup.sh` が配布） | 共通層スキルの実体と、ツール横断の MCP 台帳（`MCP-REGISTRY.md` = 全 MCP サーバー） | **ここが唯一の正本（source of truth）** |
+| `efoo-team/skills`（this repo） | `~/.agents/skills/`（`setup.sh` が配布） | 共通層スキルの実体と、ツール横断の MCP 管理（`MCP-REGISTRY.md` = 全サーバー台帳、`mcp-servers.json` = global 同期サーバー定義の正本） | **ここが唯一の正本（source of truth）** |
 
 配布の流れ:
 
@@ -35,11 +35,41 @@ efoo-team/skills ──setup.sh（npx skills）──▶ ~/.agents/skills/<name>
                                                ├─ Claude Code : ~/.claude/skills/<name> → symlink で解決
                                                ├─ Codex       : ~/.agents/skills を直接検出（$<name>）
                                                └─ opencode    : ~/.agents/skills を直接検出
+
+efoo-team/skills ──setup.sh 末尾の sync-mcp.sh──▶ global MCP サーバー定義の配布（正本: mcp-servers.json）
+                                               ├─ Claude Code : ~/.claude.json の user スコープへ登録
+                                               ├─ opencode    : ~/.config/opencode/opencode.json の mcp.<name> へマージ
+                                               └─ Codex       : 配布せず検査のみ（定義の正本は codex-code-setting/config.shared.toml。不一致を警告）
 ```
 
 スキルを一元管理する理由: スキルはツール非依存の Markdown であり、3つの設定リポジトリへ分散して置くと同じ内容の複製が発生して乖離していくため。このリポジトリで1回書けば、`setup.sh` が全ツールへ配布する。特定ツール限定のスキル（例: opencode 限定の `formation-designer`）であっても、実体は設定リポジトリではなくこのリポジトリに置き、`metadata.internal: true` とエージェント指定インストールで配布先を絞る。
 
 このため、スキルを変更するときは `~/.agents/skills/` や各ツール側の `skills/` ディレクトリを直接編集せず、このリポジトリを変更して push する。各設定リポジトリは自分の `skills/` を gitignore しているので、インストールされた symlink が設定リポジトリへ誤ってコミットされることはない。なお、プロジェクト固有スキル（プロジェクト層）だけは例外的に各プロジェクトリポジトリが正本を持つ（次節「Two-layer skill management」を参照）。
+
+### 正本・生成物・ローカル専用の区分（ドリフト防止）
+
+どのリポジトリで作業していても、変更は必ず「正本」に対して行う。配布先・生成物を直接編集すると、次回の配布・生成・pull で上書きされるか、正本と乖離したまま残る（＝ドリフト）。
+
+| 資産 | 正本（編集する場所） | 配布・生成の経路 | 直接編集してはならないもの |
+|---|---|---|---|
+| 共通層スキル | `skills` リポジトリの `skills/<name>/` | `setup.sh`（npx skills）→ `~/.agents/skills/` | `~/.agents/skills/` と各ツール側 `skills/` symlink |
+| global MCP サーバー定義 | `skills` リポジトリの `mcp-servers.json` | `sync-mcp.sh` → `~/.claude.json`（user スコープ）/ `opencode.json` の `mcp.<name>` | 配布先の両ファイル。`claude mcp add -s user` での手動 global 追加も行わない |
+| MCP 台帳（人間向け） | `skills` リポジトリの `MCP-REGISTRY.md` | —（ドキュメント） | — |
+| project スコープ MCP | 各プロジェクトの `.mcp.json` | プロジェクトリポジトリの git | —（`MCP-REGISTRY.md` の台帳行の更新を忘れない） |
+| Claude Code 共有設定 | `claude-code-setting/settings.json` 等 | ライブ設定（`~/.claude` symlink） | 実行時 state 差分（`feedbackSurveyState` 等）はコミットしない |
+| Codex 共有設定 | `codex-code-setting/config.shared.toml` | `generate_config.py` → `config.toml` | `config.toml`（生成物）。`config.local.toml` はマシン固有でコミットしない |
+| opencode 布陣 | `opencode-setting/formations/` | `omo-profile set` → `oh-my-openagent.jsonc` | `oh-my-openagent.jsonc`（生成物）。`opencode.json` はローカル専用（ただし `mcp` の同期対象エントリは sync-mcp が管理） |
+
+### 変更先早見表（やりたいこと → 編集する場所）
+
+| やりたいこと | 編集する場所 | 反映のされ方 |
+|---|---|---|
+| スキルの追加・変更・削除 | このリポジトリの `skills/`（規約は `AGENTS.md`、作成は `/create-skill`） | push → 各自の pull で post-merge が自動反映 |
+| global MCP サーバーの追加・バージョン変更 | このリポジトリの `mcp-servers.json`（Codex でも使うサーバーは `codex-code-setting/config.shared.toml` も同版に）+ `MCP-REGISTRY.md` の台帳行 | push → 各自の pull で sync-mcp が自動反映（bump 手順は `MCP-REGISTRY.md`「バージョン更新手順」） |
+| project MCP サーバーの追加 | 各プロジェクトの `.mcp.json` + `MCP-REGISTRY.md` の台帳行 | 対象プロジェクトの pull |
+| Claude Code の設定・hooks・env | `claude-code-setting/settings.json` 等 | push → 各自の pull（ライブ反映） |
+| Codex の設定・MCP | `codex-code-setting/config.shared.toml` | push → 各自の pull で post-merge が `config.toml` を再生成 |
+| opencode の布陣・エージェント・プロンプト | `opencode-setting/formations/` `agents/` `prompts/` | push → 各自の pull + `omo-profile set` |
 
 ## Setup
 
@@ -103,11 +133,14 @@ efoo-team manages Agent Skills in two layers. Full rules live in `AGENTS.md`. Th
 ```
 AGENTS.md                  # スキル管理ルールの正本（追加・変更・削除・昇格の規約、統合しない判断の記録）
 DOCTOR.md                  # 月次ヘルスチェックの手動チェックリスト（本リポジトリと3つの設定リポジトリが対象）
-MCP-REGISTRY.md            # efoo-team が利用する全 MCP サーバーの横断台帳
+MCP-REGISTRY.md            # efoo-team が利用する全 MCP サーバーの横断台帳（バージョン更新手順を含む）
+mcp-servers.json           # 3ツールへ横断配布する global MCP サーバー定義の正本（sync-mcp.sh が配布）
 remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
-setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理）
+setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理 + MCP 同期）
+sync-mcp.sh                # MCP 定義同期の入口（setup.sh から自動実行。実体は scripts/sync-mcp.mjs）
 hooks/post-merge           # git pull 時に setup.sh を自動再実行する git hook
 scripts/check-skills.py    # 手動実行のチェックスクリプト（frontmatter lint〔YAML パースゲート・tags 必須・argument-hint 検査含む〕・類似 description 検出・explicit-only 3点セット相互整合・description 予算・コア公理等価の5チェック）
+scripts/sync-mcp.mjs       # MCP 同期の実体（Claude user スコープ登録・opencode.json マージ・Codex 一致検査・npx/ブラウザ温め）
 skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 

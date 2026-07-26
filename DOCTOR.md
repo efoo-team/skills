@@ -88,3 +88,14 @@ grep -l "agent-ecosystem.md" $GHQ/video-production-toolbox/AGENTS.md $GHQ/video-
 ```
 
 期待結果: `map-ok` が出る。`grep -l` が 4 ファイルすべてを列挙する。なお pin の追従はこの月次チェックでは監視しない — 遊休 workspace の pin 遅れは何も壊さないため、追従はエピソード開始時の実行時ルーチンに一本化されている（正本: `video-production-toolbox/docs/agent-ecosystem.md` §14）。
+
+## 8. MCP サーバー定義の同期整合
+
+正本 `mcp-servers.json` と各ツールへの配布状態が一致しているかを確認する。sync は冪等なので再実行して差分・警告が出ないことを見る。
+
+```bash
+bash ~/ghq/github.com/efoo-team/skills/sync-mcp.sh
+claude mcp get playwright
+```
+
+期待結果: sync の出力が `up-to-date` のみで `[warning]` 行が無い（`[warning]` の codex 不一致は `codex-code-setting/config.shared.toml` の更新漏れを意味する。対処は `MCP-REGISTRY.md`「バージョン更新手順」）。`claude mcp get playwright` が user スコープかつ `mcp-servers.json` の `pin` と同じバージョンを表示し、Status が Connected である。
