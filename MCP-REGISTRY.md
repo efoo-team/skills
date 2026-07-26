@@ -13,9 +13,9 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 | pencil | 同上 | global | opencode | なし | `opencode-setting/opencode.json` の `mcp.pencil`（リポジトリでは gitignore 対象のローカルファイル） |
 | context7 | ライブラリ・フレームワーク・SDK の最新ドキュメント取得 | global | Claude Code | なし | claude-plugins-official マーケットプレイスの `context7` プラグイン経由でインストール（plugin 管理） |
 | context7 | 同上 | global | Codex | なし（**キーは現状維持。2026-07 ユーザー決定により env 変数化しない**。`config.toml` の `args` に直書きされたまま運用する） | `codex-code-setting/config.toml` の `[mcp_servers.context7]` |
-| playwright | ブラウザ自動化・E2E 操作 | global | Codex | なし | `codex-code-setting/config.toml` の `[mcp_servers.playwright]` |
-| playwright | 同上（l-shift プロジェクト固有登録） | project | Claude Code（project scope） | なし | `l-shift/.mcp.json` の `mcpServers.playwright` |
-| playwright | 同上（chefrepi プロジェクト固有登録） | project | Claude Code（project scope） | なし | `chefrepi/.mcp.json` の `mcpServers.playwright` |
+| playwright | ブラウザ自動化・E2E 操作（`@playwright/mcp@0.0.78` 固定） | global | Claude Code（user スコープ） | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `~/.claude.json` user スコープへ配布） |
+| playwright | 同上 | global | opencode | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `opencode-setting/opencode.json` へ配布） |
+| playwright | 同上 | global | Codex | なし | `codex-code-setting/config.shared.toml` の `[mcp_servers.playwright]`（生成物 `config.toml` へ反映。`sync-mcp.sh` は正本 `mcp-servers.json` との一致を検査するのみ） |
 | node_repl | Codex アプリ内蔵ブラウザ / Chrome の制御用 Node REPL | global | Codex | なし（すべて Codex.app が自動設定する固定値。ユーザーが `.envrc` で用意する対象ではない） | `codex-code-setting/config.toml` の `[mcp_servers.node_repl]` / `[mcp_servers.node_repl.env]` |
 | supabase-staging | Supabase ステージング環境プロジェクトへの MCP 接続 | global | opencode | なし（URL に `project_ref` を含むのみ。認証は Supabase 側の別経路） | `opencode-setting/opencode.json` の `mcp.supabase-staging`（リポジトリでは gitignore 対象のローカルファイル） |
 | sentry | エラーモニタリング（l-shift プロジェクト） | project | Claude Code（project scope） | なし（http 接続。認証は `/mcp` からの OAuth 等、別経路） | `l-shift/.mcp.json` の `mcpServers.sentry` |
@@ -26,6 +26,31 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 
 - スコープ列の `global` は、Claude Code の「user スコープ」・Codex の `~/.codex/config.toml` 直下設定・opencode の `opencode.json` 設定をまとめて指す（全プロジェクトで共有される設定という意味で統一表記する）。`project` はプロジェクトルートの `.mcp.json` に限定される設定を指す。
 - `context7`（Codex 版）は API キーが `config.toml` の `args` に直書きされている唯一の例外である。2026-07 にユーザーが「キーは現状維持」と決定しており、他サーバーのような env 変数化・direnv 移行は行わない。
+
+## MCP サーバー定義の同期（mcp-servers.json / sync-mcp.sh）
+
+3ツールへ横断配布する global スコープの MCP サーバーは、本リポジトリの `mcp-servers.json` を機械可読な正本とし、`sync-mcp.sh`（実体 `scripts/sync-mcp.mjs`）が各ツールへ配布する。`setup.sh` の末尾から自動実行されるため、メンバーは本リポジトリを `git pull` するだけで反映される（post-merge hook 経由）。本ファイル（MCP-REGISTRY.md）は project スコープを含む人間向けの台帳であり、両者は役割分担する（定義の二重管理はしない。global 同期対象の定義値は `mcp-servers.json` だけに書く）。
+
+ツール別の配布先と変換:
+
+- **Claude Code**: `claude mcp add-json -s user` で `~/.claude.json` の user スコープへ登録する（`~/.claude.json` は git 追跡できないため、手動登録ではなく sync による配布で管理する）。既に期待値と一致していれば書き込みしない（稼働中セッションとの書き込み競合を bump 時のみに限定するため）。
+- **opencode**: `opencode-setting/opencode.json`（gitignore 対象のローカルファイル）の `mcp.<name>` へ、opencode 形式（`type: local` / `command` 配列 / `enabled: true`）に変換してマージする。既存エントリは保持する。ファイルが JSON として読めない場合（JSONC 等）は変更しない。
+- **Codex**: 正本は `codex-code-setting/config.shared.toml`（同リポジトリの生成・配布網が完成しているため sync は書き換えない）。sync は生成物 `~/.codex/config.toml` のバージョンが `mcp-servers.json` の pin と一致するかを検査し、不一致なら警告する。
+
+### バージョン更新手順（例: playwright の bump）
+
+1. 本リポジトリ `mcp-servers.json` の `pin` と `definition.args` 内のバージョンを**両方**更新する（片方だけの half-bump は sync が検出して停止する）
+2. `codex-code-setting/config.shared.toml` の `[mcp_servers.playwright]` の args を同じバージョンへ更新する
+3. 両リポジトリを push する。メンバーは pull するだけで反映される（skills 側の post-merge が sync を実行し、npx キャッシュ温めとブラウザ導入も pin が変わったときだけ自動で走る）
+4. bump PR の本文に「次回 pull 時に Chromium 約130〜300MB のダウンロードが走る」と明記する（`@playwright/mcp` は playwright 本体の alpha 版に exact 依存し、バージョンごとに要求 Chromium リビジョンが変わるため）
+
+サーバーを配布対象から外すときは、`mcp-servers.json` の `servers` から行を消すだけでなく `retired` 配列へ名前を追加する（各マシンの登録済みエントリを sync が削除する。`remove-skills.txt` と同じ思想）。
+
+補足:
+
+- playwright を `@latest` ではなく exact 固定するのは、(1) npx がセッション起動のたびに行うレジストリ照会・新版コールドインストールが MCP 接続タイムアウトの原因だったため、(2) 夜間 automation（権限スキップ実行）で未レビューの新版が自動実行されるのを防ぐため。`--prefer-offline` によりキャッシュ済みなら npx 解決は1秒未満。
+- 将来 playwright 本体に `npx playwright mcp` 統合（メンテナ公表済み・1.62 時点で未出荷）が出荷されたら、プロジェクトの package.json でのバージョン管理への一本化を再検討する。
+- 過渡期の注意: Claude Code の project スコープは同名の user スコープをシャドウする。l-shift / chefrepi の `.mcp.json` から playwright エントリを削除する PR が着地するまで、両プロジェクトでは従来どおり project スコープ定義（`@latest`）が使われる。
 
 ## direnv 運用手順
 
@@ -143,5 +168,6 @@ remote タイプの最小テンプレート:
 ## 新サーバー追加チェックリスト
 
 1. 本ファイルの「台帳」表に行を追加する（サーバー名・用途・スコープ・対応ツール・必要 env 変数名・定義場所）。
-2. 必要な env 変数を、利用するツールの設定に値の直書きではなく env 参照（上記テンプレート）で追加する。
-3. `.envrc.example` に新しい変数名を追記する（値はプレースホルダのままにする）。
+2. **3ツールへ横断配布する global サーバーの場合**: `mcp-servers.json` の `servers` へ定義を追加する（配布は `sync-mcp.sh` に任せ、各ツールの設定ファイルへ手で書かない）。バージョンは `@latest` ではなく exact 固定を原則とする。
+3. 必要な env 変数を、利用するツールの設定に値の直書きではなく env 参照（上記テンプレート）で追加する（`mcp-servers.json` 経由の配布は env 変数参照に未対応のため、env が必要なサーバーは当面ツール別設定で管理する）。
+4. `.envrc.example` に新しい変数名を追記する（値はプレースホルダのままにする）。
