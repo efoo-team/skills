@@ -88,5 +88,33 @@ if [ -n "$REPO_DIR" ] && [ -d "$REPO_DIR/hooks" ]; then
   echo "=== Git hook configured: pull will auto-update skills ==="
 fi
 
+# MCP server sync (canonical: mcp-servers.json; see MCP-REGISTRY.md)
+run_mcp_sync() {
+  local tmp rc
+  if [ -n "$REPO_DIR" ] && [ -f "$REPO_DIR/sync-mcp.sh" ]; then
+    bash "$REPO_DIR/sync-mcp.sh"
+    return $?
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "=== Warning: curl is not available; skipping MCP sync ===" >&2
+    return 0
+  fi
+  tmp="$(mktemp)"
+  if curl -fsSL "https://raw.githubusercontent.com/efoo-team/skills/main/sync-mcp.sh" -o "$tmp"; then
+    bash "$tmp"
+    rc=$?
+  else
+    echo "=== Warning: failed to fetch sync-mcp.sh; skipping MCP sync ===" >&2
+    rc=0
+  fi
+  rm -f "$tmp"
+  return $rc
+}
+
+echo "=== Syncing MCP servers ==="
+if ! run_mcp_sync; then
+  echo "=== Warning: MCP sync failed (skills themselves are installed) ===" >&2
+fi
+
 echo "=== Done ==="
 npx skills@1.5.14 list

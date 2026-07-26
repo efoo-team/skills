@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "servers": {
+    "playwright": {
+      "description": "ブラウザ自動化・E2E 操作",
+      "package": "@playwright/mcp",
+      "pin": "0.0.78",
+      "definition": {
+        "type": "stdio",
+        "command": "npx",
+        "args": ["-y", "--prefer-offline", "@playwright/mcp@0.0.78"],
+        "env": {}
+      },
+      "targets": {
+        "claude-code": { "mode": "sync", "scope": "user" },
+        "opencode": { "mode": "sync" },
+        "codex": { "mode": "verify" }
+      },
+      "warmup": { "npxCache": true, "browsers": ["chromium"] }
+    }
+  },
+  "retired": []
+}
