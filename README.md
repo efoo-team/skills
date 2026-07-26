@@ -77,6 +77,15 @@ efoo-team/skills ──setup.sh 末尾の sync-mcp.sh──▶ global MCP サー
 | Codex の設定・MCP | `codex-code-setting/config.shared.toml` | push → 各自の pull で post-merge が `config.toml` を再生成 |
 | opencode の布陣・エージェント・プロンプト | `opencode-setting/formations/` `agents/` `prompts/` | push → 各自の pull + `omo-profile set` |
 
+### ライブ設定リポジトリの git 運用規律（pull = 即時反映）
+
+3つの設定リポジトリはツールの設定ディレクトリそのもの（ライブ設定）であるため、通常のソースコードリポジトリと git の扱いが異なる。エージェント・人間を問わず、これらのリポジトリで git 操作を行うときは以下を前提にする。
+
+- **pull = デプロイ**である。main を pull した瞬間に全ツールの挙動へ反映され、さらに各リポジトリの post-merge hook が配布・生成処理（skills: `setup.sh` + `sync-mcp.sh`、claude-code-setting: `setup.sh`、codex-code-setting: `generate_config.py` による `config.toml` 再生成、opencode-setting: fish ファイルのコピー）を自動実行する。push する変更は「全メンバーのマシンで即座に実行される」前提でレビューする
+- **ワーキングツリーには実行時の dirty が常在する**（Claude Code が `settings.json` へ書き戻す実行時 state、Codex が `config.toml` 経由で `config.local.toml` に回収される自動追記など）。これは異常ではなく仕様であり、コミット時は意図した変更のファイルだけを外科的にステージする。`git add -A`・`git stash`・`git checkout .`・`git clean` のような一括操作でワーキングツリーを巻き戻さない（稼働中セッションの状態を破壊する）
+- 実行時 state の混入防止は機械化されている: claude-code-setting / codex-code-setting は **allowlist（default-deny）方式の `.gitignore`**（`/*` で全無視 + `!` で共有物のみ追跡。ツールが新しい状態ファイルを生成しても自動的に管理外になる）、両リポジトリの **pre-commit hook**（`check-repo.sh`: 絶対パス・実行時 state 混入の検査）、claude-code-setting の **CI**（check-repo.sh + gitleaks）
+- ブランチ運用の現状: 設定リポジトリ3つは main への直接コミット（pull 即反映の小さな変更が中心）、このリポジトリ（skills）は PR 運用（pull した全メンバーのマシンで自動実行されるスクリプトを含む配布網の起点のため、レビューを挟む）。作業リポジトリ（l-shift 等）は通常どおり PR 運用
+
 ## Setup
 
 ```bash
