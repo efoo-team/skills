@@ -12,7 +12,7 @@ efoo-team/skills (this repo)
 │   ├── <skill-name>/SKILL.md      # チーム自前スキル（正本がここにあるもの）
 │   └── ...
 ├── MCP-REGISTRY.md                 # 全 MCP サーバーの横断台帳（人間向け・バージョン更新手順含む）
-├── mcp-servers.json                # global MCP サーバー定義の正本（sync-mcp.sh が3ツールへ配布）
+├── mcp-servers.json                # global MCP サーバー定義の正本（sync-mcp.sh が Claude Code / opencode へ配布、Codex は照合）
 ├── sync-mcp.sh                     # MCP 定義同期（setup.sh 末尾から自動実行。実体は scripts/sync-mcp.mjs）
 └── setup.sh                        # チーム推奨スキル一括インストールスクリプト
 ```

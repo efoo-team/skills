@@ -2,7 +2,7 @@
 
 Shared agent skills for efoo-team.
 
-このリポジトリはスキル本体に加えて、ツール横断の MCP 管理2ファイルも保有する: `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）と `mcp-servers.json`（3ツールへ横断配布する global MCP サーバー定義の機械可読な正本。`sync-mcp.sh` が各ツールへ配布する）。スキルの横断台帳は持たない（外部購読の記録は `setup.sh` のインストール行、プロジェクト層は各リポジトリの `.agents/skills/` が直接の一覧である）。
+このリポジトリはスキル本体に加えて、ツール横断の MCP 管理2ファイルも保有する: `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）と `mcp-servers.json`（3ツール横断で管理する global MCP サーバー定義の機械可読な正本。`sync-mcp.sh` が Claude Code / opencode へ配布し、Codex は codex-code-setting 側の正本との一致を検査する）。スキルの横断台帳は持たない（外部購読の記録は `setup.sh` のインストール行、プロジェクト層は各リポジトリの `.agents/skills/` が直接の一覧である）。
 
 `setup.sh` installs the recommended skills and then removes any names listed in `remove-skills.txt`.
 
@@ -163,7 +163,7 @@ efoo-team manages Agent Skills in two layers. Full rules live in `AGENTS.md`. Th
 AGENTS.md                  # スキル管理ルールの正本（追加・変更・削除・昇格の規約、統合しない判断の記録）
 DOCTOR.md                  # 月次ヘルスチェックの手動チェックリスト（本リポジトリと3つの設定リポジトリが対象）
 MCP-REGISTRY.md            # efoo-team が利用する全 MCP サーバーの横断台帳（バージョン更新手順を含む）
-mcp-servers.json           # 3ツールへ横断配布する global MCP サーバー定義の正本（sync-mcp.sh が配布）
+mcp-servers.json           # 3ツール横断で管理する global MCP サーバー定義の正本（sync-mcp.sh が Claude Code / opencode へ配布、Codex は照合）
 remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
 setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理 + MCP 同期）
 sync-mcp.sh                # MCP 定義同期の入口（setup.sh から自動実行。実体は scripts/sync-mcp.mjs）

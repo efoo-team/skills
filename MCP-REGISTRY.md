@@ -29,7 +29,7 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 
 ## MCP サーバー定義の同期（mcp-servers.json / sync-mcp.sh）
 
-3ツールへ横断配布する global スコープの MCP サーバーは、本リポジトリの `mcp-servers.json` を機械可読な正本とし、`sync-mcp.sh`（実体 `scripts/sync-mcp.mjs`）が各ツールへ配布する。`setup.sh` の末尾から自動実行されるため、メンバーは本リポジトリを `git pull` するだけで反映される（post-merge hook 経由）。本ファイル（MCP-REGISTRY.md）は project スコープを含む人間向けの台帳であり、両者は役割分担する（定義の二重管理はしない。global 同期対象の定義値は `mcp-servers.json` だけに書く）。
+3ツール横断で管理する global スコープの MCP サーバーは、本リポジトリの `mcp-servers.json` を機械可読な正本とし、`sync-mcp.sh`（実体 `scripts/sync-mcp.mjs`）が Claude Code / opencode へ配布する（Codex へは配布せず、`config.shared.toml` 側の正本との一致検査のみ行う）。`setup.sh` の末尾から自動実行されるため、メンバーは本リポジトリを `git pull` するだけで反映される（post-merge hook 経由）。本ファイル（MCP-REGISTRY.md）は project スコープを含む人間向けの台帳であり、両者は役割分担する（定義の二重管理はしない。global 同期対象の定義値は `mcp-servers.json` だけに書く）。
 
 ツール別の配布先と変換:
 
@@ -168,6 +168,6 @@ remote タイプの最小テンプレート:
 ## 新サーバー追加チェックリスト
 
 1. 本ファイルの「台帳」表に行を追加する（サーバー名・用途・スコープ・対応ツール・必要 env 変数名・定義場所）。
-2. **3ツールへ横断配布する global サーバーの場合**: `mcp-servers.json` の `servers` へ定義を追加する（配布は `sync-mcp.sh` に任せ、各ツールの設定ファイルへ手で書かない）。バージョンは `@latest` ではなく exact 固定を原則とする。
+2. **3ツール横断で管理する global サーバーの場合**: `mcp-servers.json` の `servers` へ定義を追加する（Claude Code / opencode への配布は `sync-mcp.sh` に任せ、各ツールの設定ファイルへ手で書かない。Codex 分は `codex-code-setting/config.shared.toml` へ同版で追加する）。バージョンは `@latest` ではなく exact 固定を原則とする。
 3. 必要な env 変数を、利用するツールの設定に値の直書きではなく env 参照（上記テンプレート）で追加する（`mcp-servers.json` 経由の配布は env 変数参照に未対応のため、env が必要なサーバーは当面ツール別設定で管理する）。
 4. `.envrc.example` に新しい変数名を追記する（値はプレースホルダのままにする）。
