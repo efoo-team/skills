@@ -53,18 +53,24 @@ efoo-team/skills ──setup.sh 末尾の sync-mcp.sh──▶ global MCP サー
 | 資産 | 正本（編集する場所） | 配布・生成の経路 | 直接編集してはならないもの |
 |---|---|---|---|
 | 共通層スキル | `skills` リポジトリの `skills/<name>/` | `setup.sh`（npx skills）→ `~/.agents/skills/` | `~/.agents/skills/` と各ツール側 `skills/` symlink |
+| 外部購読スキル | upstream リポジトリ（例: `abekdwight/code-debug-skills`）。購読の記録は `setup.sh` のインストール行が正本 | `setup.sh`（npx skills）→ `~/.agents/skills/` | `~/.agents/skills/` の実体（改変せず upstream へ PR を送る） |
+| プロジェクト層スキル | 各プロジェクトの `<repo>/.agents/skills/<name>/`（オーナー一任） | Claude Code へはコミット済み相対 symlink `<repo>/.claude/skills/<name>`（Codex / opencode は `.agents/skills` をネイティブ検出） | `.claude/skills/` 配下への実体配置（symlink のみ）。共通層と同名のスキル配置も禁止 |
 | global MCP サーバー定義 | `skills` リポジトリの `mcp-servers.json` | `sync-mcp.sh` → `~/.claude.json`（user スコープ）/ `opencode.json` の `mcp.<name>` | 配布先の両ファイル。`claude mcp add -s user` での手動 global 追加も行わない |
 | MCP 台帳（人間向け） | `skills` リポジトリの `MCP-REGISTRY.md` | —（ドキュメント） | — |
 | project スコープ MCP | 各プロジェクトの `.mcp.json` | プロジェクトリポジトリの git | —（`MCP-REGISTRY.md` の台帳行の更新を忘れない） |
 | Claude Code 共有設定 | `claude-code-setting/settings.json` 等 | ライブ設定（`~/.claude` symlink） | 実行時 state 差分（`feedbackSurveyState` 等）はコミットしない |
 | Codex 共有設定 | `codex-code-setting/config.shared.toml` | `generate_config.py` → `config.toml` | `config.toml`（生成物）。`config.local.toml` はマシン固有でコミットしない |
 | opencode 布陣 | `opencode-setting/formations/` | `omo-profile set` → `oh-my-openagent.jsonc` | `oh-my-openagent.jsonc`（生成物）。`opencode.json` はローカル専用（ただし `mcp` の同期対象エントリは sync-mcp が管理） |
+| スキル・MCP のローカル状態 | —（マシン固有。正本なし） | `~/.agents/.skill-lock.json`（npx skills の lock）/ `~/.agents/.mcp-sync-state.json`（sync-mcp の温め記録） | どのリポジトリにもコミットしない |
 
 ### 変更先早見表（やりたいこと → 編集する場所）
 
 | やりたいこと | 編集する場所 | 反映のされ方 |
 |---|---|---|
 | スキルの追加・変更・削除 | このリポジトリの `skills/`（規約は `AGENTS.md`、作成は `/create-skill`） | push → 各自の pull で post-merge が自動反映 |
+| 外部スキルの購読追加・解除 | このリポジトリの `setup.sh`（購読行の追加・削除）+ 解除時は `remove-skills.txt` | push → 各自の pull で post-merge が自動反映 |
+| 外部購読スキルの内容変更 | upstream リポジトリへ PR（`~/.agents/skills/` の実体改変は禁止） | upstream の merge 後、各自の pull |
+| プロジェクト層スキルの追加・変更 | 各プロジェクトの `.agents/skills/<name>/`（作成は `/create-skill`。共通層との同名は禁止） | 対象プロジェクトの pull |
 | global MCP サーバーの追加・バージョン変更 | このリポジトリの `mcp-servers.json`（Codex でも使うサーバーは `codex-code-setting/config.shared.toml` も同版に）+ `MCP-REGISTRY.md` の台帳行 | push → 各自の pull で sync-mcp が自動反映（bump 手順は `MCP-REGISTRY.md`「バージョン更新手順」） |
 | project MCP サーバーの追加 | 各プロジェクトの `.mcp.json` + `MCP-REGISTRY.md` の台帳行 | 対象プロジェクトの pull |
 | Claude Code の設定・hooks・env | `claude-code-setting/settings.json` 等 | push → 各自の pull（ライブ反映） |
