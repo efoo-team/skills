@@ -86,6 +86,20 @@ efoo-team/skills ──setup.sh 末尾の sync-mcp.sh──▶ global MCP サー
 - 実行時 state の混入防止は機械化されている: claude-code-setting / codex-code-setting は **allowlist（default-deny）方式の `.gitignore`**（`/*` で全無視 + `!` で共有物のみ追跡。ツールが新しい状態ファイルを生成しても自動的に管理外になる）、両リポジトリの **pre-commit hook**（`check-repo.sh`: 絶対パス・実行時 state 混入の検査）、claude-code-setting の **CI**（check-repo.sh + gitleaks）
 - ブランチ運用の現状: 設定リポジトリ3つは main への直接コミット（pull 即反映の小さな変更が中心）、このリポジトリ（skills）は PR 運用（pull した全メンバーのマシンで自動実行されるスクリプトを含む配布網の起点のため、レビューを挟む）。作業リポジトリ（l-shift 等）は通常どおり PR 運用
 
+### 3ツール同等性の原則（変更時は他ツールへの波及を確認する）
+
+efoo-team は Claude Code / Codex / opencode をできるだけ同等の能力・設定状態に保つ。**いずれか1つの設定リポジトリへ変更を加えるときは、同等の変更を他2ツールへも適用すべきかを必ず確認し、適用する場合は同じ作業の中で揃える**。対応先は下表を使う。意図的に1ツールへ閉じる変更は、その旨と理由をコミットメッセージ（または PR）へ明記する — 後から見た人が「同期漏れ」と「意図的な差分」を区別できるようにするためである。
+
+| 設定の種類 | Claude Code（`claude-code-setting`） | Codex（`codex-code-setting`） | opencode（`opencode-setting`） |
+|---|---|---|---|
+| グローバル指示ファイル | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`（意図的に最小） |
+| 共有設定（モデル・env・permission 等） | `settings.json` | `config.shared.toml` | `opencode.json`（ローカル専用）・`tui.json` |
+| MCP サーバー（3ツール横断・同期対象） | skills の `mcp-servers.json`（sync が自動配布） | `config.shared.toml`（skills の pin と同版に保つ） | skills の `mcp-servers.json`（sync が自動配布） |
+| MCP サーバー（ツール限定） | project は各リポジトリの `.mcp.json`・個人は `~/.claude.json` | `config.shared.toml` | `opencode.json` |
+| スキル | skills リポジトリで共通管理（3ツールへ一括配布。ツール別の対応は不要） | 同左 | 同左 |
+| サブエージェント / ペルソナ | `agents/*.md` + `commands/`（4ペルソナ） | `agents/*.toml` | `formations/` + `agents/*.md` + `prompts/` |
+| ツールの自動実行フック | `settings.json` の `hooks` | `~/.codex/hooks.json`（**現状は未追跡・マシンローカル**。共有したい場合は追跡化から検討する） | —（共有管理対象なし） |
+
 ## Setup
 
 ```bash
