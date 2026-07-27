@@ -173,7 +173,7 @@ scripts/sync-mcp.mjs       # MCP 同期の実体（Claude user スコープ登�
 skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
 ```
 
-Common-layer skills currently in `skills/` (28). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The 3-piece artifacts themselves are the source of truth, and `check-skills.py` enforces their mutual consistency (if any piece is present, all three are required).
+Common-layer skills currently in `skills/` (29). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The 3-piece artifacts themselves are the source of truth, and `check-skills.py` enforces their mutual consistency (if any piece is present, all three are required).
 
 | Skill | Purpose | Invocation |
 |---|---|---|
@@ -189,7 +189,8 @@ Common-layer skills currently in `skills/` (28). "Invocation" is `explicit-only`
 | `documentation-sync` | Verifies/syncs docs against code changes from git diff | auto |
 | `execute` | Orchestrates and delegates a complex task | explicit-only |
 | `formation-designer` | oh-my-openagent (formerly oh-my-opencode) formation (agent-model) design guide (internal, opencode only) | auto |
-| `issue-report` | Takes multi-case reports from non-engineers, investigates each case with parallel subagents, groups them by touch-set overlap into conflict-free issues for parallel worktree development, then files new GitHub issues or merges into existing ones after approval, labeling each touched issue `needs-triage` as an engineer review gate | explicit-only |
+| `issue-report-dev` | Engineer-facing counterpart of `issue-report-user`: ingests logs/stack traces, digs to file- and symbol-level root causes with evidence, and drafts issues carrying cause hypotheses, fix options and acceptance criteria; shares the grouping rules, orchestration protocol and rewrite procedure hosted under `issue-report-user/references/` | explicit-only |
+| `issue-report-user` | Takes multi-case reports from non-engineers, investigates each case with parallel subagents, groups them by touch-set overlap into conflict-free issues for parallel worktree development, then files new GitHub issues or merges into existing ones after approval, labeling each touched issue `needs-triage` as an engineer review gate (canonical home of the shared `references/` used by both issue-report skills; formerly `issue-report`) | explicit-only |
 | `mastra-ai-architecture-rules` | Responsibility boundaries for Mastra-based AI services | auto |
 | `mastra-framework-guide` | Verifying current Mastra API/docs and version-migration guidance | auto |
 | `module-boundary-design` | Module boundary and responsibility-split design judgment | auto |

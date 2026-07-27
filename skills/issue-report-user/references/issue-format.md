@@ -1,4 +1,8 @@
-# issue-report: issue 本文形式と書き換え手順
+# issue-report 共通: issue 本文形式と書き換え手順
+
+> 本ファイルは `issue-report-user`（非エンジニアの報告者向け）と `issue-report-dev`（エンジニア向け）の**共通正本**である。「対象領域:」定型形式・任意定型行・更新履歴・**本文書き換え（統合）手順**は両スキル共通であり、どちらのスキルが起票した issue も相互に統合先になりうるため、この共通部分を片方だけの都合で変更しない。
+>
+> 一方、**issue 本文のテンプレート**（本ファイルの「単一ケース用の標準形式」「複数ケース用の標準形式」）は `issue-report-user` 専用である。`issue-report-dev` から呼ばれている場合は [`../../issue-report-dev/references/issue-format-dev.md`](../../issue-report-dev/references/issue-format-dev.md) のテンプレートを使う（共通規約と書き換え手順は本ファイルに従う）。
 
 起草ワーカー（縮退時は parent）が Phase 6 で従う本文形式と、統合（既存 issue の本文書き換え）の手順。
 

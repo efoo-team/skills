@@ -240,8 +240,19 @@ Skill instructions here.
 - **計画系**（`plan-explain` / `review-plan`）— keep-separate:
   入力は同じ計画ファイルだが、plan-explain は事実抽出のみの人間向け要約（出力＝概要レポート）、
   review-plan は複数観点の批判レビューと改訂提案（出力＝採否付き改訂案）で、動詞と出力が異なる。
-- **要件系**（`pre-define` / `define` / `issue-report`）— keep-separate:
+- **要件系**（`pre-define` / `define` / `issue-report-user` / `issue-report-dev`）— keep-separate:
   pre-define は曖昧な要望の具体化（/define への入力生成。仕様決定はしない）、define は詳細要件定義
-  （要件定義書を出力）で、パイプラインの段が異なり handoff が明示されている。issue-report は
-  対象ユーザー（非エンジニア）・出力（GitHub issue 登録という副作用）・具体化の深さ（課題まで。
-  仕様・要件に踏み込まない）が異なり、開発工程の前段ではなく報告受付を担うため統合すると責務が混在する。
+  （要件定義書を出力）で、パイプラインの段が異なり handoff が明示されている。issue-report 系は
+  出力（GitHub issue 登録という副作用）と担う工程（開発工程の前段ではなく報告受付）が異なるため、
+  define / pre-define と統合すると責務が混在する。issue-report-dev は修正方針案までは書くが、
+  実装仕様の確定は行わず /define へ委ねる点で境界を保つ。
+- **issue 起票系**（`issue-report-user` / `issue-report-dev`）— keep-separate:
+  グルーピング規則・オーケストレーション・登録時の安全規律は共通で、実体は
+  `issue-report-user/references/` の3ファイルに一元化して `issue-report-dev` が相対パスで参照する
+  （複製ではない）。分けているのは**報告者の属性で対話規律が正反対になる**ためである。
+  issue-report-user は技術用語・ファイルパスの使用を禁止し解決策を一切書かない、
+  issue-report-dev は技術的質問と期待仕様の確認を制限せず原因仮説・修正方針案・受入条件を書く。
+  1スキルに統合すると、この相反する2つの規律が同じ本文に同居し、起動時のモード判定を誤ると
+  非エンジニアに技術的質問を浴びせる／エンジニア向けに情報を削ぎ落とす、という双方向の劣化が起きる。
+  付与ラベルも異なる（-user のみ `needs-triage`）。**片方を改名・移動するときは共通参照の相対パス
+  （`../issue-report-user/references/`）を必ず両方更新する。リンク切れは check-skills.py では検出されない。**

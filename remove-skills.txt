@@ -5,4 +5,5 @@ browser-use
 find-skills
 langfuse
 github-pull-request
+issue-report
 
