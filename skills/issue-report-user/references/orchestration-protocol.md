@@ -1,4 +1,8 @@
-# issue-report: オーケストレーション詳細プロトコル（Phase 0〜7）
+# issue-report 共通: オーケストレーション詳細プロトコル（Phase 0〜7）
+
+> 本ファイルは `issue-report-user`（非エンジニアの報告者向け）と `issue-report-dev`（エンジニア向け）の**共通正本**である。パイプラインの構造・成果物ファイルのスキーマ・ゲート条件・登録時の安全規律（統合先の open PR 判定・書き込み直前の再検証・ラベル付与の検証）は両スキル共通であり、変更するときは片方だけを想定して書き換えない。
+>
+> ただし**ユーザー対話の言葉づかい・ヒアリング項目・調査ワーカーへの依頼内容・付与するラベル**は報告者の属性で変わる。`issue-report-dev` から呼ばれている場合、これらは [`../../issue-report-dev/SKILL.md`](../../issue-report-dev/SKILL.md)「共通プロトコルからの差分」節の指示が本ファイルより優先する。本ファイル中の「画面の言葉で」「技術用語を使わない」という制約は `issue-report-user` 固有のものであり、`issue-report-dev` には適用されない。
 
 parent（PM）と各ワーカーの詳細な役割・成果物ファイルのスキーマ・ゲート条件を定める。
 グルーピングの判定規則は [`grouping-rules.md`](grouping-rules.md)、issue 本文の形式と書き換え手順は [`issue-format.md`](issue-format.md) を参照する。
@@ -331,7 +335,7 @@ parent が登録計画をサマリー表で一括提示する:
 
 **ラベルの事前準備（parent が実行ワーカー起動前に1回・直列）**: 確認待ちラベル `needs-triage` と、横断グループが1つ以上ある場合は `scope:cross-cutting` が対象リポジトリに存在する状態を先に作る。ラベルはリポジトリ全体の前提条件であって packet ごとの issue 操作ではないため、並列で動く実行ワーカー側では `gh label create` を実行しない（複数ワーカーによる同時作成の競合を避ける）:
 
-- `gh label list --json name` で既存ラベルを確認し、不足しているものだけを作成する: `gh label create needs-triage --description "issue-report による起票。エンジニアの内容確認待ち（確認後にこのラベルを外す）" --color FBCA04` / `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7`
+- `gh label list --json name` で既存ラベルを確認し、不足しているものだけを作成する: `gh label create needs-triage --description "issue-report-user による起票。エンジニアの内容確認待ち（確認後にこのラベルを外す）" --color FBCA04` / `gh label create scope:cross-cutting --description "横断領域（共有基盤）を主対象とする issue。他の issue と統合しない" --color 5319E7`
 - 作成が「already exists」で失敗した場合は成功として扱う（別経路で用意済みのため。冪等）。既存ラベルの色・説明は上書きしない（`--force` は使わない）
 - 必要なラベルを用意できなかった場合は**実行ワーカーを起動しない**。確認待ちラベルの付かない issue はエンジニアのレビューゲート（オートメーションによる後段処理を含む）をすり抜けるため、登録を進めず 7-3 の手動登録案内へ倒す（gh が使えない場合と同じ扱い）
 
