@@ -2,268 +2,199 @@
 
 Shared agent skills for efoo-team.
 
-このリポジトリはスキル本体に加えて、ツール横断の MCP 管理2ファイルも保有する: `MCP-REGISTRY.md`（Claude Code / Codex / opencode で利用する全 MCP サーバーの台帳。各ツールの設定ファイルは形式がばらばらで横断一覧がどこにもないため、このファイルが唯一の一覧である）と `mcp-servers.json`（3ツール横断で管理する global MCP サーバー定義の機械可読な正本。`sync-mcp.sh` が Claude Code / opencode へ配布し、Codex は codex-code-setting 側の正本との一致を検査する）。スキルの横断台帳は持たない（外部購読の記録は `setup.sh` のインストール行、プロジェクト層は各リポジトリの `.agents/skills/` が直接の一覧である）。
+正本として保有するもの:
 
-`setup.sh` installs the recommended skills and then removes any names listed in `remove-skills.txt`.
-
-## Repository landscape（エージェント関連リポジトリの全体構造）
-
-efoo-team は、各エージェントツールの設定をツールごとの専用リポジトリで管理している。各設定リポジトリは、そのツールの設定ディレクトリそのもの（`~/.claude` など）を git 管理したものである。その一方で、スキル（SKILL.md）だけは**意図的にどの設定リポジトリでも管理せず**、このリポジトリ（`efoo-team/skills`）へ一元管理している。
-
-各設定リポジトリの clone は、ツールが参照する設定ディレクトリとして配置する。推奨の配置方式は、ghq 管理下の clone へ設定ディレクトリから symlink を張る方式である。
-
-```bash
-# 例: 3つの設定ディレクトリすべてに同じ方式を適用する
-ln -sfn "$(ghq root)/github.com/efoo-team/claude-code-setting" ~/.claude
-ln -sfn "$(ghq root)/github.com/efoo-team/codex-code-setting"  ~/.codex
-ln -sfn "$(ghq root)/github.com/efoo-team/opencode-setting"    ~/.config/opencode
-```
-
-この symlink 方式の詳細手順は `opencode-setting/SETUP.md` と `codex-code-setting/SETUP.md` に記載されている。なお `claude-code-setting/README.md` には `~/.claude` 自体を直接 git 管理する別方式（in-place git init + `ghq.root` 追加）も記載されているが、どちらの方式でも「設定ディレクトリ = 設定リポジトリの clone」という結果は同じである。
-
-| Repository | 実体となる配置先 | 管理対象 | スキルの扱い |
-|---|---|---|---|
-| [`efoo-team/claude-code-setting`](https://github.com/efoo-team/claude-code-setting) | `~/.claude` | Claude Code の設定（`settings.json`、`commands/`（4ペルソナのみ）、`agents/`、`CLAUDE.md`、MCP 設定） | 管理しない。`skills/` は gitignore（中身はインストール時に張られる symlink のみ） |
-| [`efoo-team/codex-code-setting`](https://github.com/efoo-team/codex-code-setting) | `~/.codex` | Codex の設定（`config.toml`、`AGENTS.md`、`automations/`、`scripts/`） | 管理しない。`skills/` は gitignore。旧 custom prompts（`prompts/`）は全廃し、スキルへ移行済み |
-| [`efoo-team/opencode-setting`](https://github.com/efoo-team/opencode-setting) | `~/.config/opencode` | opencode の設定（`formations/`、`agents/`、`prompts/`（ペルソナ追記ファイル）、`tui.json`、`omo-profile`） | 管理しない。スキル実体は一切 git 追跡していない |
-| `efoo-team/skills`（this repo） | `~/.agents/skills/`（`setup.sh` が配布） | 共通層スキルの実体と、ツール横断の MCP 管理（`MCP-REGISTRY.md` = 全サーバー台帳、`mcp-servers.json` = global 同期サーバー定義の正本） | **ここが唯一の正本（source of truth）** |
-
-配布の流れ:
-
-```
-efoo-team/skills ──setup.sh（npx skills）──▶ ~/.agents/skills/<name>   … インストールされた実体
-                                               ├─ Claude Code : ~/.claude/skills/<name> → symlink で解決
-                                               ├─ Codex       : ~/.agents/skills を直接検出（$<name>）
-                                               └─ opencode    : ~/.agents/skills を直接検出
-
-efoo-team/skills ──setup.sh 末尾の sync-mcp.sh──▶ global MCP サーバー定義の配布（正本: mcp-servers.json）
-                                               ├─ Claude Code : ~/.claude.json の user スコープへ登録
-                                               ├─ opencode    : ~/.config/opencode/opencode.json の mcp.<name> へマージ
-                                               └─ Codex       : 配布せず検査のみ（定義の正本は codex-code-setting/config.shared.toml。不一致を警告）
-```
-
-スキルを一元管理する理由: スキルはツール非依存の Markdown であり、3つの設定リポジトリへ分散して置くと同じ内容の複製が発生して乖離していくため。このリポジトリで1回書けば、`setup.sh` が全ツールへ配布する。特定ツール限定のスキル（例: opencode 限定の `formation-designer`）であっても、実体は設定リポジトリではなくこのリポジトリに置き、`metadata.internal: true` とエージェント指定インストールで配布先を絞る。
-
-このため、スキルを変更するときは `~/.agents/skills/` や各ツール側の `skills/` ディレクトリを直接編集せず、このリポジトリを変更して push する。各設定リポジトリは自分の `skills/` を gitignore しているので、インストールされた symlink が設定リポジトリへ誤ってコミットされることはない。なお、プロジェクト固有スキル（プロジェクト層）だけは例外的に各プロジェクトリポジトリが正本を持つ（次節「Two-layer skill management」を参照）。
-
-### 正本・生成物・ローカル専用の区分（ドリフト防止）
-
-どのリポジトリで作業していても、変更は必ず「正本」に対して行う。配布先・生成物を直接編集すると、次回の配布・生成・pull で上書きされるか、正本と乖離したまま残る（＝ドリフト）。
-
-| 資産 | 正本（編集する場所） | 配布・生成の経路 | 直接編集してはならないもの |
-|---|---|---|---|
-| 共通層スキル | `skills` リポジトリの `skills/<name>/` | `setup.sh`（npx skills）→ `~/.agents/skills/` | `~/.agents/skills/` と各ツール側 `skills/` symlink |
-| 外部購読スキル | upstream リポジトリ（例: `abekdwight/code-debug-skills`）。購読の記録は `setup.sh` のインストール行が正本 | `setup.sh`（npx skills）→ `~/.agents/skills/` | `~/.agents/skills/` の実体（改変せず upstream へ PR を送る） |
-| プロジェクト層スキル | 各プロジェクトの `<repo>/.agents/skills/<name>/`（オーナー一任） | Claude Code へはコミット済み相対 symlink `<repo>/.claude/skills/<name>`（Codex / opencode は `.agents/skills` をネイティブ検出） | `.claude/skills/` 配下への実体配置（symlink のみ）。共通層と同名のスキル配置も禁止 |
-| global MCP サーバー定義 | `skills` リポジトリの `mcp-servers.json` | `sync-mcp.sh` → `~/.claude.json`（user スコープ）/ `opencode.json` の `mcp.<name>` | 配布先の両ファイル。`claude mcp add -s user` での手動 global 追加も行わない |
-| MCP 台帳（人間向け） | `skills` リポジトリの `MCP-REGISTRY.md` | —（ドキュメント） | — |
-| project スコープ MCP | 各プロジェクトの `.mcp.json` | プロジェクトリポジトリの git | —（`MCP-REGISTRY.md` の台帳行の更新を忘れない） |
-| Claude Code 共有設定 | `claude-code-setting/settings.json` 等 | ライブ設定（`~/.claude` symlink） | 実行時 state 差分（`feedbackSurveyState` 等）はコミットしない |
-| Codex 共有設定 | `codex-code-setting/config.shared.toml` | `generate_config.py` → `config.toml` | `config.toml`（生成物）。`config.local.toml` はマシン固有でコミットしない |
-| opencode 布陣 | `opencode-setting/formations/` | `omo-profile set` → `oh-my-openagent.jsonc` | `oh-my-openagent.jsonc`（生成物）。`opencode.json` はローカル専用（ただし `mcp` の同期対象エントリは sync-mcp が管理） |
-| スキル・MCP のローカル状態 | —（マシン固有。正本なし） | `~/.agents/.skill-lock.json`（npx skills の lock）/ `~/.agents/.mcp-sync-state.json`（sync-mcp の温め記録） | どのリポジトリにもコミットしない |
-
-### 変更先早見表（やりたいこと → 編集する場所）
-
-| やりたいこと | 編集する場所 | 反映のされ方 |
+| 資産 | 正本 | 配布先 |
 |---|---|---|
-| スキルの追加・変更・削除 | このリポジトリの `skills/`（規約は `AGENTS.md`、作成は `/create-skill`） | push → 各自の pull で post-merge が自動反映 |
-| 外部スキルの購読追加・解除 | このリポジトリの `setup.sh`（購読行の追加・削除）+ 解除時は `remove-skills.txt` | push → 各自の pull で post-merge が自動反映 |
-| 外部購読スキルの内容変更 | upstream リポジトリへ PR（`~/.agents/skills/` の実体改変は禁止） | upstream の merge 後、各自の pull |
-| プロジェクト層スキルの追加・変更 | 各プロジェクトの `.agents/skills/<name>/`（作成は `/create-skill`。共通層との同名は禁止） | 対象プロジェクトの pull |
-| global MCP サーバーの追加・バージョン変更 | このリポジトリの `mcp-servers.json`（Codex でも使うサーバーは `codex-code-setting/config.shared.toml` も同版に）+ `MCP-REGISTRY.md` の台帳行 | push → 各自の pull で sync-mcp が自動反映（bump 手順は `MCP-REGISTRY.md`「バージョン更新手順」） |
-| project MCP サーバーの追加 | 各プロジェクトの `.mcp.json` + `MCP-REGISTRY.md` の台帳行 | 対象プロジェクトの pull |
-| Claude Code の設定・hooks・env | `claude-code-setting/settings.json` 等 | push → 各自の pull（ライブ反映） |
-| Codex の設定・MCP | `codex-code-setting/config.shared.toml` | push → 各自の pull で post-merge が `config.toml` を再生成 |
-| opencode の布陣・エージェント・プロンプト | `opencode-setting/formations/` `agents/` `prompts/` | push → 各自の pull + `omo-profile set` |
+| 共通層 Agent Skills | `skills/<name>/SKILL.md` | `~/.agents/skills/` → Claude Code / Codex / opencode |
+| global MCP サーバー定義 | `mcp-servers.json` | `~/.claude.json`（user スコープ）/ `opencode.json` |
 
-### ライブ設定リポジトリの git 運用規律（pull = 即時反映）
+`MCP-REGISTRY.md` は project スコープを含む全 MCP サーバーの台帳。スキルの横断台帳は持たない。
 
-3つの設定リポジトリはツールの設定ディレクトリそのもの（ライブ設定）であるため、通常のソースコードリポジトリと git の扱いが異なる。エージェント・人間を問わず、これらのリポジトリで git 操作を行うときは以下を前提にする。
-
-- **pull = デプロイ**である。main を pull した瞬間に全ツールの挙動へ反映され、さらに各リポジトリの post-merge hook が配布・生成処理（skills: `setup.sh` + `sync-mcp.sh`、claude-code-setting: `setup.sh`、codex-code-setting: `generate_config.py` による `config.toml` 再生成、opencode-setting: fish ファイルのコピー）を自動実行する。push する変更は「全メンバーのマシンで即座に実行される」前提でレビューする
-- **ワーキングツリーには実行時の dirty が常在する**（Claude Code が `settings.json` へ書き戻す実行時 state、Codex が `config.toml` 経由で `config.local.toml` に回収される自動追記など）。これは異常ではなく仕様であり、コミット時は意図した変更のファイルだけを外科的にステージする。`git add -A`・`git stash`・`git checkout .`・`git clean` のような一括操作でワーキングツリーを巻き戻さない（稼働中セッションの状態を破壊する）
-- 実行時 state の混入防止は機械化されている: claude-code-setting / codex-code-setting は **allowlist（default-deny）方式の `.gitignore`**（`/*` で全無視 + `!` で共有物のみ追跡。ツールが新しい状態ファイルを生成しても自動的に管理外になる）、両リポジトリの **pre-commit hook**（`check-repo.sh`: 絶対パス・実行時 state 混入の検査）、claude-code-setting の **CI**（check-repo.sh + gitleaks）
-- ブランチ運用の現状: 設定リポジトリ3つは main への直接コミット（pull 即反映の小さな変更が中心）、このリポジトリ（skills）は PR 運用（pull した全メンバーのマシンで自動実行されるスクリプトを含む配布網の起点のため、レビューを挟む）。作業リポジトリ（l-shift 等）は通常どおり PR 運用
-
-### 3ツール同等性の原則（変更時は他ツールへの波及を確認する）
-
-efoo-team は Claude Code / Codex / opencode をできるだけ同等の能力・設定状態に保つ。**いずれか1つの設定リポジトリへ変更を加えるときは、同等の変更を他2ツールへも適用すべきかを必ず確認し、適用する場合は同じ作業の中で揃える**。対応先は下表を使う。意図的に1ツールへ閉じる変更は、その旨と理由をコミットメッセージ（または PR）へ明記する — 後から見た人が「同期漏れ」と「意図的な差分」を区別できるようにするためである。
-
-| 設定の種類 | Claude Code（`claude-code-setting`） | Codex（`codex-code-setting`） | opencode（`opencode-setting`） |
-|---|---|---|---|
-| グローバル指示ファイル | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`（意図的に最小） |
-| 共有設定（モデル・env・permission 等） | `settings.json` | `config.shared.toml` | `opencode.json`（ローカル専用）・`tui.json` |
-| MCP サーバー（3ツール横断・同期対象） | skills の `mcp-servers.json`（sync が自動配布） | `config.shared.toml`（skills の pin と同版に保つ） | skills の `mcp-servers.json`（sync が自動配布） |
-| MCP サーバー（ツール限定） | project は各リポジトリの `.mcp.json`・個人は `~/.claude.json` | `config.shared.toml` | `opencode.json` |
-| スキル | skills リポジトリで共通管理（3ツールへ一括配布。ツール別の対応は不要） | 同左 | 同左 |
-| サブエージェント / ペルソナ | `agents/*.md` + `commands/`（4ペルソナ） | `agents/*.toml` | `formations/` + `agents/*.md` + `prompts/` |
-| ツールの自動実行フック | `settings.json` の `hooks` | `~/.codex/hooks.json`（**現状は未追跡・マシンローカル**。共有したい場合は追跡化から検討する） | —（共有管理対象なし） |
-
-## Setup
+## セットアップ
 
 ```bash
-# Clone and run
 ghq get efoo-team/skills
 bash ~/ghq/github.com/efoo-team/skills/setup.sh
 ```
 
-Or without cloning:
+Node.js 18 以上が必要。`npx skills` が `~/.claude/skills/` へ書き込むため、設定リポジトリ（「関連リポジトリ」節）の配置を先に済ませる。
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | bash
+clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | bash` でも実行できるが、post-merge hook が設定されないため以降の自動反映は受けられない。
+
+## スキル一覧
+
+29 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+
+トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
+
+| カテゴリ | スキル | 用途 | トリガー |
+|---|---|---|---|
+| 要件・計画・実行 | `pre-define` | 曖昧な要望を `/define` の入力へ具体化 | explicit-only |
+| | `define` | 詳細要件定義 | explicit-only |
+| | `plan-explain` | 計画ファイルの構造化要約 | explicit-only |
+| | `review-plan` | 実装計画の多観点レビュー | explicit-only |
+| | `execute` | 複雑なタスクのオーケストレーションと委譲 | explicit-only |
+| 設計判断 | `module-boundary-design` | モジュール境界と責務分割の設計判断 | auto |
+| | `refactor-mindset` | 変更容易性を高める再構成 | auto |
+| | `restful-api-design` | Web / HTTP API の設計判断 | auto |
+| | `database-design` | DB のテーブル・カラム命名 | auto |
+| | `sql-writing-style` | 一瞥して読める SQL のスタイルルール | auto |
+| PR・issue 運用 | `issue-report-user` | 非エンジニアの複数ケース報告を並列調査し、競合しない issue へグルーピングして起票 | explicit-only |
+| | `issue-report-dev` | ログ・スタックトレースから根本原因を調査し、原因仮説・修正方針・受入条件つきで起票 | explicit-only |
+| | `pr` | ブランチ作成から PR までの一連 | explicit-only |
+| | `pr-stage` | `pr` の薄型ラッパー（ステージ済みの変更のみ） | explicit-only |
+| | `pr-body` | 階層化された PR 本文の生成 | explicit-only |
+| | `review-pr-check` | PR レビュー対応のトリアージ | explicit-only |
+| | `dependabot-sweep` | Dependabot PR の統合 | explicit-only |
+| エージェント基盤 | `agent-harness-engineering` | AI エージェント・ハーネスの設計憲章 | auto |
+| | `agent-native-project-design` | ハーネス上で動くリポジトリ側の設計（指示ファイル・スキル・hooks） | auto |
+| | `create-skill` | 新規スキルの対話的作成 | explicit-only |
+| | `agents-md-sync` | AGENTS.md 階層の生成・更新 | explicit-only |
+| | `formation-designer` | oh-my-openagent のフォーメーション設計（opencode 限定） | auto |
+| Mastra | `mastra-ai-architecture-rules` | Mastra ベース AI サービスの責務分離 | auto |
+| | `mastra-framework-guide` | Mastra の現行 API 検証とバージョン移行 | auto |
+| 調査・保守 | `ask` | 編集を行わない read-only の分析と回答 | explicit-only |
+| | `search-history` | Claude Code / Codex の会話履歴検索 | explicit-only |
+| | `documentation-sync` | git diff 起点のドキュメント整合検証 | auto |
+| | `cleanup-storage` | ディスク使用量の調査とカテゴリ別承認による削除 | explicit-only |
+| | `orca-automations` | orca CLI 経由の定期 automation 管理 | explicit-only |
+
+## MCP サーバー定義
+
+正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.78`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
+
+- バージョン変更は `pin` と `definition.args` を同時に更新する。片方だけの half-bump は sync が検出して停止する。Codex 側も同版に揃える。手順は `MCP-REGISTRY.md`。
+- 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する。
+
+## 配布の仕組み
+
+```mermaid
+flowchart LR
+  subgraph repo["efoo-team/skills（正本）"]
+    SK["skills/*/SKILL.md"]
+    RM["remove-skills.txt"]
+    MC["mcp-servers.json"]
+  end
+
+  EXT["外部リポジトリ<br/>（購読スキル）"]
+
+  SK -->|"npx skills add"| AG
+  EXT -->|"npx skills add"| AG
+  RM -->|"npx skills remove"| AG
+
+  AG["~/.agents/skills/NAME"]
+
+  AG -->|"symlink"| CC["Claude Code<br/>~/.claude/skills/NAME"]
+  AG -->|"直接検出"| CX["Codex"]
+  AG -->|"直接検出"| OC["opencode"]
+
+  MC -->|"claude mcp add-json -s user"| CJ["~/.claude.json"]
+  MC -->|"JSON マージ"| OJ["opencode.json"]
+  MC -.->|"バージョン照合のみ"| CT["~/.codex/config.toml"]
 ```
 
-When running without cloning, `setup.sh` also fetches `remove-skills.txt` from GitHub so the removal list is still applied.
+`~/.agents/skills/` が 3 ツールの合流点。Claude Code のみ per-skill の symlink を必要とし、Codex と opencode は直接検出する。
 
-### Auto-update on pull（pull による自動反映）
+`setup.sh` は team-owned → エージェント限定（opencode のみの `formation-designer`）→ 外部購読の順にインストールし、`remove-skills.txt` の名前を削除して MCP を同期する。冪等であり、変更のないスキルはハッシュ比較でスキップする。
 
-clone した状態で `setup.sh` を一度実行すると、このリポジトリの `core.hooksPath` が `hooks/` に設定される。以降はメンバーが `git pull` するだけで `hooks/post-merge` が `setup.sh` を自動的に再実行し、push されたスキルの追加・変更・削除がローカル環境へ反映される（手動での `setup.sh` 再実行は不要）。curl でのワンショット実行では hook は設定されないため、以降の自動反映を受けたい場合は clone 運用にすること。
+初回実行時に `core.hooksPath` が設定され、以降は `git pull` が `setup.sh` を再実行する。**push は全メンバーのマシンでの即時実行を意味するため、このリポジトリは PR 運用とする。**
 
-### Onboarding — 新しいマシンでの導入順序
+## 正本と編集先
 
-エージェント環境一式をゼロから整える場合は、以下の順で導入する。
+配布先を直接編集すると次回の配布で上書きされるか、正本と乖離したまま残る。変更は必ず正本に対して行う。
 
-1. **3つの設定リポジトリを配置する。** ghq で clone し、各ツールの設定ディレクトリから symlink を張る（配置方式は「Repository landscape」を参照）。
-   - `claude-code-setting` → `~/.claude`（同リポジトリの `README.md` も参照）
-   - `codex-code-setting` → `~/.codex`（同リポジトリの `SETUP.md` を参照。config.toml のマシン固有パスの調整を含む）
-   - `opencode-setting` → `~/.config/opencode`（同リポジトリの `SETUP.md` を参照。シェル環境の同期と `omo-profile` による布陣の有効化を含む）
-2. **このリポジトリの `setup.sh` を実行する。** 全推奨スキルが `~/.agents/skills/` へインストールされ、Claude Code 向けの symlink が `~/.claude/skills/` に張られる。`npx skills` が `~/.claude/skills/` 等へ書き込むため、設定ディレクトリの配置（手順1）を必ず先に済ませておくこと。
-3. **以降の更新は各リポジトリで `git pull` するだけ。** このリポジトリは pull すると post-merge hook がスキルを自動反映する（上記「Auto-update on pull」を参照）。
+| 資産 | 正本 | 反映経路 | 直接編集しない |
+|---|---|---|---|
+| 共通層スキル | `skills/<name>/` | `setup.sh` → `~/.agents/skills/` | `~/.agents/skills/`、各ツールの `skills/` symlink |
+| 外部購読スキル | upstream リポジトリ（購読の記録は `setup.sh` の行） | 同上 | `~/.agents/skills/` の実体（変更は upstream へ PR） |
+| プロジェクト層スキル | 各プロジェクトの `.agents/skills/<name>/` | `.claude/skills/<name>` のコミット済み相対 symlink | `.claude/skills/` への実体配置 |
+| global MCP 定義 | `mcp-servers.json` | `sync-mcp.sh` → `~/.claude.json` / `opencode.json` | 配布先の両ファイル、`claude mcp add -s user` |
+| project MCP 定義 | 各プロジェクトの `.mcp.json` | そのリポジトリの git | — |
+| ローカル状態 | —（マシン固有） | `~/.agents/.skill-lock.json` / `.mcp-sync-state.json` | どのリポジトリにもコミットしない |
 
-## Two-layer skill management
+規約の正本は `AGENTS.md`。新規作成は `/create-skill`（Codex では `$create-skill`）を使う。
 
-efoo-team manages Agent Skills in two layers. Full rules live in `AGENTS.md`. There is no cross-repository skill registry: project-layer skills are delegated to each project repository's owner, and creation-time discipline (duplication / shadow checks, format rules) is enforced by the `/create-skill` workflow.
+スキルの正本は共通層（このリポジトリ）とプロジェクト層（各リポジトリの `.agents/skills/`）の 2 か所のみ。迷ったらプロジェクト層に作り、2 つ目のプロジェクトで必要になった時点で昇格する。共通層と同名をプロジェクト層に置かない（シャドウするため）。
 
-- **共通層 (common layer)** — this repository. `npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` distributes `skills/` to `~/.agents/skills/`, shared by every project and agent tool.
-- **プロジェクト層 (project layer)** — each project repository's own `<repo>/.agents/skills/<name>/SKILL.md` is the canonical copy, with a committed relative symlink at `<repo>/.claude/skills/<name>` for Claude Code (Codex and opencode detect `.agents/skills` natively, so no symlink is needed there).
+## スキルのトリガー区分
 
-### 昇格ルール (promotion rule)
+auto は description に基づいて自動発動し、全セッションでコンテキストを消費する。explicit-only は `/<name>` でのみ起動する。
 
-- 迷ったらプロジェクト層で作る — when in doubt, create the skill in the project layer first.
-- 2つ目のプロジェクトで同じスキルが必要になった時点で共通層へ昇格し、プロジェクト固有値をパラメータとして外出しする — promote to the common layer only once a second project needs it, extracting project-specific values (paths, tool names, contract values) as parameters instead of copying them in.
+| ツール | 明示起動 | explicit-only の実現手段 | description の消費 |
+|---|---|---|---|
+| Claude Code | `/<name>` | frontmatter `disable-model-invocation: true` | ゼロ |
+| Codex | `$<name>` | `agents/openai.yaml` の `policy.allow_implicit_invocation: false`（frontmatter は認識されない） | ゼロ |
+| opencode | `/<name>` | 未対応（両フィールドとも無視される） | 常時 |
 
-### 禁止事項 (prohibited)
+explicit-only は次の 3 点をすべて揃える。1 つでも存在すれば `check-skills.py` が残りを要求する。
 
-- 共通層と同名のスキルをプロジェクト層に配置しない（Personal/Project 間のシャドウ回避のため。同名が必要になったら昇格するか、プロジェクト側の名前を変える）
-- スキルの実体をリポジトリ間でコピー配置しない（symlink か、共通スキルへの接続文だけを持つ薄型ラッパーで参照する）
-- 外部購読スキル（`setup.sh` で外部リポジトリから購読しているもの）の実体を改変しない。変更が必要な場合は正本（upstream）へ PR を送る
+1. frontmatter の `disable-model-invocation: true`
+2. `agents/openai.yaml` の `policy.allow_implicit_invocation: false`
+3. description 冒頭の門番文 `Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.`
 
-### 起動方法早見表 (invocation quick reference)
+例外は auto かつ `metadata.internal: true` のスキル（現在 `formation-designer`）で、2 のみを持ち Codex への暗黙起動を塞ぐ。
 
-| Tool | How to invoke a skill |
-|---|---|
-| Claude Code | `/<name>` |
-| Codex | `$<name>` |
-| opencode | automatic (description match) or the `skill` tool |
+## 関連リポジトリ（Repository landscape）
 
-## Structure
+各ツールの設定は専用リポジトリで管理し、その clone をツールの設定ディレクトリとして配置する（手順は各リポジトリの `SETUP.md`）。スキルはどの設定リポジトリでも管理せず、ここへ集約する。各設定リポジトリは自分の `skills/` を gitignore している。
 
-```
-AGENTS.md                  # スキル管理ルールの正本（追加・変更・削除・昇格の規約、統合しない判断の記録）
-DOCTOR.md                  # 月次ヘルスチェックの手動チェックリスト（本リポジトリと3つの設定リポジトリが対象）
-MCP-REGISTRY.md            # efoo-team が利用する全 MCP サーバーの横断台帳（バージョン更新手順を含む）
-mcp-servers.json           # 3ツール横断で管理する global MCP サーバー定義の正本（sync-mcp.sh が Claude Code / opencode へ配布、Codex は照合）
-remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
-setup.sh                   # 全推奨スキルの一括インストールスクリプト（team-owned + external + 削除処理 + MCP 同期）
-sync-mcp.sh                # MCP 定義同期の入口（setup.sh から自動実行。実体は scripts/sync-mcp.mjs）
-hooks/post-merge           # git pull 時に setup.sh を自動再実行する git hook
-scripts/check-skills.py    # 手動実行のチェックスクリプト（frontmatter lint〔YAML パースゲート・tags 必須・argument-hint 検査含む〕・類似 description 検出・explicit-only 3点セット相互整合・description 予算・コア公理等価の5チェック）
-scripts/sync-mcp.mjs       # MCP 同期の実体（Claude user スコープ登録・opencode.json マージ・Codex 一致検査・npx/ブラウザ温め）
-skills/                    # 共通層スキルの実体（このリポジトリが source of truth）
-```
-
-Common-layer skills currently in `skills/` (29). "Invocation" is `explicit-only` when the skill is only triggered by `/<name>` or `$<name>` — implemented as a 3-piece set: frontmatter `disable-model-invocation: true` (Claude Code), `agents/openai.yaml` with `policy.allow_implicit_invocation: false` (Codex; it does not recognize the frontmatter field), and a leading guard sentence in the description. Otherwise it is `auto` (the agent may invoke it based on the description alone). The 3-piece artifacts themselves are the source of truth, and `check-skills.py` enforces their mutual consistency (if any piece is present, all three are required).
-
-| Skill | Purpose | Invocation |
+| リポジトリ | 配置先 | 管理対象 |
 |---|---|---|
-| `agent-harness-engineering` | AI agent harness design charter (loop, tool surface, context, authz, state, evals) | auto |
-| `agent-native-project-design` | Designing repos to be run reliably by Claude Code/Codex-style harnesses | auto |
-| `agents-md-sync` | Generates/updates hierarchical AGENTS.md knowledge bases with drift detection and per-layer writer/reviewer subagents | explicit-only |
-| `ask` | Read-only analysis and answers, no edits | explicit-only |
-| `cleanup-storage` | Investigates disk usage, proposes deletion candidates by safety category, deletes only after per-category approval | explicit-only |
-| `create-skill` | Interactive workflow for creating a new skill (interview → placement → author → register → verify) | explicit-only |
-| `database-design` | Naming DB tables/columns from persisted concepts, not processing purpose | auto |
-| `define` | Detailed requirements definition, outputs a requirements doc only | explicit-only |
-| `dependabot-sweep` | Consolidates Dependabot PRs into a single combined PR | explicit-only |
-| `documentation-sync` | Verifies/syncs docs against code changes from git diff | auto |
-| `execute` | Orchestrates and delegates a complex task | explicit-only |
-| `formation-designer` | oh-my-openagent (formerly oh-my-opencode) formation (agent-model) design guide (internal, opencode only) | auto |
-| `issue-report-dev` | Engineer-facing counterpart of `issue-report-user`: ingests logs/stack traces, digs to file- and symbol-level root causes with evidence, and drafts issues carrying cause hypotheses, fix options and acceptance criteria; shares the grouping rules, orchestration protocol and rewrite procedure hosted under `issue-report-user/references/` | explicit-only |
-| `issue-report-user` | Takes multi-case reports from non-engineers, investigates each case with parallel subagents, groups them by touch-set overlap into conflict-free issues for parallel worktree development, then files new GitHub issues or merges into existing ones after approval, labeling each touched issue `needs-triage` as an engineer review gate (canonical home of the shared `references/` used by both issue-report skills; formerly `issue-report`) | explicit-only |
-| `mastra-ai-architecture-rules` | Responsibility boundaries for Mastra-based AI services | auto |
-| `mastra-framework-guide` | Verifying current Mastra API/docs and version-migration guidance | auto |
-| `module-boundary-design` | Module boundary and responsibility-split design judgment | auto |
-| `orca-automations` | Creating/managing scheduled Orca automations via the orca CLI, delegating flag details to the installed CLI | explicit-only |
-| `plan-explain` | Summarizes a plan file into a structured overview, facts only | explicit-only |
-| `pr` | Branch → stage → commit → push → PR, safely | explicit-only |
-| `pr-body` | Builds a structured, layered PR body (body generation only; formerly `github-pull-request`) | explicit-only |
-| `pr-stage` | Thin wrapper over `pr`: commits already-staged changes only, through to PR creation | explicit-only |
-| `pre-define` | Refines a vague request into concrete input for `/define` | explicit-only |
-| `refactor-mindset` | Restructuring code for future changeability | auto |
-| `restful-api-design` | Web/HTTP API design judgment (resources, methods, errors, pagination, etc.) | auto |
-| `review-plan` | Rigorous multi-perspective review of an implementation plan | explicit-only |
-| `review-pr-check` | Orchestrates PR review triage across collector/classifier/executor workers | explicit-only |
-| `search-history` | Keyword search across local Claude Code/Codex chat history | explicit-only |
-| `sql-writing-style` | SQL style rules for at-a-glance readability | auto |
+| `efoo-team/claude-code-setting` | `~/.claude` | `settings.json`、`commands/`、`agents/`、`CLAUDE.md` |
+| `efoo-team/codex-code-setting` | `~/.codex` | `config.shared.toml`、`AGENTS.md`、`automations/`、`scripts/` |
+| `efoo-team/opencode-setting` | `~/.config/opencode` | `formations/`、`agents/`、`prompts/`、`tui.json` |
+| `efoo-team/skills`（本リポジトリ） | `~/.agents/skills/` へ配布 | 共通層スキル、global MCP 定義、MCP 台帳 |
 
-For external subscribed skills (currently `code-debug-skill`, from `abekdwight/code-debug-skills`), the `npx skills add` lines in `setup.sh` are the record. Project-owned skills are managed by each project repository — see its `.agents/skills/` directory directly.
+### 3 ツール同等性の原則
 
-## Context budget hygiene（スキル説明文のコンテキスト予算）
+1 つの設定リポジトリへ変更を加えるときは、他 2 ツールへも適用すべきかを確認し、適用する場合は同じ作業の中で揃える。意図的に 1 ツールへ閉じる場合は理由をコミットメッセージまたは PR へ明記する。
 
-auto スキルの description は、Claude Code / Codex の**全セッションで常時コンテキストを消費する**。
-このリポジトリ側の対策（explicit-only スキルのコンテキスト除外、auto スキルの description 予算）は
-`check-skills.py` が強制するが、**個人環境に入れているプラグインやスキルはこのリポジトリの統制外**であり、
-以下は各メンバーの管理範囲になる。
+| 設定の種類 | Claude Code | Codex | opencode |
+|---|---|---|---|
+| グローバル指示ファイル | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`（意図的に最小） |
+| 共有設定（モデル・env・permission） | `settings.json` | `config.shared.toml` | `opencode.json`・`tui.json` |
+| MCP（横断・同期対象） | `mcp-servers.json` | `config.shared.toml`（pin を同版に） | `mcp-servers.json` |
+| MCP（ツール限定） | `.mcp.json` / `~/.claude.json` | `config.shared.toml` | `opencode.json` |
+| スキル | 本リポジトリで共通管理 | 同左 | 同左 |
+| サブエージェント / ペルソナ | `agents/*.md` + `commands/` | `agents/*.toml` | `formations/` + `agents/*.md` + `prompts/` |
+| 自動実行フック | `settings.json` の `hooks` | `~/.codex/hooks.json`（未追跡） | — |
 
-### Codex
+### ライブ設定リポジトリの git 運用規律
 
-Codex はスキル一覧（name + description + パス）に**モデルのコンテキストウィンドウの2%**
-しか割り当てない（ハードコードされているのは「2%」という割合で、予算トークン数は窓長に連動する。
-GPT-5系 272k で約5,400トークン。窓長不明時のみ8,000文字の固定フォールバック。各 description は
-予算と別に1,024文字で切り詰め）。超過すると
-「Skill descriptions were shortened to fit the 2% skills context budget」警告とともに、
-まず description を均等に切り詰め、それでも収まらなければ末尾のスキルから丸ごと除外する。この警告が出た場合、チームスキルは既に軽量化済みのため、
-主因はほぼ個人環境のプラグインである。`~/.codex/config.toml` で使っていないものを無効化する
-（変更後は Codex の再起動が必要）:
+- **pull はデプロイである。** post-merge hook が配布・生成を自動実行する。
+- **ワーキングツリーの dirty は仕様である。** 意図した変更だけを外科的にステージし、`git add -A` / `git stash` / `git checkout .` / `git clean` で巻き戻さない（稼働中セッションの状態を破壊する）。
+- 設定リポジトリ 3 つは main 直コミット、本リポジトリは PR 運用とする。
+
+## ファイル構成
+
+```
+AGENTS.md                  # スキル管理ルールの正本
+DOCTOR.md                  # 月次ヘルスチェックの手動チェックリスト
+MCP-REGISTRY.md            # 全 MCP サーバーの台帳（バージョン更新手順を含む）
+mcp-servers.json           # global MCP サーバー定義の正本
+remove-skills.txt          # setup.sh が削除対象として扱うスキル名一覧
+setup.sh                   # スキルの一括インストール
+sync-mcp.sh                # MCP 定義同期の入口（setup.sh から自動実行）
+hooks/post-merge           # git pull 時に setup.sh を再実行する git hook
+scripts/check-skills.py    # スキル規約の検査（手動実行）
+scripts/sync-mcp.mjs       # MCP 同期の実体
+skills/                    # 共通層スキルの実体
+```
+
+`check-skills.py` は frontmatter lint・description 類似度・explicit-only 3 点整合・description 予算・コア公理等価の 5 つを検査する（報告のみで修正はしない）。最重要は YAML パースゲートで、skills CLI はパースに失敗した SKILL.md を無言でスキップするため、壊れた frontmatter は気付かれずに配布から脱落する。
+
+## コンテキスト予算
+
+auto スキルの description は常時コンテキストを消費する。スキル一覧の予算はコンテキストウィンドウの 2%（Codex）/ 1%（Claude Code）で、超過すると description の切り詰めやスキルの除外が起きる。
+
+チーム側の規律は `check-skills.py` が強制するが、個人環境のプラグインと購読スキルは統制外であり、警告が出た場合の主因はほぼそちらにある。Claude Code は `/doctor` と `/context` で状況を確認でき、`settings.json` の `skillListingBudgetFraction` / `skillOverrides` で調整する。Codex は `~/.codex/config.toml` で無効化する（要再起動）。
 
 ```toml
-# プラグイン単位で無効化
 [plugins.<plugin-name>]
 enabled = false
 
-# スキル単位で無効化
 [[skills.config]]
 name = "<skill-name>"
 enabled = false
 ```
-
-（設定キーは Codex 0.142 時点のソース `codex-rs/config/src/skills_config.rs` / `config_toml.rs` で確認したもの。
-変わっている場合は公式ドキュメント https://developers.openai.com/codex を参照）
-
-### Claude Code
-
-Claude Code にも同種の予算がある: スキル一覧は**モデルのコンテキストウィンドウの1%**（デフォルト。
-文字数ベース）に収められ、超過すると**起動頻度の低いスキルから** description が切り詰め・除外される。
-また各スキルの description は予算と無関係に 1,536 文字で切られる。状況は `/doctor`（切り詰め対象の
-一覧）と `/context`（Skills 行 = 予算適用後のサイズ）で確認できる。対処:
-
-- explicit-only スキル（`disable-model-invocation: true`）の description はコンテキストに載らない（公式仕様。このリポジトリの explicit-only 16本は消費ゼロ）
-- 使っていないプラグインは `/plugin` から無効化し、使っていない購読スキルは `npx skills remove <name> -g -y` で外す
-- 予算自体も変更できる: `settings.json` の `skillListingBudgetFraction`（例 `0.02` = 2%）、または環境変数 `SLASH_COMMAND_TOOL_CHAR_BUDGET`（固定文字数）。優先度の低いスキルは `skillOverrides` で `"name-only"` にすると名前だけ載せて予算を空けられる
-
-### ウォッチ対象の upstream issue
-
-- [openai/codex#19679](https://github.com/openai/codex/issues/19679) — 2%予算の設定可能化要望（解決されたら予算規律を緩められる）
-- [anomalyco/opencode#11972](https://github.com/anomalyco/opencode/issues/11972) — opencode の `disable-model-invocation` 対応要望。**2026-04 に stale-bot により自動クローズ済み（実装完了ではない）**。機能を求める場合は新規 issue の起票が必要。`permission.skill` の deny でも description がコンテキストに残る不整合が報告されている。実装されたら explicit-only が opencode でも機能する
-
-## Adding a new skill
-
-1. Create a named directory under `skills/`
-2. Add a `SKILL.md` with YAML frontmatter (`name`, `description`, `metadata.tags`)
-3. Optionally add `references/`, `assets/`, `scripts/` subdirectories
-
-## Removing a skill
-
-- Add the skill name to `remove-skills.txt` when setup should treat it as a removal target in member environments
-- Keep `setup.sh` and `remove-skills.txt` in sync when changing removal policy

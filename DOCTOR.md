@@ -55,7 +55,7 @@ print('skills:', len(d['skills']))
 "
 ```
 
-期待結果: `version` が単一の整数（現在 `3`）であり、想定外の値になっていないこと。`skills` の件数は「README.md Structure 節のスキル数 + setup.sh の external 購読行数」と突き合わせる。
+期待結果: `version` が単一の整数（現在 `3`）であり、想定外の値になっていないこと。`skills` の件数は「README.md「スキル一覧」節のスキル数 + setup.sh の external 購読行数」と突き合わせる。
 
 ## 5. 共通層スキルの規約検査
 
