@@ -1,15 +1,15 @@
 ---
-name: issue-report
-description: Only use when the user explicitly invokes /issue-report (or $issue-report in Codex). Never auto-invoke. 不具合報告や機能要望を複数まとめて受け付け、ケースごとにサブエージェントで並列調査し、想定変更領域の重なりでグルーピングして GitHub issue を新規登録・既存 issue へ統合するスキル。並列ワークツリー開発でコンフリクトしない単位に issue を編成することを目的とする。非エンジニアの報告者に平易な言葉でヒアリングし、登録計画の承認を得てから gh CLI で書き込む。解決策・実装仕様の決定は行わない。
+name: issue-report-user
+description: Only use when the user explicitly invokes /issue-report-user (or $issue-report-user in Codex). Never auto-invoke. 非エンジニアの報告者から不具合報告や機能要望を複数まとめて受け付け、ケースごとにサブエージェントで並列調査し、想定変更領域の重なりでグルーピングして GitHub issue を新規登録・既存 issue へ統合するスキル。並列ワークツリー開発でコンフリクトしない単位に issue を編成することを目的とする。平易な言葉だけでヒアリングし、登録計画の承認を得てから gh CLI で書き込む。解決策・実装仕様の決定は行わない。エンジニア自身が起票する場合は issue-report-dev を使う。
 disable-model-invocation: true
 argument-hint: "[問題や要望の内容（複数可）]"
 metadata:
   tags: [github-issue, hearing, bug-report, feature-request, non-engineer, orchestration, sub-agents, triage]
 ---
 
-# issue-report
+# issue-report-user
 
-不具合報告や機能要望を複数まとめて受け付け、ヒアリングと並列調査で具体化し、コンフリクトしない単位にグルーピングして GitHub issue として登録・統合するスキル。
+非エンジニアの報告者から不具合報告や機能要望を複数まとめて受け付け、ヒアリングと並列調査で具体化し、コンフリクトしない単位にグルーピングして GitHub issue として登録・統合するスキル。
 
 ## 目的
 
@@ -27,9 +27,11 @@ metadata:
 
 このスキルを起動するのは非エンジニアである前提で振る舞う。全ての質問・確認・案内は、技術用語（コンポーネント、API、リポジトリ、コミット等）を使わず、ユーザーが画面上で見ている言葉（画面の名前・ボタンやメニューの文言・表示されたメッセージ）で行う。1回の報告に複数の困りごと・要望が混ざっていてよい。
 
+報告者がエンジニアで、ログ・スタックトレース・原因の心当たり・期待する仕様まで提供できる場合は、本スキルではなく `issue-report-dev` を使う（技術的な質問を制限せず、原因の深掘り・修正方針案・受入条件まで issue に書けるスキルである）。
+
 ## 追加指示の扱い
 
-ユーザーが引数として渡した内容（Claude では `/issue-report` の引数、Codex では `$issue-report` の引数）は、問題や要望の最初の説明として扱い、本スキル内の他の方針より優先して適用する。ただし「承認なしに GitHub へ書き込まない」「解決策・実装仕様を決めない」などの重要な制約に反する場合は、実行せず直ちに停止して確認を求める。引数が空の場合は、「どんな問題や、こうしてほしいという要望がありますか？いくつあっても大丈夫です」と自由に話してもらうところから始める。
+ユーザーが引数として渡した内容（Claude では `/issue-report-user` の引数、Codex では `$issue-report-user` の引数）は、問題や要望の最初の説明として扱い、本スキル内の他の方針より優先して適用する。ただし「承認なしに GitHub へ書き込まない」「解決策・実装仕様を決めない」などの重要な制約に反する場合は、実行せず直ちに停止して確認を求める。引数が空の場合は、「どんな問題や、こうしてほしいという要望がありますか？いくつあっても大丈夫です」と自由に話してもらうところから始める。
 
 ## 最重要遵守ルール
 

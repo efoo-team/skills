@@ -1,4 +1,6 @@
-# issue-report: グルーピング規則
+# issue-report 共通: グルーピング規則
+
+> 本ファイルは `issue-report-user`（非エンジニアの報告者向け）と `issue-report-dev`（エンジニア向け）の**共通正本**である。本ファイルの規則は報告者の属性によらず適用され、`issue-report-dev` も一切の差分なくそのまま従う（差分一覧は [`../../issue-report-dev/SKILL.md`](../../issue-report-dev/SKILL.md)「共通プロトコルからの差分」節）。
 
 分類エージェント（縮退時は parent）が Phase 5 で適用する判定規則。目的は、**issue をワークツリー1本の分割単位として、並列開発でコンフリクトしない単位に編成する**ことである。
 

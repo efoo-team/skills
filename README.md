@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-28 本（うち explicit-only 17 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+29 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -40,7 +40,8 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `restful-api-design` | Web / HTTP API の設計判断 | auto |
 | | `database-design` | DB のテーブル・カラム命名 | auto |
 | | `sql-writing-style` | 一瞥して読める SQL のスタイルルール | auto |
-| PR・issue 運用 | `issue-report` | 複数ケース報告の並列調査と、競合しない issue へのグルーピング・起票 | explicit-only |
+| PR・issue 運用 | `issue-report-user` | 非エンジニアの複数ケース報告を並列調査し、競合しない issue へグルーピングして起票 | explicit-only |
+| | `issue-report-dev` | ログ・スタックトレースから根本原因を調査し、原因仮説・修正方針・受入条件つきで起票 | explicit-only |
 | | `pr` | ブランチ作成から PR までの一連 | explicit-only |
 | | `pr-stage` | `pr` の薄型ラッパー（ステージ済みの変更のみ） | explicit-only |
 | | `pr-body` | 階層化された PR 本文の生成 | explicit-only |
