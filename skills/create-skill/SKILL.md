@@ -39,6 +39,10 @@ Phase 1 に入る前に、以下を読む。
    - `~/ghq/github.com/efoo-team/skills/skills/agent-native-project-design/references/authoring-insights.md`（リポジトリ checkout）
    - 無ければ `~/.agents/skills/agent-native-project-design/references/authoring-insights.md`（インストール済み実体）
    スキル4類型・description の追加注意・ガイダンス形式・トリガー評価・外部スキル監査を収める。Phase 2 / 4 / 6 で使う
+4. **agent-prompt-design（文面の執筆原則）** — skill-authoring.md と同じ順でパス解決する:
+   - `~/ghq/github.com/efoo-team/skills/skills/agent-prompt-design/SKILL.md`（リポジトリ checkout）
+   - 無ければ `~/.agents/skills/agent-prompt-design/SKILL.md`（インストール済み実体）
+   記述高度・既習概念の指名・工程分離・停止条件など、SKILL.md 本文の文面を書くときの一般原則。Phase 4 の執筆で適用する
 
 > パス解決が checkout 優先なのは意図的である（本スキルは checkout 上で編集する作成時ツールであり、authoring 中の最新の原則を読むため）。実行時ツール（pr / agents-md-sync 等）の installed（`~/.agents/skills`）優先とは逆になる。
 

@@ -77,6 +77,8 @@ Claude Code / Codex のような既製ハーネスをランタイムとして採
 
 詳細: [references/skill-authoring.md](references/skill-authoring.md)（執筆原則の正本）/ [references/authoring-insights.md](references/authoring-insights.md)（外部知見の補遺: スキル4類型・ガイダンス形式・トリガー評価・外部スキル監査。create-skill もここを参照する）
 
+文面そのもの（記述高度・既習概念の指名・工程とメンタルモデルの切替・停止条件の書き方）の執筆原則は `agent-prompt-design` を参照。本スキルは機構と規約（どこに・どう載せるか）を、agent-prompt-design は文面（何をどう書くか）を担う。
+
 ---
 
 ## 4. 自然言語指示と決定的スクリプトの分担

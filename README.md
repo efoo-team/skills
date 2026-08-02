@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-30 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+31 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -50,6 +50,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `dependabot-sweep` | Dependabot PR の統合 | explicit-only |
 | エージェント基盤 | `agent-harness-engineering` | AI エージェント・ハーネスの設計憲章 | auto |
 | | `agent-native-project-design` | ハーネス上で動くリポジトリ側の設計（指示ファイル・スキル・hooks） | auto |
+| | `agent-prompt-design` | プロンプト・instructions・スキル文面の執筆原則 | auto |
 | | `create-skill` | 新規スキルの対話的作成 | explicit-only |
 | | `agents-md-sync` | AGENTS.md 階層の生成・更新 | explicit-only |
 | | `formation-designer` | oh-my-openagent のフォーメーション設計（opencode 限定） | auto |
