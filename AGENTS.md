@@ -215,6 +215,8 @@ Skill instructions here.
 - **MCP 定義の配布先（`~/.claude.json` の user スコープ・`opencode.json`）を直接編集してはならない**
   （正本は `mcp-servers.json`。次回の sync で上書きされる）。`mcp-servers.json` の `pin` と `args` を
   片方だけ更新してもならない（sync が half-bump として停止する）
+- **スキルの起動区分（explicit-only / auto）を、人間の明示的な許可なしに変更してはならない**
+  （`disable-model-invocation` / `allow_implicit_invocation` / 門番文の追加・削除を含む）
 
 ## 統合しない判断の記録（similar skills）
 
