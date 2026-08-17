@@ -4,11 +4,11 @@
     "playwright": {
       "description": "ブラウザ自動化・E2E 操作",
       "package": "@playwright/mcp",
-      "pin": "0.0.78",
+      "pin": "0.0.79",
       "definition": {
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "--prefer-offline", "@playwright/mcp@0.0.78"],
+        "args": ["-y", "--prefer-offline", "@playwright/mcp@0.0.79"],
         "env": {}
       },
       "targets": {

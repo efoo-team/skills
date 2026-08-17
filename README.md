@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-31 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+32 本（うち explicit-only 19 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -35,6 +35,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `plan-explain` | 計画ファイルの構造化要約 | explicit-only |
 | | `review-plan` | 実装計画の多観点レビュー | explicit-only |
 | | `execute` | 複雑なタスクのオーケストレーションと委譲 | explicit-only |
+| 見積・提案 | `estimate-proposal` | 受託開発の概算見積と、客先提出用の見積書兼提案書の作成 | explicit-only |
 | 設計判断 | `module-boundary-design` | モジュール境界と責務分割の設計判断 | auto |
 | | `refactor-mindset` | 変更容易性を高める再構成 | auto |
 | | `restful-api-design` | Web / HTTP API の設計判断 | auto |
@@ -64,7 +65,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## MCP サーバー定義
 
-正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.78`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
+正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.79`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
 
 - バージョン変更は `pin` と `definition.args` を同時に更新する。片方だけの half-bump は sync が検出して停止する。Codex 側も同版に揃える。手順は `MCP-REGISTRY.md`。
 - 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する。
