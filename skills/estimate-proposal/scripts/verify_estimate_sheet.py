@@ -89,7 +89,18 @@ def main():
         die("gog コマンドが見つからない", "gog CLI をインストールして `gog auth add` を実行する")
 
     spreadsheet_id, tab = sys.argv[1], sys.argv[2]
-    max_row = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+    if len(sys.argv) > 3:
+        raw = sys.argv[3]
+        try:
+            max_row = int(raw)
+        except ValueError:
+            die(f"maxRow が整数でない（値: {raw}）",
+                "usage: verify_estimate_sheet.py <spreadsheetId> <tabName> [maxRow]")
+        if max_row < 1:
+            die(f"maxRow が1未満（値: {max_row}）",
+                "maxRow は1以上の整数を指定する")
+    else:
+        max_row = 200
 
     formulas = fetch(spreadsheet_id, tab, max_row, "FORMULA")
     values = fetch(spreadsheet_id, tab, max_row, "UNFORMATTED_VALUE")

@@ -1,6 +1,8 @@
 ---
 name: oracle
-description: "Runs Oracle CLI in ChatGPT browser mode to ask an external cloud model for high-level reasoning, decomposition, review, or final evaluation. Use when an agent needs a second model to analyze complex tradeoffs, check a plan, evaluate a diff, debug a hard issue, or surface missing assumptions. Treat every Oracle run as a stateless, standalone request and send the prompt and required files explicitly because Oracle cannot access local machine resources or prior Oracle-run context unless they are provided."
+description: "Only use when the user explicitly invokes /oracle (or $oracle in Codex). Never auto-invoke. Runs Oracle CLI in ChatGPT browser mode to ask an external cloud model for high-level reasoning, decomposition, review, or final evaluation. Use when an agent needs a second model to analyze complex tradeoffs, check a plan, evaluate a diff, debug a hard issue, or surface missing assumptions. Treat every Oracle run as a stateless, standalone request and send the prompt and required files explicitly because Oracle cannot access local machine resources or prior Oracle-run context unless they are provided."
+disable-model-invocation: true
+argument-hint: "[依頼内容: 分解 / 計画レビュー / diff 評価 / デバッグ仮説など]"
 metadata:
   tags: [oracle, second-model, reasoning, review, debugging]
 ---

@@ -1,6 +1,6 @@
 ---
 name: estimate-proposal
-description: "Only use when the user explicitly invokes /estimate-proposal (or $estimate-proposal in Codex). Never auto-invoke. 受託開発の概算見積と、客先提出用の見積書兼提案書を作成するスキル。現行システム・議事録・RFP などから機能を棚卸しし、踏襲/改良/新規/統合/廃止の方針を判定し、粒度を機能単位へ正規化してからポイント積算し、機能一覧スプレッドシートと Google Docs の見積書まで生成する。受注後の実装向け詳細要件定義は define を使う。"
+description: "受託開発の概算見積と、客先提出用の見積書兼提案書を作成するスキル。Only use when the user explicitly invokes /estimate-proposal (or $estimate-proposal in Codex). Never auto-invoke. 現行システム・議事録・RFP などから機能を棚卸しし、踏襲/改良/新規/統合/廃止の方針を判定し、粒度を機能単位へ正規化してからポイント積算し、機能一覧スプレッドシートと Google Docs の見積書まで生成する。受注後の実装向け詳細要件定義は define を使う。"
 disable-model-invocation: true
 argument-hint: "[案件名・入力ソース（議事録パス / サイトURL / RFP など）]"
 metadata:
@@ -125,7 +125,7 @@ Google Docs は Markdown 原本から生成する。**Docs を直接編集して
    python3 <skill>/scripts/verify_estimate_sheet.py <spreadsheetId> <正規化タブ名>
    ```
 
-   `RESULT: PASS` になるまで次へ進まない。FAIL の内容を修正して再実行する。
+   `RESULT: PASS` になるまで次へ進まない。FAIL の内容を修正して再実行する。**PASS でも WARN が1件以上ある場合は、各 WARN の根拠をユーザーが承認するまで Phase 5 へ進まない。** 承認は WARN ごとに理由を記録して得る（「小計pt 直接入力の根拠がシートに残っていることを確認した」など）。
 
 ### Phase 5: 金額化と機能群集約
 

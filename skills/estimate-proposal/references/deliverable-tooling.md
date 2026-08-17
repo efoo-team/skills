@@ -11,7 +11,7 @@ Phase 1・4・6 で使う。`gog` CLI（Google Workspace CLI）でのスプレ�
 5. [Markdown から Google Docs を作る](#5-markdown-から-google-docs-を作る)
 6. [gog docs の落とし穴](#6-gog-docs-の落とし穴)
 7. [生成後の検証](#7-生成後の検証)
-8. [作業ディレクトリの契約](#8-作業ディレクトリの契約)
+8. [成果物の区分とライフサイクル](#8-成果物の区分とライフサイクル)
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: agents-md-composer
-description: AGENTS.mdを作成・更新するためのスキル。ユーザーが「AGENTS.mdを作成したい」「AGENTS.mdを更新したい」「エージェント向けのプロジェクト規約を整備したい」と依頼したときに使用する。コードベース探索・既存AGENTS.md分析・ユーザーヒアリングを通じて、プロジェクトの目的・開発フェーズ・ブランチ戦略・コーディング規約・テスト方針・セキュリティ要件を体系化する。
+description: AGENTS.mdを作成・更新するためのスキル。「AGENTS.mdを作成したい」「AGENTS.mdを更新したい」「エージェント向けのプロジェクト規約を整備したい」と依頼されたときに使用する。コードベース探索・既存AGENTS.md分析・ユーザーヒアリングを通じて、プロジェクトの目的・開発フェーズ・ブランチ戦略・コーディング規約・テスト方針・セキュリティ要件を体系化する。
 metadata:
   tags: [agents-md, documentation, project-configuration, codebase-analysis, convention]
 ---

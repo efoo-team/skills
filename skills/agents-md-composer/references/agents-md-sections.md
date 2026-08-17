@@ -78,7 +78,7 @@ Caremaster は、介護施設の職員が入居者の健康状態とケア記録
 
 ### テンプレート
 
-```markdown
+````markdown
 ## ディレクトリ構成
 
 ```
@@ -90,6 +90,7 @@ project-root/
 ├── tests/         # テストコード
 └── docs/          # ドキュメント
 ```
+````
 
 ### 記述指針
 
@@ -161,7 +162,7 @@ project-root/
 
 ### テンプレート
 
-```markdown
+````markdown
 ## Git 操作
 
 ### コミットメッセージ
@@ -190,7 +191,7 @@ type(scope): description
 
 - PR 作成には `gh pr create` を使用する
 - 本文は標準入力を使用し、`--body` 形式は使わない
-```
+````
 
 ---
 
@@ -198,7 +199,7 @@ type(scope): description
 
 ### テンプレート
 
-```markdown
+````markdown
 ## テスト
 
 ### テストの方針
@@ -250,7 +251,7 @@ e2e/journeys/onboarding/complete-initial-setup.spec.ts
 ### テストカバレッジ
 
 [カバレッジ目標や計測方法があれば]
-```
+````
 
 ---
 
