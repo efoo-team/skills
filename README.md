@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-30 本（うち explicit-only 19 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+32 本（うち explicit-only 19 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -39,6 +39,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | 設計判断 | `module-boundary-design` | モジュール境界と責務分割の設計判断 | auto |
 | | `refactor-mindset` | 変更容易性を高める再構成 | auto |
 | | `restful-api-design` | Web / HTTP API の設計判断 | auto |
+| | `ui-ux-design` | UI・画面・導線の設計判断（検討手順・入口統合・段階的開示・配置。ビジュアル表現は対象外） | auto |
 | | `database-design` | DB のテーブル・カラム命名 | auto |
 | | `sql-writing-style` | 一瞥して読める SQL のスタイルルール | auto |
 | PR・issue 運用 | `issue-report-user` | 非エンジニアの複数ケース報告を並列調査し、競合しない issue へグルーピングして起票 | explicit-only |
@@ -50,6 +51,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `dependabot-sweep` | Dependabot PR の統合 | explicit-only |
 | エージェント基盤 | `agent-harness-engineering` | AI エージェント・ハーネスの設計憲章 | auto |
 | | `agent-native-project-design` | ハーネス上で動くリポジトリ側の設計（指示ファイル・スキル・hooks） | auto |
+| | `agent-prompt-design` | プロンプト・instructions・スキル文面の執筆原則 | auto |
 | | `create-skill` | 新規スキルの対話的作成 | explicit-only |
 | | `agents-md-sync` | AGENTS.md 階層の生成・更新 | explicit-only |
 | | `formation-designer` | oh-my-openagent のフォーメーション設計（opencode 限定） | auto |

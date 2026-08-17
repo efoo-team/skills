@@ -256,3 +256,11 @@ Skill instructions here.
   非エンジニアに技術的質問を浴びせる／エンジニア向けに情報を削ぎ落とす、という双方向の劣化が起きる。
   付与ラベルも異なる（-user のみ `needs-triage`）。**片方を改名・移動するときは共通参照の相対パス
   （`../issue-report-user/references/`）を必ず両方更新する。リンク切れは check-skills.py では検出されない。**
+- **プロンプト執筆系**（`agent-prompt-design` / `agent-native-project-design` / `agent-harness-engineering`）— keep-separate:
+  agent-prompt-design は文面そのものの執筆原則（記述高度・既習概念の指名・工程とメンタルモデルの切替・
+  停止条件の書き方）で、発火場面は「プロンプト・instructions を書く/直す/レビューする」瞬間。
+  agent-native-project-design はリポジトリ側の機構と規約（指示ファイル・スキルの配置・発火設計。
+  skill-authoring.md が機械規約の正本のまま）、agent-harness-engineering はランタイム機構（コンテキスト・
+  ループ・ツール表面）が主題で、発火場面は設計相談。コア公理は従来の2スキルを正本とし、
+  agent-prompt-design は参照のみ行い複製しない。統合すると「書く場面」と「設計する場面」の
+  発火条件が混在し、文面原則が設計憲章の中に埋もれて発火漏れが再発する。
