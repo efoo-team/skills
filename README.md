@@ -65,7 +65,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## MCP サーバー定義
 
-正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.78`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
+正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.79`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
 
 - バージョン変更は `pin` と `definition.args` を同時に更新する。片方だけの half-bump は sync が検出して停止する。Codex 側も同版に揃える。手順は `MCP-REGISTRY.md`。
 - 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する。

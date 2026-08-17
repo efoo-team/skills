@@ -13,7 +13,7 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 | pencil | 同上 | global | opencode | なし | `opencode-setting/opencode.json` の `mcp.pencil`（リポジトリでは gitignore 対象のローカルファイル） |
 | context7 | ライブラリ・フレームワーク・SDK の最新ドキュメント取得 | global | Claude Code | なし | claude-plugins-official マーケットプレイスの `context7` プラグイン経由でインストール（plugin 管理） |
 | context7 | 同上 | global | Codex | なし（**キーは現状維持。2026-07 ユーザー決定により env 変数化しない**。`config.toml` の `args` に直書きされたまま運用する） | `codex-code-setting/config.toml` の `[mcp_servers.context7]` |
-| playwright | ブラウザ自動化・E2E 操作（`@playwright/mcp@0.0.78` 固定） | global | Claude Code（user スコープ） | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `~/.claude.json` user スコープへ配布） |
+| playwright | ブラウザ自動化・E2E 操作（`@playwright/mcp@0.0.79` 固定） | global | Claude Code（user スコープ） | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `~/.claude.json` user スコープへ配布） |
 | playwright | 同上 | global | opencode | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `opencode-setting/opencode.json` へ配布） |
 | playwright | 同上 | global | Codex | なし | `codex-code-setting/config.shared.toml` の `[mcp_servers.playwright]`（生成物 `config.toml` へ反映。`sync-mcp.sh` は正本 `mcp-servers.json` との一致を検査するのみ） |
 | node_repl | Codex アプリ内蔵ブラウザ / Chrome の制御用 Node REPL | global | Codex | なし（すべて Codex.app が自動設定する固定値。ユーザーが `.envrc` で用意する対象ではない） | `codex-code-setting/config.toml` の `[mcp_servers.node_repl]` / `[mcp_servers.node_repl.env]` |
