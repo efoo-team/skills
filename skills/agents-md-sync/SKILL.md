@@ -1,10 +1,10 @@
 ---
 name: agents-md-sync
-description: "Only use when the user explicitly invokes /agents-md-sync (or $agents-md-sync in Codex). Never auto-invoke. リポジトリ全体を解析し、階層ごとの AGENTS.md 知識ベース（ルートと、スコアリングで選定したサブディレクトリ）を生成・更新するスキル。実行のたびに既存 AGENTS.md とコードベースの乖離を検出して最新状態に追従させ、Claude Code 用の CLAUDE.md ブリッジも維持する。AGENTS.md の整備・初期化・更新や init-deep 相当の知識ベース構築を求められたときに使用する。指示ファイルに何を書くべきかの設計原則は agent-native-project-design を参照する。"
+description: "Only use when the user explicitly invokes /agents-md-sync (or $agents-md-sync in Codex). Never auto-invoke. リポジトリ全体を解析し、階層ごとの AGENTS.md 知識ベース（ルートと、スコアリングで選定したサブディレクトリ）を生成・更新するスキル。実行のたびに既存 AGENTS.md とコードベースの乖離を検出して最新状態に追従させ、Claude Code 用の CLAUDE.md ブリッジも維持する。初回作成時は、コードから導出できない規範情報（目的・開発フェーズ・運用制約）をヒアリングで補う。AGENTS.md の整備・初期化・更新や init-deep 相当の知識ベース構築を求められたときに使用する。指示ファイルに何を書くべきかの設計原則は agent-native-project-design を参照する。"
 metadata:
   tags: [agents-md, knowledge-base, documentation, codebase-analysis, subagents]
 disable-model-invocation: true
-argument-hint: "[--create-new | --max-depth=N | 対象パス]"
+argument-hint: "[--create-new | --interview | --max-depth=N | 対象パス]"
 ---
 
 # agents-md-sync
@@ -19,10 +19,11 @@ argument-hint: "[--create-new | --max-depth=N | 対象パス]"
 |---|---|---|
 | update（既定） | `/agents-md-sync` | 既存 AGENTS.md を読み、drift 閾値超の階層を更新。スコアリングで新規作成が妥当な階層は追加 |
 | create-new | `/agents-md-sync --create-new` | 既存を全て読んで文脈を保全した上で、全階層を再生成 |
+| 再ヒアリング | `/agents-md-sync --interview` | 既存ルートの有無によらず Phase 2 の規範ヒアリングを実施（再ヒアリングの唯一の経路） |
 | 深さ制限 | `--max-depth=2` | 対象ディレクトリ深さの上限（既定 3） |
 | パス限定 | `/agents-md-sync packages/api` | 指定サブツリーのみ処理 |
 
-引数に「承認不要」「そのまま進めて」等の明示があれば Phase 2 の承認 Gate を省略してよい。それ以外では省略しない。ただし「グローバル設定実体の保護」による停止は、これらの引数があっても省略しない。
+引数に「承認不要」「そのまま進めて」等の明示があれば Phase 2 の承認 Gate を省略してよい。それ以外では省略しない。これらの引数がある場合、初回規範ヒアリング（Phase 2）も実施しない。ただし「グローバル設定実体の保護」による停止は、これらの引数があっても省略しない。
 
 ## 実行モデル（担当の分離）
 
@@ -67,6 +68,22 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 
 **Gate: 配置案（作成 / 更新 / スキップ / 削除候補の一覧と理由）をユーザーに提示し、承認を得るまで Phase 3 に進まない。**
 
+### 初回規範ヒアリング（Gate と同一バッチ）
+
+ルート AGENTS.md の「運用前提」節（[references/templates.md](references/templates.md)）に書く、コードから導出できない規範情報（目的・開発フェーズ・ブランチ運用・特記制約）を収集する。質問設計の正本は [references/interview.md](references/interview.md)。
+
+| 状況 | ヒアリング |
+|---|---|
+| ルート AGENTS.md が無い（初回作成） | 実施する |
+| ルート AGENTS.md がある（update / create-new） | 実施しない。既存の規範記述は保持で運ぶ |
+| ルートはあるが人間由来の規範記述が皆無 | Gate の提示に「規範ヒアリングも行うか」の選択肢を添える（強制しない） |
+| `--interview` 指定 | 実施する |
+| 「承認不要」等の引数あり | 実施しない。導出不能な項目は書かず〔要確認: 初回ヒアリング未実施〕を残す |
+
+- 質問は Gate の配置案承認と**同一の質問バッチ**で行う（最大4問。質問ツールが使えなければ通常応答で一括提示）。ヒアリングのための往復を追加しない。
+- Phase 1 で導出できた項目は質問しない。質問する項目も推定値と根拠を提示し、確認・訂正を求める形にする（interview.md のスキップ規律）。
+- update モードで既存の規範記述と矛盾する兆候（例: 「開発途中」の記述に対しリリースタグの出現）を検出したら、質問も書き換えもせず〔要確認: 理由〕を付けて最終レポートで人間に引き継ぐ。
+
 ## Phase 3: 階層別生成（執筆サブエージェント）
 
 1. **ルートを最初に**生成・更新する（子は親との重複を避けて差分だけを書くため、親が先に確定している必要がある）。
@@ -107,7 +124,7 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 
 ```
 - [ ] Phase 1: scan-repo.sh 実行（GLOBAL-CONFIG-REPO 検出時は停止・報告）+ 観点別並列探索 + 既存ファイル全読
-- [ ] Phase 2: スコアリング → 配置案のユーザー承認（Gate）
+- [ ] Phase 2: スコアリング → 配置案のユーザー承認（Gate。初回はルート規範ヒアリングを同一バッチで実施）
 - [ ] Phase 3: ルート生成 → サブ並列生成（1階層=1執筆エージェント）
 - [ ] Phase 4: 階層別レビュー（1階層=1レビューエージェント、全PASS or 要確認化）
 - [ ] Phase 5: CLAUDE.md ブリッジ + 機械検証 + 最終レポート
@@ -124,5 +141,6 @@ scan-repo.sh の出力と探索結果から各ディレクトリを採点する:
 | どのプロジェクトにも当てはまる一般論を書く | このリポジトリ固有の内容だけ（review-criteria.md） |
 | 根拠のない記述を書く | 全記述にコード上の根拠。確認できないものは〔要確認〕 |
 | update モードで全階層を無差別に再生成する | drift 判定が NEEDS-UPDATE の階層だけ更新する |
+| update のたびに規範ヒアリングを繰り返す | ヒアリングは初回（ルート不存在）と `--interview` 明示時のみ（Phase 2 の表） |
 | 探索を固定数のエージェントで済ませる | プロジェクト規模に応じて増員する（Phase 1 手順4） |
 | ハーネスのグローバル設定実体（symlink 先の設定リポジトリ）を知識ベース化する | scan-repo.sh の GLOBAL-CONFIG-REPO 検出で停止し、ユーザーに報告する |
