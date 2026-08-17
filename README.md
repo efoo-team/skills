@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-29 本（うち explicit-only 18 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+30 本（うち explicit-only 19 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -35,6 +35,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `plan-explain` | 計画ファイルの構造化要約 | explicit-only |
 | | `review-plan` | 実装計画の多観点レビュー | explicit-only |
 | | `execute` | 複雑なタスクのオーケストレーションと委譲 | explicit-only |
+| 見積・提案 | `estimate-proposal` | 受託開発の概算見積と、客先提出用の見積書兼提案書の作成 | explicit-only |
 | 設計判断 | `module-boundary-design` | モジュール境界と責務分割の設計判断 | auto |
 | | `refactor-mindset` | 変更容易性を高める再構成 | auto |
 | | `restful-api-design` | Web / HTTP API の設計判断 | auto |
