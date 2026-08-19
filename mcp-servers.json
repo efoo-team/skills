@@ -8,7 +8,7 @@
       "definition": {
         "type": "stdio",
         "command": "npx",
-        "args": ["-y", "--prefer-offline", "--browser=chrome-beta", "@playwright/mcp@0.0.79"],
+        "args": ["-y", "--prefer-offline", "@playwright/mcp@0.0.79", "--browser=chrome-beta"],
         "env": {}
       },
       "targets": {
