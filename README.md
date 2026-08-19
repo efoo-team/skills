@@ -70,6 +70,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 - バージョン変更は `pin` と `definition.args` を同時に更新する。片方だけの half-bump は sync が検出して停止する。Codex 側も同版に揃える。手順は `MCP-REGISTRY.md`。
 - 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する。
+- playwright は `--browser=chrome-beta` で起動するため、**`/Applications/Google Chrome Beta.app` が未導入のマシンでは Playwright MCP が起動できない**。導入方法（ワンライナー）は `MCP-REGISTRY.md` の「Chrome Beta の導入」を参照する。
 
 ## 配布の仕組み
 

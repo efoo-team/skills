@@ -52,6 +52,20 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 - 将来 playwright 本体に `npx playwright mcp` 統合（メンテナ公表済み・1.62 時点で未出荷）が出荷されたら、プロジェクトの package.json でのバージョン管理への一本化を再検討する。
 - 過渡期の注意: Claude Code の project スコープは同名の user スコープをシャドウする。l-shift / chefrepi の `.mcp.json` から playwright エントリを削除する PR が着地するまで、両プロジェクトでは従来どおり project スコープ定義（`@latest`）が使われる。
 
+### Chrome Beta の導入（`--browser=chrome-beta` 前提）
+
+playwright の `definition.args` は `--browser=chrome-beta` を指定しており、Playwright MCP は `channel: chrome-beta` で起動する。これはシステムの `/Applications/Google Chrome Beta.app` を利用するため、**導入していないメンバーは Playwright MCP が起動できなくなる**。`sync-mcp.sh` の `warmup.browsers`（`chromium`）では chrome-beta を導入できないため（外部アプリのため。`install-browser chrome-beta` はシステム依存の導入で sudo を要求して失敗する）、以下のワンライナーで Chrome Beta を `/Applications` へ導入する（macOS・Apple Silicon/Intel 共通、公式 DMG から導入する）。
+
+```bash
+curl -L --retry 3 -o /tmp/gcbeta.dmg "https://dl.google.com/chrome/mac/universal/beta/googlechromebeta.dmg" \
+  && hdiutil attach -nobrowse -quiet -noautofsck -noautoopen -mountpoint /Volumes/gcbeta /tmp/gcbeta.dmg \
+  && cp -pR "/Volumes/gcbeta/Google Chrome Beta.app" /Applications \
+  && hdiutil detach /Volumes/gcbeta \
+  && rm -f /tmp/gcbeta.dmg
+```
+
+導入後は `/Applications/Google Chrome Beta.app` が存在し、通常の Chrome（安定版）とは異なるアイコン（左上に青い「Beta」リボン）で Dock に表示されるため、Playwright MCP が起動した Chrome と自分で開いた Chrome を見分けられる。
+
 ## direnv 運用手順
 
 MCP サーバーが必要とする env 変数は、各ツールの設定ファイルに値を直書きせず、プロジェクトごとの `.envrc`（direnv）で管理する。
