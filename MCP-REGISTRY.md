@@ -13,9 +13,9 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 | pencil | 同上 | global | opencode | なし | `opencode-setting/opencode.json` の `mcp.pencil`（リポジトリでは gitignore 対象のローカルファイル） |
 | context7 | ライブラリ・フレームワーク・SDK の最新ドキュメント取得 | global | Claude Code | なし | claude-plugins-official マーケットプレイスの `context7` プラグイン経由でインストール（plugin 管理） |
 | context7 | 同上 | global | Codex | なし（**キーは現状維持。2026-07 ユーザー決定により env 変数化しない**。`config.toml` の `args` に直書きされたまま運用する） | `codex-code-setting/config.toml` の `[mcp_servers.context7]` |
-| playwright | ブラウザ自動化・E2E 操作（`@playwright/mcp@0.0.79` 固定） | global | Claude Code（user スコープ） | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `~/.claude.json` user スコープへ配布） |
+| playwright | ブラウザ自動化・E2E 操作（`@playwright/mcp@0.0.79` 固定、Chrome Beta 必須） | global | Claude Code（user スコープ） | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `~/.claude.json` user スコープへ配布） |
 | playwright | 同上 | global | opencode | なし | 本リポジトリ `mcp-servers.json`（`sync-mcp.sh` が `opencode-setting/opencode.json` へ配布） |
-| playwright | 同上 | global | Codex | なし | `codex-code-setting/config.shared.toml` の `[mcp_servers.playwright]`（生成物 `config.toml` へ反映。`sync-mcp.sh` は正本 `mcp-servers.json` との一致を検査するのみ） |
+| playwright | 同上 | global | Codex（`config.shared.toml` を手動同期） | なし | `codex-code-setting/config.shared.toml` の `[mcp_servers.playwright]`（生成物 `config.toml` へ反映。`sync-mcp.sh` は正本 `mcp-servers.json` との一致を検査するのみ） |
 | node_repl | Codex アプリ内蔵ブラウザ / Chrome の制御用 Node REPL | global | Codex | なし（すべて Codex.app が自動設定する固定値。ユーザーが `.envrc` で用意する対象ではない） | `codex-code-setting/config.toml` の `[mcp_servers.node_repl]` / `[mcp_servers.node_repl.env]` |
 | supabase-staging | Supabase ステージング環境プロジェクトへの MCP 接続 | global | opencode | なし（URL に `project_ref` を含むのみ。認証は Supabase 側の別経路） | `opencode-setting/opencode.json` の `mcp.supabase-staging`（リポジトリでは gitignore 対象のローカルファイル） |
 | sentry | エラーモニタリング（l-shift プロジェクト） | project | Claude Code（project scope） | なし（http 接続。認証は `/mcp` からの OAuth 等、別経路） | `l-shift/.mcp.json` の `mcpServers.sentry` |
@@ -51,6 +51,28 @@ efoo-team が利用している全 MCP サーバーの横断台帳である。Cl
 - playwright を `@latest` ではなく exact 固定するのは、(1) npx がセッション起動のたびに行うレジストリ照会・新版コールドインストールが MCP 接続タイムアウトの原因だったため、(2) 夜間 automation（権限スキップ実行）で未レビューの新版が自動実行されるのを防ぐため。`--prefer-offline` によりキャッシュ済みなら npx 解決は1秒未満。
 - 将来 playwright 本体に `npx playwright mcp` 統合（メンテナ公表済み・1.62 時点で未出荷）が出荷されたら、プロジェクトの package.json でのバージョン管理への一本化を再検討する。
 - 過渡期の注意: Claude Code の project スコープは同名の user スコープをシャドウする。l-shift / chefrepi の `.mcp.json` から playwright エントリを削除する PR が着地するまで、両プロジェクトでは従来どおり project スコープ定義（`@latest`）が使われる。
+
+### Chrome Beta の導入（`--browser=chrome-beta` 前提）
+
+playwright の `definition.args` は `--browser=chrome-beta` を指定しており、Playwright MCP は `channel: chrome-beta` で起動する。Claude Code と opencode は `mcp-servers.json` から同期され、Codex は `codex-code-setting/config.shared.toml` に同じ引数を手動で反映する。Chrome Beta を導入していないメンバーは Playwright MCP を起動できない。macOS では以下のワンライナーで Chrome Beta を `/Applications` へ導入する（Apple Silicon/Intel 共通、公式 DMG を使用する）。
+
+```bash
+bash -c '
+set -euo pipefail
+dmg=/tmp/gcbeta.dmg
+mount=/Volumes/gcbeta
+cleanup() {
+  hdiutil detach "$mount" >/dev/null 2>&1 || true
+  rm -f "$dmg"
+}
+trap cleanup EXIT
+curl --fail --show-error --location --retry 3 --output "$dmg" "https://dl.google.com/chrome/mac/universal/beta/googlechromebeta.dmg"
+hdiutil attach -nobrowse -quiet -noautofsck -noautoopen -mountpoint "$mount" "$dmg"
+sudo ditto "$mount/Google Chrome Beta.app" "/Applications/Google Chrome Beta.app"
+'
+```
+
+Windows と Linux は、それぞれの OS 向けの公式 Chrome Beta インストーラーで Chrome Beta を導入する。導入後、Playwright MCP を再起動すると `chrome-beta` チャンネルが利用される。macOS では `/Applications/Google Chrome Beta.app` が存在し、通常の Chrome（安定版）とは異なるアイコン（左上に青い「Beta」リボン）で Dock に表示されるため、Playwright MCP が起動した Chrome と自分で開いた Chrome を見分けられる。
 
 ## direnv 運用手順
 
