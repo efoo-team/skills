@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-33 本（うち explicit-only 19 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+34 本（うち explicit-only 20 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -49,6 +49,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `pr-body` | 階層化された PR 本文の生成 | explicit-only |
 | | `review-pr-check` | PR レビュー対応のトリアージ | explicit-only |
 | | `dependabot-sweep` | Dependabot PR の統合 | explicit-only |
+| | `skill-memo` | 気づいたエージェントの推論課題・残したい知見を efoo-team/skills の issue へ記録 | explicit-only |
 | エージェント基盤 | `agent-harness-engineering` | AI エージェント・ハーネスの設計憲章 | auto |
 | | `agent-native-project-design` | ハーネス上で動くリポジトリ側の設計（指示ファイル・スキル・hooks） | auto |
 | | `agent-prompt-design` | プロンプト・instructions・スキル文面の執筆原則 | auto |
