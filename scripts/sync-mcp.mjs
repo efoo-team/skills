@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // efoo-team/skills: MCP サーバー定義同期スクリプト。
 // 正本 mcp-servers.json を Claude Code（user スコープ）と opencode（opencode.json）へ配布し、
-// Codex（~/.codex/config.toml）は正本バージョンとの一致を検査する（書き換えない。正本は
-// codex-code-setting/config.shared.toml）。運用の全体像は MCP-REGISTRY.md を参照。
+// Codex（~/.codex/config.toml）は正本との一致を検査する（書き換えない。正本は
+// codex-code-setting/config.shared.toml）。definition.type=http + daemon を持つサーバーは、
+// マシン内共有の常駐サーバー（launchd）として1プロセスだけ起動し、全セッションが HTTP で
+// 接続する。運用の全体像は MCP-REGISTRY.md を参照。
 //
 // 設計上の制約:
 // - 外部コマンドは execFileSync（配列渡し）のみ。シェル文字列の組み立てを行わない。
@@ -86,15 +88,45 @@ for (const [name, s] of Object.entries(spec.servers)) {
     console.error(`sync-mcp: servers.${name} に package / pin / definition が必要です`);
     process.exit(1);
   }
-  // half-bump 事故防止: args 内のパッケージ指定と pin の一致検査
-  const expected = `${s.package}@${s.pin}`;
-  const args = s.definition.args || [];
-  if (s.definition.command === 'npx' && !args.includes(expected)) {
-    console.error(
-      `sync-mcp: servers.${name} の args にパッケージ指定 ${expected} がありません。` +
-        ` pin と args のどちらかだけを更新した half-bump の可能性があります`
-    );
-    process.exit(1);
+  if (s.definition.type === 'http') {
+    // http 定義: バージョンは daemon の起動コマンド（pin から組み立て）にのみ存在するため、
+    // stdio 定義のような pin/args の half-bump は構造上起きない
+    if (typeof s.definition.url !== 'string' || s.definition.url === '') {
+      console.error(`sync-mcp: servers.${name} の http definition に url が必要です`);
+      process.exit(1);
+    }
+    if (s.daemon) {
+      const d = s.daemon;
+      if (!d.launchdLabel || !Number.isInteger(d.port) || !Array.isArray(d.serverArgs)) {
+        console.error(`sync-mcp: servers.${name} の daemon に launchdLabel / port / serverArgs が必要です`);
+        process.exit(1);
+      }
+      if (!s.definition.url.includes(`localhost:${d.port}/`)) {
+        console.error(
+          `sync-mcp: servers.${name} の definition.url に daemon.port（${d.port}）が含まれていません。` +
+            ` url と port のどちらかだけを更新した可能性があります`
+        );
+        process.exit(1);
+      }
+      if (d.serverArgs.some((a) => a.includes(s.package))) {
+        console.error(
+          `sync-mcp: servers.${name} の daemon.serverArgs にパッケージ指定を書いてはいけません` +
+            `（起動コマンドは package と pin から組み立てる。バージョンの二重管理を防ぐ）`
+        );
+        process.exit(1);
+      }
+    }
+  } else {
+    // half-bump 事故防止: args 内のパッケージ指定と pin の一致検査
+    const expected = `${s.package}@${s.pin}`;
+    const args = s.definition.args || [];
+    if (s.definition.command === 'npx' && !args.includes(expected)) {
+      console.error(
+        `sync-mcp: servers.${name} の args にパッケージ指定 ${expected} がありません。` +
+          ` pin と args のどちらかだけを更新した half-bump の可能性があります`
+      );
+      process.exit(1);
+    }
   }
 }
 
@@ -114,6 +146,9 @@ function resolveClaude() {
 
 function claudeEntryMatches(current, def) {
   if (!current) return false;
+  if (def.type === 'http') {
+    return current.type === 'http' && current.url === def.url && sameEnv(current.headers, def.headers);
+  }
   if (current.type !== undefined && current.type !== def.type) return false;
   return (
     current.command === def.command &&
@@ -161,6 +196,7 @@ function removeClaude(name, claudeBin) {
 const OPENCODE_CONFIG = path.join(HOME, '.config', 'opencode', 'opencode.json');
 
 function toOpencodeEntry(def) {
+  if (def.type === 'http') return { type: 'remote', url: def.url, enabled: true };
   const entry = { type: 'local', command: [def.command, ...(def.args || [])], enabled: true };
   if (def.env && Object.keys(def.env).length > 0) entry.environment = def.env;
   return entry;
@@ -168,6 +204,9 @@ function toOpencodeEntry(def) {
 
 function opencodeEntryMatches(current, entry) {
   if (!current) return false;
+  if (entry.type === 'remote') {
+    return current.type === 'remote' && current.url === entry.url && current.enabled === entry.enabled;
+  }
   return (
     current.type === entry.type &&
     sameStringArray(current.command, entry.command) &&
@@ -200,6 +239,26 @@ function verifyCodex(name, s) {
   } catch {
     return; // Codex 未使用マシン
   }
+  if (s.definition.type === 'http') {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const section = toml.match(
+      new RegExp(`\\[mcp_servers\\."?${escapedName}"?\\]([\\s\\S]*?)(?=\\n\\[|$)`)
+    );
+    if (!section) {
+      note(`codex: ${name} の定義が config.toml に見つかりません`);
+    } else if (/^\s*command\s*=/m.test(section[1])) {
+      warn(
+        `codex: ${name} が stdio 定義のままです。codex-code-setting/config.shared.toml を` +
+          ` url = "${s.definition.url}" の http 定義へ更新し、同リポジトリの setup.sh を実行してください`
+      );
+    } else if (!section[1].includes(`"${s.definition.url}"`)) {
+      warn(
+        `codex: ${name} の url が正本 ${s.definition.url} と不一致です。` +
+          ` codex-code-setting/config.shared.toml を更新し、同リポジトリの setup.sh を実行してください`
+      );
+    }
+    return;
+  }
   const escaped = s.package.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const m = toml.match(new RegExp(`${escaped}@([^"'\\s\\]]+)`));
   if (!m) {
@@ -212,6 +271,134 @@ function verifyCodex(name, s) {
         ` codex-code-setting/config.shared.toml を更新し、同リポジトリの setup.sh を実行してください`
     );
   }
+}
+
+// ---------- daemon（launchd 常駐。definition.type=http のサーバー実体を1プロセスだけ起動する）----------
+
+function xmlEscape(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildPlist(label, programArgs, envVars, logPath) {
+  const argsXml = programArgs.map((a) => `    <string>${xmlEscape(a)}</string>`).join('\n');
+  const envXml = Object.entries(envVars)
+    .map(([k, v]) => `    <key>${xmlEscape(k)}</key>\n    <string>${xmlEscape(v)}</string>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${xmlEscape(label)}</string>
+  <key>ProgramArguments</key>
+  <array>
+${argsXml}
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+${envXml}
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${xmlEscape(logPath)}</string>
+  <key>StandardErrorPath</key>
+  <string>${xmlEscape(logPath)}</string>
+</dict>
+</plist>
+`;
+}
+
+function resolveNpx() {
+  // sync を実行中の node と同じ導入ディレクトリの npx を最優先する（mise 等の shim ではなく実体パス。
+  // launchd はユーザーシェルの PATH を持たないため、実体パスを plist に焼き込む必要がある）
+  const sibling = path.join(path.dirname(process.execPath), 'npx');
+  try {
+    fs.accessSync(sibling, fs.constants.X_OK);
+    return sibling;
+  } catch {}
+  return which('npx');
+}
+
+function launchdLoaded(uid, label) {
+  try {
+    run('launchctl', ['print', `gui/${uid}/${label}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function syncDaemon(name, s, state) {
+  if (!s.daemon) return null;
+  if (process.platform !== 'darwin') {
+    warn(
+      `${name}: 常駐サーバーの自動管理は macOS（launchd）のみ対応です。手動で常駐させてください:` +
+        ` npx -y ${s.package}@${s.pin} --port ${s.daemon.port} ${s.daemon.serverArgs.join(' ')}`
+    );
+    return null;
+  }
+  const npx = resolveNpx();
+  if (!npx) {
+    warn(`${name}: npx が見つからないため常駐サーバーを設定できません`);
+    return null;
+  }
+  const label = s.daemon.launchdLabel;
+  const plistPath = path.join(HOME, 'Library', 'LaunchAgents', `${label}.plist`);
+  const logPath = path.join(HOME, 'Library', 'Logs', `${label}.log`);
+  const programArgs = [
+    npx,
+    '-y',
+    '--prefer-offline',
+    `${s.package}@${s.pin}`,
+    '--port',
+    String(s.daemon.port),
+    ...s.daemon.serverArgs,
+  ];
+  // PATH は npx の実体ディレクトリ + OS 標準のみに固定する。direnv 等で揺れるフル PATH を
+  // 焼き込むと、実行文脈が変わるたびに plist が差分扱いになり常駐サーバーが無駄に再起動される。
+  const envVars = { PATH: `${path.dirname(npx)}:/usr/local/bin:/usr/bin:/bin` };
+  const plist = buildPlist(label, programArgs, envVars, logPath);
+  const uid = process.getuid();
+  let existing = null;
+  try {
+    existing = fs.readFileSync(plistPath, 'utf8');
+  } catch {}
+  if (existing === plist && launchdLoaded(uid, label)) {
+    (state[name] ||= {}).daemonLabel = label;
+    return 'daemon:up-to-date';
+  }
+  try {
+    fs.mkdirSync(path.dirname(plistPath), { recursive: true });
+    fs.writeFileSync(plistPath, plist);
+    try {
+      run('launchctl', ['bootout', `gui/${uid}/${label}`]);
+    } catch {
+      // 未登録なら bootout は失敗するのが正常系
+    }
+    run('launchctl', ['bootstrap', `gui/${uid}`, plistPath]);
+    (state[name] ||= {}).daemonLabel = label;
+    return existing === plist ? 'daemon:reloaded' : 'daemon:updated';
+  } catch (e) {
+    warn(`${name}: 常駐サーバーの launchd 登録に失敗しました: ${String(e.stderr || e.message).trim()}`);
+    return 'daemon:failed';
+  }
+}
+
+function removeDaemon(name, st) {
+  if (!st?.daemonLabel || process.platform !== 'darwin') return false;
+  const uid = process.getuid();
+  try {
+    run('launchctl', ['bootout', `gui/${uid}/${st.daemonLabel}`]);
+  } catch {}
+  try {
+    fs.rmSync(path.join(HOME, 'Library', 'LaunchAgents', `${st.daemonLabel}.plist`), { force: true });
+  } catch (e) {
+    warn(`${name}: retired 常駐サーバーの plist 削除に失敗しました: ${e.message}`);
+  }
+  return true;
 }
 
 // ---------- warmup（pin が変わったときだけ実行）----------
@@ -292,6 +479,8 @@ for (const [name, s] of Object.entries(spec.servers)) {
   if (s.targets?.codex?.mode === 'verify') verifyCodex(name, s);
 
   warmup(name, s, state);
+  const daemonResult = syncDaemon(name, s, state);
+  if (daemonResult) results.push(daemonResult);
   summary.push(`${name}@${s.pin} [${results.join(' ') || 'no-op'}]`);
 }
 
@@ -307,6 +496,7 @@ for (const name of spec.retired || []) {
       warn(`opencode: retired ${name} の削除書き込みに失敗しました: ${e.message}`);
     }
   }
+  removed = removeDaemon(name, state[name]) || removed;
   if (removed) summary.push(`${name} [retired: removed]`);
   delete state[name];
 }

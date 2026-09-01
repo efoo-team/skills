@@ -67,11 +67,11 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## MCP サーバー定義
 
-正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.79`）のみ。`sync-mcp.sh` が Claude Code（user スコープ）と opencode へ配布し、Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`）。
+正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.79`）のみ。playwright はマシン内共有の常駐 HTTP サーバー（launchd、`http://localhost:8931/mcp`）として1プロセスだけ起動し、`sync-mcp.sh` が常駐サーバーの管理と、Claude Code（user スコープ）・opencode への http 接続定義の配布を行う。Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`。url のみのバージョンレス定義）。
 
-- バージョン変更は `pin` と `definition.args` を同時に更新する。片方だけの half-bump は sync が検出して停止する。Codex 側も同版に揃える。手順は `MCP-REGISTRY.md`。
-- 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する。
-- playwright は `--browser=chrome-beta` で起動するため、**macOS では `/Applications/Google Chrome Beta.app` が未導入のマシンで Playwright MCP が起動できない**。Windows / Linux は各 OS 向けの公式 Chrome Beta インストーラーを使用する。導入方法は `MCP-REGISTRY.md` の「Chrome Beta の導入」を参照する。
+- バージョン変更は `mcp-servers.json` の `pin` だけを更新する（バージョンは常駐サーバーの起動コマンドにのみ存在する）。手順は `MCP-REGISTRY.md`「バージョン更新手順」。
+- 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する（登録済み定義と常駐サーバーを sync が削除する）。
+- 常駐サーバーは `--browser=chrome-beta` でブラウザを起動するため、**macOS では `/Applications/Google Chrome Beta.app` が未導入のマシンでブラウザ操作ツールが実行できない**。Windows / Linux は各 OS 向けの公式 Chrome Beta インストーラーを使用する。導入方法は `MCP-REGISTRY.md` の「Chrome Beta の導入」を参照する。
 
 ## 配布の仕組み
 

@@ -12,7 +12,7 @@ efoo-team/skills (this repo)
 │   ├── <skill-name>/SKILL.md      # チーム自前スキル（正本がここにあるもの）
 │   └── ...
 ├── MCP-REGISTRY.md                 # 全 MCP サーバーの横断台帳（人間向け・バージョン更新手順含む）
-├── mcp-servers.json                # global MCP サーバー定義の正本（sync-mcp.sh が Claude Code / opencode へ配布、Codex は照合）
+├── mcp-servers.json                # global MCP サーバー定義の正本（sync-mcp.sh が Claude Code / opencode へ配布・常駐サーバーを管理、Codex は照合）
 ├── sync-mcp.sh                     # MCP 定義同期（setup.sh 末尾から自動実行。実体は scripts/sync-mcp.mjs）
 └── setup.sh                        # チーム推奨スキル一括インストールスクリプト
 ```
@@ -191,10 +191,10 @@ Skill instructions here.
 
 ## MCP Server Definitions（mcp-servers.json）
 
-このリポジトリはスキルに加えて、3ツール（Claude Code / Codex / opencode）へ横断配布する global MCP サーバー定義の正本 `mcp-servers.json` も保有する。`setup.sh` 末尾の `sync-mcp.sh` が Claude Code（`~/.claude.json` user スコープ）と opencode（`opencode.json`）へ配布し、Codex は `codex-code-setting/config.shared.toml`（そちらが Codex 側の正本）との一致を検査する。
+このリポジトリはスキルに加えて、3ツール（Claude Code / Codex / opencode）へ横断配布する global MCP サーバー定義の正本 `mcp-servers.json` も保有する。`setup.sh` 末尾の `sync-mcp.sh` が Claude Code（`~/.claude.json` user スコープ）と opencode（`opencode.json`）へ配布し、Codex は `codex-code-setting/config.shared.toml`（そちらが Codex 側の正本）との一致を検査する。`definition.type: "http"` + `daemon` を持つサーバー（現在: playwright）は、sync がマシン内共有の常駐サーバー（launchd の LaunchAgent）として1プロセスだけ起動し、3ツールの全セッションが HTTP で接続する（詳細は `MCP-REGISTRY.md`「共有常駐サーバー」）。
 
-- **バージョン変更（bump）は `mcp-servers.json` の `pin` と `definition.args` 内バージョンの両方 + `codex-code-setting/config.shared.toml` を同時に更新する**。片方だけの half-bump は sync が検出して停止する。手順の正本は `MCP-REGISTRY.md`「バージョン更新手順」
-- 配布先（`~/.claude.json` / `opencode.json`）を直接編集しない。サーバーの撤去は `servers` から消すだけでなく `retired` 配列へ名前を追加する
+- **バージョン変更（bump）は `mcp-servers.json` の `pin` だけを更新する**（バージョンは常駐サーバーの起動コマンドにのみ存在し、sync が pin から組み立てる。`codex-code-setting` 側は url のみのバージョンレス定義で bump 不要）。手順の正本は `MCP-REGISTRY.md`「バージョン更新手順」
+- 配布先（`~/.claude.json` / `opencode.json`）と生成物（`~/Library/LaunchAgents/*.plist`）を直接編集しない。サーバーの撤去は `servers` から消すだけでなく `retired` 配列へ名前を追加する
 - サーバーの追加・変更・削除時は `MCP-REGISTRY.md` の台帳行も同時に更新する
 
 ## Prohibited Actions
@@ -212,9 +212,10 @@ Skill instructions here.
   接続文だけを持つ薄型ラッパーで参照する。実体コピーは正本と乖離し、更新が伝播しなくなる）
 - **外部購読スキル（`setup.sh` で外部リポジトリから購読しているもの）の実体をどこにも改変・コピー
   してはならない**。変更が必要な場合は必ず正本（upstream リポジトリ）へ PR を送る
-- **MCP 定義の配布先（`~/.claude.json` の user スコープ・`opencode.json`）を直接編集してはならない**
-  （正本は `mcp-servers.json`。次回の sync で上書きされる）。`mcp-servers.json` の `pin` と `args` を
-  片方だけ更新してもならない（sync が half-bump として停止する）
+- **MCP 定義の配布先（`~/.claude.json` の user スコープ・`opencode.json`）と sync の生成物
+  （`~/Library/LaunchAgents/` の常駐サーバー plist）を直接編集してはならない**
+  （正本は `mcp-servers.json`。次回の sync で上書きされる）。http + daemon サーバーの
+  `definition.url` と `daemon.port` を片方だけ更新してもならない（sync が検出して停止する）
 - **スキルの起動区分（explicit-only / auto）を、人間の明示的な許可なしに変更してはならない**
   （`disable-model-invocation` / `allow_implicit_invocation` / 門番文の追加・削除を含む）
 

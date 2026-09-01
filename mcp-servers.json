@@ -2,14 +2,17 @@
   "version": 1,
   "servers": {
     "playwright": {
-      "description": "ブラウザ自動化・E2E 操作",
+      "description": "ブラウザ自動化・E2E 操作（マシン内共有 HTTP サーバー。launchd 常駐 1 プロセスへ全セッションが接続する）",
       "package": "@playwright/mcp",
       "pin": "0.0.79",
       "definition": {
-        "type": "stdio",
-        "command": "npx",
-        "args": ["-y", "--prefer-offline", "@playwright/mcp@0.0.79", "--browser=chrome-beta"],
-        "env": {}
+        "type": "http",
+        "url": "http://localhost:8931/mcp"
+      },
+      "daemon": {
+        "launchdLabel": "com.efoo-team.playwright-mcp",
+        "port": 8931,
+        "serverArgs": ["--isolated", "--browser=chrome-beta"]
       },
       "targets": {
         "claude-code": { "mode": "sync", "scope": "user" },
