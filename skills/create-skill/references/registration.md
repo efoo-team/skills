@@ -38,7 +38,7 @@
    リーク（`~/.agents/skills` を Codex がネイティブ検出する）を防ぐため同ファイルを持ってよい
    （実績: formation-designer。opencode 限定なのに Codex の暗黙起動リストに載るのを防ぐ）
 
-4. `README.md` の Structure 節の表に行を追加し、スキル数「Common-layer skills currently in `skills/` (N)」の N を更新する
+4. `README.md`「## スキル一覧」の見出し行のスキル数を更新し、表に行を追加する
 5. `setup.sh` の更新は不要（`npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` の一括インストールでカバーされる）
 6. 既存スキルの置き換え・リネームを伴う場合のみ、旧スキル名を `remove-skills.txt` に追記する
 
