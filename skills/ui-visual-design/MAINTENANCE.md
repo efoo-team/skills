@@ -113,6 +113,8 @@ upstream の `claude/` 変種は現行の Anthropic モデル向けに調整さ�
 - **references が読まれるか**: 第 21 章の表に従って `design-context.md`（手順 1）と 4 観点のレビュー（第 20 章）が実際に読まれているか。読まれないなら第 2 章・第 20 章の参照文を強める（description には書かない）。
 - **レビューゲートの発動**: 既存システム内の小変更で 2 観点が走っているか。走らないなら発動条件の文面を見直す。
 - **スタック別所在表の行番号**: l-shift / chefrepi / mediator の改修で `@theme` / `:root` / `createTheme` の位置が変わったら第 4 章と `design-context.md` の両方を更新する。
+- **実プロジェクト内の小さな追加で Claude Code が起動しない**: after 実行の T1（l-shift 実リポジトリ、「既存 UI に合わせて通知設定セクションを追加」）で Claude Code は 0/2 だった（§8.4。scratch の fixture では同型クエリが 18/18）。実プロジェクトで同じ型の依頼が来たときに起動しているかを transcript で確認し、起動しない場合は原因（プロジェクト層スキルとの競合、CLAUDE.md の指示、依頼文の型）を切り分けてから description か本文を直す。before / after の T1 比較はこの点を踏まえて読む。
+- **境界文の語が逆に注意を引く**: 改訂後の再測定で opencode の N05（Claude Design のキャンバスでモック）が 2/3 で `SKILL.md` を read した（skill ツールは未使用）。境界文に「Claude Design のキャンバス」の語があるため、字面で判断するモデルには逆にヒットしている可能性がある。第 2 回改訂はせず、運用で同型の誤発火が続くなら境界文の語を「モック作成ツールでの作業」のように一般化する。
 - **frontend-design プラグインとの重複**: プラグイン無効化（計画 §5）までは Claude Code で両方が発火しうる。after 比較（§8）はプラグインを実行単位で無効化して測る。
 
 ## 8. eval 記録
@@ -203,4 +205,26 @@ before の構成（2026-09-12）: Claude Code（`claude-fable-5-1[1m]`、`fronte
 | 改訂前 | …情報設計・導線・画面構造は ui-ux-design を使う。 | 101 |
 | 改訂後 | …情報設計・導線・画面構造は ui-ux-design を使う。CSS の単発バグ修正、グラフ・データ可視化の方針、Claude Design のキャンバス（design）でのモック作成には使わない。 | 134 |
 
-再測定は opencode の N03〜N06 と、両ツールの F01〜F06（発火率が落ちていないことの確認）で行い、結果をこの節に追記する。改善しなければ案 B（「見た目の改善」を「画面の見た目全体を作り直す」に絞る）を検討する。境界文は train の 3 クエリを一般化した語で名指ししているため過学習の疑いがあり、validation 側の nofire（N07〜N10）が改訂で悪化していないかも最終確認で見る。
+**改訂後の再測定（コミット `5cb9895` の description。`trigger/summary.md` §7、`results-r2.tsv`）**:
+
+| tool | 群 | 結果 |
+|---|---|---|
+| opencode | near-miss N03 / N04 / N05 / N06 各 3 回 | 2/12（N03 0/3、N04 0/3、N05 2/3、N06 0/3）。改訂前 10/18 → 2/12。N05 の 2 回はいずれも `SKILL.md` の read による発火で、skill ツールは未使用 |
+| opencode | 発火群 F01〜F06 各 1 回 | 6/6 |
+| Claude Code | 発火群 F01〜F06 各 1 回 | 6/6 |
+| Claude Code | near-miss N03 / N04 / N05 各 1 回 | 0/3 |
+
+**確定**: 改訂は 1 回で確定し、第 2 回改訂（案 B）は行わない。validation 側は改訂前の値（Claude Code: fire 12/12 / nofire 0/12、opencode: fire 12/12 / nofire 2/12）を最終確認として記録する。**改訂後の validation は再測定していない**（train 側の失敗だけを根拠に改訂し、validation は改訂前の一度きりの値で合格基準を確認した）。
+
+N05（Claude Design のキャンバスでモック）が opencode で改訂後も `SKILL.md` を read しに行く件は、境界文に「Claude Design のキャンバス」の語があるため逆に注意を引いた可能性がある。第 2 回改訂はせず、§7 の観察項目として残す。
+
+### 8.4 after 実行で観察した発火の実態（`after/runs.md` §1・§4）
+
+同じ description（`5cb9895`）で、after 条件（project 層 link + `--settings` で `frontend-design` プラグインを無効化）の本番実行における `ui-visual-design` の起動:
+
+| tool | T2（LP、scratch ディレクトリ） | T1（l-shift 実リポジトリ） |
+|---|---|---|
+| Claude Code | 3/3 | **0/2**（スキル一覧には載っていたが Skill ツールを呼ばず。`frontend-design` も 0） |
+| opencode | 3/3（skill ツール 1、`SKILL.md` read 2） | 1/2 |
+
+Claude Code が l-shift の実リポジトリ内では T1（「既存 UI に合わせて通知設定セクションを追加」）でスキルを起動しなかったのは、発火テストの fixture（小さな scratch）で同型の F01 が 18/18 だったのと対照的である。原因は特定できていない（l-shift 側の CLAUDE.md や 19 本のプロジェクト層スキルとの競合、あるいは「既存 UI に合わせる」が既存パターンの踏襲と読まれた可能性）。before / after の T1 比較（§8.2）はこの点を踏まえて読む。判断は運用観察後（§7）。
