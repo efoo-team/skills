@@ -2,3 +2,4 @@
 .serena/
 .mediator/
 __pycache__/
+.eval/

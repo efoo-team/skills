@@ -275,3 +275,10 @@ Skill instructions here.
   issue の編成単位・後続工程（前者は /create-skill や既存スキルの改訂、後者は /define 以降の実装）が
   いずれも異なる。統合すると起票先の取り違え（クライアント案件のリポジトリへスキル改善メモが立つ、
   public な efoo-team/skills へ案件情報が載る）を招く。
+- **UI 設計系**（`ui-ux-design` / `ui-visual-design`）— keep-separate:
+  ui-ux-design は構造・導線（何を・どこに・どの深さで置くか。オブジェクト→構造→フロー→データ状態→UI の検討手順）、
+  ui-visual-design はビジュアル表現の作り込み（既存デザインシステムへの整合・AI 既定値の回避・状態と a11y・
+  出荷前レビュー）で、判断の対象と出力が異なる。ui-ux-design の手順 5「UI 具体化」から ui-visual-design へ
+  接続する上下関係にあり、統合すると構造の判断が視覚の規則に埋もれて発火条件が混線する。upstream（Claude Design）
+  の wireframe skill を ui-visual-design に採らないのは、ui-ux-design 原則 0（使い捨てプロトタイプを中間物として
+  挟まない）と衝突するためで、低忠実度の探索は ui-ux-design 側の責務とする。
