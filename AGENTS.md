@@ -8,6 +8,7 @@
 ```
 efoo-team/skills (this repo)
 ├── remove-skills.txt                # setup.sh が削除対象として扱うスキル名一覧
+├── archive/                         # 派生元 upstream の原文保全（配布対象外。SKILL.md を置かない）
 ├── skills/
 │   ├── <skill-name>/SKILL.md      # チーム自前スキル（正本がここにあるもの）
 │   └── ...

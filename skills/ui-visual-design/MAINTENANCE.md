@@ -17,7 +17,7 @@
 |---|---|
 | upstream | https://github.com/Trystan-SA/claude-design-system-prompt （Claude Design の system prompt + 14 skills の逆解析・再構成） |
 | 取り込み時点 | commit `3c3ddb0`（2026-07-06、"Condense all 28 skills to reduce context usage"）。`claude/` 変種を元にし、`codex/` 変種は読んでいない |
-| fork（保全） | `efoo-team/claude-design-system-prompt`（archive 済み。upstream の更新を取り込みたくなったら unarchive する） |
+| 原文の保全 | このリポジトリの `archive/claude-design-system-prompt-3c3ddb0/`（`.git` を除く全ファイルのバイト一致コピー。`ARCHIVE.md` に出所と履歴。`SKILL.md` を持たないため skills CLI の配布対象にならない）。GitHub fork は作らない（操作者の決定: リポジトリを増やさない） |
 | ライセンス | MIT（Copyright (c) 2026 Trystan Sarrade）。`LICENSE.txt` に原文と efoo-team の改変表記を置く。**このディレクトリ全体（SKILL.md / references / 本ファイル）を MIT として扱う**。frontmatter の `license: MIT` がその宣言である |
 | 翻案範囲 | system prompt（647 行）を SKILL.md 本文に移植し、環境依存の章（Workflow / Asking questions の一部 / Respecting the medium の一部 / Output principles / Collaboration / Available skills）を Claude Code・Codex・opencode のコードベース開発向けに書き換えた。14 skills のうち 7 本を `references/` に移植し、`polish-pass` は SKILL.md 第 20 章に統合、6 本は不採用（§4） |
 
@@ -26,7 +26,7 @@
 upstream は SKILL.md 形式（frontmatter 付き）ではなく `npx skills add` で購読できないため、AGENTS.md の「External skill の SKILL.md をコピー配置してはならない」の対象外である。`mastra-framework-guide`（Apache-2.0 の派生）と同じく、出所を frontmatter（`license` / `metadata.forked-from` / `metadata.divergence`）で表記した **team-owned の派生**として管理する。
 
 - 将来も upstream を `setup.sh` で購読しない（同じ領域のスキルが 2 系統配布される二重管理を防ぐ）。
-- upstream の更新を取り込むときは、fork を unarchive して差分を読み、このリポジトリで手で反映する。`git pull` で上書きしない。
+- upstream の更新を取り込むときは、GitHub の upstream と `archive/` の原文を突き合わせて差分を読み、このリポジトリで手で反映する。`git pull` で上書きしない。
 - Claude Code 限定の公式プラグイン `frontend-design`（Apache-2.0）は同じ発火領域を持つ。本スキルの配布確認後に `claude-code-setting/settings.json` で無効化する（計画 §5。本ファイルの範囲外）。
 
 ## 3. SKILL.md 章別対応表
