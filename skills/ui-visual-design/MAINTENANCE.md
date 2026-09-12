@@ -9,7 +9,7 @@
 5. [校正メモ（upstream README の要点）](#5-校正メモupstream-readme-の要点)
 6. [4 質問の適用記録](#6-4-質問の適用記録)
 7. [運用観察項目](#7-運用観察項目)
-8. [eval 要約表](#8-eval-要約表)
+8. [eval 記録](#8-eval-記録)
 
 ## 1. 出所とライセンス
 
@@ -115,9 +115,58 @@ upstream の `claude/` 変種は現行の Anthropic モデル向けに調整さ�
 - **スタック別所在表の行番号**: l-shift / chefrepi / mediator の改修で `@theme` / `:root` / `createTheme` の位置が変わったら第 4 章と `design-context.md` の両方を更新する。
 - **frontend-design プラグインとの重複**: プラグイン無効化（計画 §5）までは Claude Code で両方が発火しうる。after 比較（§8）はプラグインを実行単位で無効化して測る。
 
-## 8. eval 要約表
+## 8. eval 記録
 
-証拠の場所: `~/ghq/github.com/efoo-team/skills/.eval/ui-visual-design/{kickoff,tasks,rubric,before,after,trigger}/`（gitignore 済み）。採点は `rubric/` の 4 観点（accessibility-audit / ai-slop-check / hierarchy-rhythm-review / interaction-states-pass）で、before / after をランダム ID で混ぜて blind に行う。
+証拠の場所: `~/ghq/github.com/efoo-team/skills/.eval/ui-visual-design/{kickoff,tasks,rubric,before,after,trigger,judge,judge-map}/`（gitignore 済み）。採点は `rubric/` の 4 観点（accessibility-audit / ai-slop-check / hierarchy-rhythm-review / interaction-states-pass）で、before / after をランダム ID で混ぜて blind に行う。
+
+### 8.1 before（スキル無し）の gap 記録 — 各章が存在する理由の裏付け
+
+出典: `~/ghq/github.com/efoo-team/skills/.eval/ui-visual-design/judge/round1/summary.md`（集計）、同 `findings.md`（指摘 177 件）、`judge-map/round1.json`（id → task / tool）、`before/runs.md`（実行記録）。
+
+before の構成（2026-09-12）: Claude Code（`claude-fable-5-1[1m]`、`frontend-design` プラグイン有効。T2 で 2/3 回発火、T1 では発火なし）と opencode（`opencode-go/deepseek-v4.1-flash`）の 2 ツール。Codex は usage limit のため操作者が対象外にした。T1（l-shift 勤怠設定画面への「通知設定」セクション追加、diff で採点）は各 2 回、T2（架空 SaaS「Kotonoha」の LP、HTML + スクリーンショットで採点）は各 3 回。合計 10 成果物、指摘 177 件（blockers 8 / quality 101 / polish 68）。1 成果物あたりの平均は T1 17.2 件、T2 18.0 件。
+
+**観察した gap と対応する章**（該当 id 数は 10 成果物中）:
+
+| # | 頻出指摘 | 該当 | 対処する章 / reference |
+|---|---|---|---|
+| 1 | 保存ボタン・CTA が押しても何も起きない（loading なし、成功 / 失敗のスタブなし、`href="#"` や自セクションへのアンカーで行き止まり）。T1 は 4/4 が保存を無音で終える | 9/10 | 第 11 章「Form feedback」「State visibility」、第 14 章「Real interactions, not static mockups」、第 5 章 filler（行き先の無い「Learn more」）。`interaction-states-pass.md` P2 Loading / P4 Feedback |
+| 2 | `:active`（押下）状態が未定義。T1 は shadcn Button primitive に `active:` が無いことに由来 | 9/10 | 第 11 章「States」。`interaction-states-pass.md` P2 Active。primitive 由来の欠落は第 2 章手順 4「不足値はシステム側へ先に追加」と第 13 章「Design components, not pages」が対処する |
+| 3 | フォーカスリングが見えない・弱い。T1 は Checkbox primitive のリングが非フォーカス要素の div に付き描画されない（blockers 3 件）、`ring-ring/50` 無オフセットが白背景で約 2:1。T2 は暗い CTA 帯でアウトラインが背景と同色 | 7/10 | 第 10 章「Keyboard navigation」（focus-visible の置換例）。`accessibility-audit.md` Review 3、`interaction-states-pass.md` P2 Focus（3:1・2px・offset 2px） |
+| 4 | 見出し構造の欠陥。T1 は 4/4 がセクション見出し「通知設定」を `<div>` で書いた。T2 は hero のデモパネルで h1→h3 スキップ、プラン名が div | 7/10 | 第 10 章「Semantic HTML」（見出し階層・要素の選択）。`accessibility-audit.md` Review 2。T1 の 4/4 は下記「注意」の第 4 章との衝突例 |
+| 5 | スペーシングが 4px / 8px スケールに乗っていない（T2 で 24〜73 箇所。2 件はスケールトークンを宣言した上でバイパス） | 6/10（T2 6/6） | 第 7 章「Rhythm」、第 13 章「Design tokens」（`padding: var(--space-md)`）。`ai-slop-check.md` rule 8、`hierarchy-rhythm-review.md` Rhythm 1 |
+| 6 | タイプスケールが任意値だらけ（固定 font-size が 8〜30 種類） | 6/10（T2 6/6） | 第 8 章「Define a type scale and stick to it」。`hierarchy-rhythm-review.md` Rhythm 2 |
+| 7 | テキスト / 境界コントラスト 1.2〜4.5:1。T1 4 件は共有 Input の border 1.27:1（primitive 由来）。T2 はヘッダー CTA の文字 1.20:1（blockers）、muted gray 3.2〜3.7:1 | 7/10 | 第 10 章「Contrast (WCAG)」。`accessibility-audit.md` Review 1 |
+| 8 | warm-editorial 既定（クリーム紙 + 明朝ディスプレイ + 朱 / テラコッタ）をブランド指定の無い SaaS LP に無根拠で採用 | 3/10（T2 3/6、いずれも opencode レーン） | 第 6 章「Aesthetic direction — chosen, never defaulted」。`ai-slop-check.md` rule 9、`aesthetic-direction.md` Phase 3 Color（warm-editorial を選ぶなら理由を書く） |
+| 9 | トークン不在のインライン色（宣言済み `--paper*` の横に近似クリーム 8 種を直書きなど） | 4/10（T2 4/6） | 第 9 章「Define a palette and use it everywhere」、第 13 章 tokens。`ai-slop-check.md` rule 7、`hierarchy-rhythm-review.md` Rhythm 5 |
+| 10 | 純白 `#fff` サーフェス（3/6）、素の system font stack（2/6） | 3/10、2/10 | 第 6 章「Color — subtly toned whites and blacks」「Type — pick fonts with intent」。`ai-slop-check.md` rule 5 / 6 |
+| 11 | T1 で既存フォームの inline パターン（`label > span + span.inline-block.w-* > Input`）に倣わず、Label + `w-full` Input で 1 欄だけ全幅にした。ラベル primitive が兄弟と混在 | 1/10（quality）+ 1/10（polish） | 第 4 章「observe and follow the visual vocabulary before adding to it」。`design-context.md` Phase 2（既存パターンの抽出） |
+| 12 | 3 つのコンテンツ節がすべて異なる見出しレイアウトで、破るべき反復が無い | 1/10 | 第 7 章「Repeat patterns, then break them strategically」。`hierarchy-rhythm-review.md` Rhythm 4 |
+| 13 | `<form>` が無く Enter で送信できない、`autocomplete` 欠落、必須の明示なし、hit target 36px | T1 で散発 | 第 10 章「Form design」、第 8 章「Interactive hit targets: never smaller than 44px」。`accessibility-audit.md` Review 3 / 4 |
+
+**対応する章が無い指摘**（1 件）: T2 の 1 成果物（a2eb2bb8）で、ヘッダー CTA のスタイルが後続の `nav a` セレクタに上書きされ、文字が背景と同色（1.20:1）になった。原因は CSS セレクタの特異度の衝突であり、SKILL.md にはセレクタ設計の指針が無い。第 2 章手順 5（描画検証）と第 20 章レビューゲートのコントラスト検査で結果として検出される想定だが、書き時の予防指針は無い。after 比較で再発するなら第 14 章「Use CSS for what it's good at」に 1 行足すことを検討する（現時点では 1 件のため追記しない）。
+
+**想定 gap との照合**（計画 §1 で想定した gap）:
+
+| 想定した gap | 実際 | 備考 |
+|---|---|---|
+| T1: トークンを無視した inline 値 | 出なかった | 4 件ともトークンと UI プリミティブを再利用。slop の指摘は polish 1 件（ON/OFF 切替に `green-600/700` を直書き）のみ |
+| T1: hover / focus / disabled の欠落 | 部分的に出た | hover は概ね有り。`:active` 欠落 4/4 と focus 不可視 3/4 はいずれも共有 primitive（Button / Checkbox）由来で、diff が新たに導入した欠陥ではない |
+| T1: `outline: none` の放置 | 出なかった | 代わりに「リングのクラスが非フォーカス要素に付いて描画されない」という別の形で focus 不可視が出た |
+| T1: Inter の暗黙採用 | 出なかった | 既存の `--font-sans` を継承 |
+| T2: cream + serif + terracotta の house style | 出た（3/6） | 3 件とも opencode（deepseek）レーン。Claude Code レーン 3 件は近中性 `#fbfbf8` + 緑 / 藍で該当なし（うち 2 件は `frontend-design` プラグインが発火。ツールとプラグインが交絡しているため、after 比較ではプラグインを無効化して測る） |
+| T2: 装飾グラデーション | 出なかった（0/6） | 単一色相・低コントラストの on-tone グラデーションのみ |
+| T2: 絵文字 | 出なかった（0/6） | |
+| T2: 左ボーダーのカード | 出なかった（0/6） | AI 風イラスト（rule 4）も 0/6 |
+| 想定外で出た | off-scale spacing 6/6、任意値のタイプスケール 6/6、インライン近似色 4/6、純白サーフェス 3/6、素の system stack 2/6、CTA の行き止まり | rule 1〜4 の「古典的な slop」は現行モデルではほぼ消えており、gap は**スケール規律とトークン規律**（第 7・8・9・13 章）と**状態・フィードバック**（第 11 章）に移っている。第 6 章の rule 1〜4 相当の段落は after 比較でも差が出なければ刈り込み候補 |
+
+**注意**:
+
+- T1 の指摘の多くは共有 primitive 由来である（shadcn Button に `active:` が無い、Checkbox のリングが非フォーカス要素の div に付く、Input の border が 1.27:1）。4 件に一律に載るため T1 同士の比較には効かず、diff が導入した欠陥ではない。primitive 欠陥を除くと T1 の a11y blockers は 0 になる。スキルの効果は「primitive の欠陥に気づいてシステム側へ先に直すか」（第 2 章手順 4）で測る。
+- 同じ欠陥が複数 rubric で二重計上されている（off-scale spacing は slop rule 8 と hierarchy Rhythm 1 の両方、a2eb2bb8 のヘッダー CTA は a11y 1.1 / states P2 Default / hierarchy 3 の 3 箇所）。件数は rubric ごとの独立採点の合計であり、欠陥の数ではない（`summary.md`「集計上の注意」）。
+- **第 4 章と第 10 章の衝突例**: T1 の 4/4 がセクション見出しを `<div>` にしたのは、既存セクションの慣習（見出しが `div.font-medium`）に倣った結果である。「既存文脈に根ざす」（第 4 章）を忠実に守ると a11y（第 10 章 Semantic HTML）を引き継いでしまう。現行の本文は「既存ブランドの選択は slop 規則に優先する」とだけ書いており、既存コードの a11y 欠陥まで踏襲するかは書いていない。after 比較で同じ結果なら、第 4 章に「視覚語彙は倣うが、意味構造（見出し・要素選択・ラベル）の欠陥は倣わず、システム側で直すか要約で指摘する」を足す。
+- opencode の T1 1 回目は explore サブエージェントの結果待ちのまま無変更で終了した（成果物なし、retry で成功）。設計上の gap ではなくハーネスの挙動として記録する。
+
+### 8.2 before / after 要約表
 
 （§3 で記入）
 
