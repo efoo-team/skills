@@ -168,20 +168,51 @@ before の構成（2026-09-12）: Claude Code（`claude-fable-5-1[1m]`、`fronte
 - **第 4 章と第 10 章の衝突例**: T1 の 4/4 がセクション見出しを `<div>` にしたのは、既存セクションの慣習（見出しが `div.font-medium`）に倣った結果である。「既存文脈に根ざす」（第 4 章）を忠実に守ると a11y（第 10 章 Semantic HTML）を引き継いでしまう。現行の本文は「既存ブランドの選択は slop 規則に優先する」とだけ書いており、既存コードの a11y 欠陥まで踏襲するかは書いていない。after 比較で同じ結果なら、第 4 章に「視覚語彙は倣うが、意味構造（見出し・要素選択・ラベル）の欠陥は倣わず、システム側で直すか要約で指摘する」を足す。
 - opencode の T1 1 回目は explore サブエージェントの結果待ちのまま無変更で終了した（成果物なし、retry で成功）。設計上の gap ではなくハーネスの挙動として記録する。
 
-### 8.2 before / after 要約表
+### 8.2 before / after 要約表（judge round2、2026-09-12）
 
-（§3 で記入）
+条件:
 
-| 観点 | タスク | before（ツール別: claude / codex / opencode） | after（同） | 差 | 判定（効いた / 差なし = 刈り込み候補） |
-|---|---|---|---|---|---|
-| accessibility-audit | T1 | | | | |
-| accessibility-audit | T2 | | | | |
-| ai-slop-check | T1 | | | | |
-| ai-slop-check | T2 | | | | |
-| hierarchy-rhythm-review | T1 | | | | |
-| hierarchy-rhythm-review | T2 | | | | |
-| interaction-states-pass | T1 | | | | |
-| interaction-states-pass | T2 | | | | |
+| 項目 | before | after |
+|---|---|---|
+| Claude Code | `claude-fable-5-1[1m]`、CLI 2.1.269、`frontend-design` プラグイン**有効**（T2 で 2/3 発火）、`ui-visual-design` 無し | 同モデル・同 CLI、`--settings` で `frontend-design` を実行単位で**無効化**、project 層 link で `ui-visual-design` を提示 |
+| opencode | `opencode-go/deepseek-v4.1-flash`、CLI 1.18.30、スキル無し | 同モデル・同 CLI、project 層 link で `ui-visual-design` を提示 |
+| Codex | 対象外（usage limit のため操作者の決定で除外） | 同左 |
+| 試行数 | T2 各 3 回、T1 各 2 回 | 同左 |
+| 採点 | round2 で before / after 計 20 件をランダム ID で混ぜ、4 観点を各 1 採点者が通しで blind 採点。`*_ex` は共有プリミティブ（shadcn Button / Checkbox / Input）由来の指摘を除いた件数 | |
+
+round2 は before も**再採点**しているため、§8.1 の round1（before 単独、指摘 177 件）と数値は一致しない。条件間の比較は round2 内で行う。
+
+**1 成果物あたりの total（before → after。括弧は total_ex）**:
+
+| task | tool | n | before | after |
+|---|---|---|---|---|
+| T2 LP（scratch） | Claude Code | 3 | 19.0 (19.0) | 7.0 (7.0) |
+| T2 LP（scratch） | opencode | 3 | 10.7 (10.7) | 4.7 (4.7) |
+| T1 l-shift 実リポジトリ | Claude Code | 2 | 19.5 (8.0) | 18.5 (9.5) |
+| T1 l-shift 実リポジトリ | opencode | 2 | 20.5 (6.5) | 20.0 (11.0) |
+
+**rubric 別の合計（total_ex、before → after。T2 は 6 件ずつ、T1 は 4 件ずつ）**:
+
+| task | rubric | before → after | 読み方 |
+|---|---|---|---|
+| T2 | accessibility-audit | 33 → 21 | 改善。第 10 章（コントラスト・focus ring・見出し構造）と `accessibility-audit.md` |
+| T2 | ai-slop-check | 15 → 3 | 改善。第 6 章の既定（トーン付き白黒・フォントの意図・house style）と `ai-slop-check.md` rule 5 / 6 / 7 / 8 / 9 |
+| T2 | hierarchy-rhythm-review | 19 → 5 | 改善。第 7・8 章（spacing / type scale）と第 13 章（tokens）、`hierarchy-rhythm-review.md` |
+| T2 | interaction-states-pass | 22 → 6 | 改善。第 11 章（states / feedback）と `interaction-states-pass.md` |
+| T1 | accessibility-audit | 10 → 20 | 差なし（悪化に見えるが下記の型の違い） |
+| T1 | ai-slop-check | 4 → 4 | 差なし |
+| T1 | hierarchy-rhythm-review | 5 → 4 | 差なし |
+| T1 | interaction-states-pass | 10 → 13 | 差なし |
+
+**T2 の読み方**: スキルが起動した条件（Claude Code 3/3、opencode 3/3）では 4 観点すべてで指摘が減った。Claude Code は `frontend-design` を無効化した上でなお 19.0 → 7.0 で、gap の移動先だった「スケール規律・トークン規律・状態」（§8.1）に効いている。
+
+**T1 の読み方**: 差は出ていないが「効果が無い」ではなく「**実プロジェクト内の小さな追加では発火せず、測れていない**」と読む。after の T1 で Claude Code はスキルを起動しておらず（0/2）、opencode も 1/2、各セルの n は 2 である（§8.4）。total_ex の増加（Claude 8.0 → 9.5、opencode 6.5 → 11.0、a11y 10 → 20）は、通知 ON/OFF の器の選択の違いで説明できる: before の 4 件は Checkbox 型 3 件（primitive 由来の指摘が多く、除外後は少ない）とトグル型 1 件、after の 4 件は**すべて ON/OFF トグル型**（`!bg-green-600` 系の inline 色 4 種、選択中の文字 3.30:1、focus ring 1.58:1 が diff 自身の指摘として残る）。a11y 判定者も「T1 はトグル型 5 件と Checkbox 型 3 件に分かれ、トグル型は非 primitive の指摘が多い」と所見を残している。スキルが起動した 1 件（opencode）もトグル型で同じ inline 色を書いており、起動しても第 13 章（tokens）が効いていない可能性はあるが、n=1 では判断しない。
+
+**刈り込み候補の判定（計画 §3-9）**: T1 で差が出なかった 4 観点は、発火していない条件での結果なので**刈り込み候補にはせず、観察継続**とする（発火していない条件で「効いていない」と判定するのは早い）。T2 で効いた観点と章の対応は上表のとおりで、初版の本文はそのまま維持する。§8.1 で「after でも差が出なければ刈り込み候補」とした第 6 章の rule 1〜4 相当（グラデーション・絵文字・左ボーダー・AI 風イラスト）は、before / after とも T2 で 0/6 のため効果を測れていない。現行モデルでは既に出ない型であり、次回の刈り込み検討時に 4 質問（Q4「渡さないと静かに劣化するか」）で改めて判定する。
+
+**集計上の注意**（`judge/round2/summary.md`）: 同一欠陥の観点間二重計上がある（ヘッダー CTA の文字不可視は a11y / states / hierarchy の 3 観点、focus ring と境界線コントラストは a11y / states、off-scale spacing は slop / hierarchy）。T1 の states は「保存の実処理は不要」という依頼のため loading と成功 / 失敗フィードバックの欠落を全件 polish 固定で計上している。T2 の下部（料金・CTA）はビューポート外のため HTML のみで判定している。
+
+証拠: `~/ghq/github.com/efoo-team/skills/.eval/ui-visual-design/judge/round2/{summary.md,scores.tsv,findings.md}`、`judge-map/round2.json`、`before/`、`after/`（`after/runs.md` §1・§4 に発火記録）。
 
 ### 8.3 発火テスト（計画 §3-8）
 
