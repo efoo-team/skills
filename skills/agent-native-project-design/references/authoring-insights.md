@@ -2,7 +2,7 @@
 
 2026-07 時点の外部調査（Anthropic 公式 docs / anthropics/skills の skill-creator / obra/superpowers / agentskills.io 仕様 / vercel-labs/skills）から得た知見のうち、執筆原則の正本 `agent-native-project-design/references/skill-authoring.md` に**含まれていないものだけ**を抜粋した補遺である。
 
-- 正本と重複する原則（progressive disclosure 3階層・description 3要素・500行未満・1階層参照・自由度判断・eval 先行など）は本ファイルに書かない。正本を読むこと
+- 正本と重複する原則（progressive disclosure 3階層・description 3要素・本文量の4質問判定・1階層参照・自由度判断・eval 先行など）は本ファイルに書かない。正本を読むこと
 - 記述に齟齬がある場合は正本が優先する
 
 ## 目次
@@ -42,7 +42,7 @@ skill-creator の補足: 出力が客観的に検証可能なスキル（ファ�
 - `name` の追加制約: 連続ハイフン不可（`pdf--processing` は invalid）、先頭・末尾ハイフン不可、ディレクトリ名と完全一致必須（不一致はロードされない）。Claude Code では `anthropic` / `claude` を含む名前は予約語として不可
 - 命名の推奨形: 動名詞形（`processing-pdfs`）、または「何をするか・中核の洞察」で名付ける（`condition-based-waiting` は `async-test-helpers` より良い）
 - `compatibility`（任意、1–500字）: 実行環境要件（必要コマンド・ランタイム・ネットワークアクセス）を書くフィールド。ほとんどのスキルには不要。例: `"Requires git, docker, jq"`
-- 本文量の目安: 500行未満（正本）に加え、agentskills.io は 5000 トークン未満を推奨。superpowers はさらに厳しく本文 500 **words** 未満（`wc -w` で計測）を推奨する。迷ったら短い方に倒す
+- 本文量: 正本（skill-authoring.md §1「本文量の判定」）は行数上限を置かず4つの質問で判定する。外部の数値（Anthropic 公式 500 行未満、agentskills.io 5000 トークン未満、superpowers 本文 500 **words** 未満）は判定を起動する閾値として参照するだけで、上限として運用しない
 
 ## 4. ガイダンス形式を失敗の型に合わせる
 
