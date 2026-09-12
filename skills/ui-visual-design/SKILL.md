@@ -1,6 +1,6 @@
 ---
 name: ui-visual-design
-description: "UI・画面・コンポーネント・LP の実装や見た目の改善で、既存デザインシステムに整合した意図あるビジュアルデザインを行い、AI 生成らしい既定値を避けるスキル。『UIを作って』『画面を実装して』『デザインを整えて』『見た目をいい感じに』『スタイルを当てて』と言われたとき、デザインと明示されなくても使う。情報設計・導線・画面構造は ui-ux-design を使う。"
+description: "UI・画面・コンポーネント・LP の実装や見た目の改善で、既存デザインシステムに整合した意図あるビジュアルデザインを行い、AI 生成らしい既定値を避けるスキル。『UIを作って』『画面を実装して』『デザインを整えて』『見た目をいい感じに』『スタイルを当てて』と言われたとき、デザインと明示されなくても使う。情報設計・導線・画面構造は ui-ux-design を使う。CSS の単発バグ修正、グラフ・データ可視化の方針、Claude Design のキャンバス（design）でのモック作成には使わない。"
 license: MIT
 metadata:
   tags: [ui, visual-design, frontend, css, design-system, accessibility, ai-slop]

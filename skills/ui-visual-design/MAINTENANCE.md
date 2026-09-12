@@ -181,4 +181,26 @@ before の構成（2026-09-12）: Claude Code（`claude-fable-5-1[1m]`、`fronte
 | interaction-states-pass | T1 | | | | |
 | interaction-states-pass | T2 | | | | |
 
-発火テスト（計画 §3-8）: 発火すべきクエリの発火率 / near-miss の発火率（validation 側、3 試行）を `trigger/` に置き、結果をここに 1 行で追記する。
+### 8.3 発火テスト（計画 §3-8）
+
+証拠: `~/ghq/github.com/efoo-team/skills/.eval/ui-visual-design/trigger/`（`queries.tsv` / `results.tsv` / `summary.md` / `runs/` / `description-proposal.md`）。20 クエリ（fire 10 / near-miss 10）を train : validation = 6 : 4 に分け、各 3 回。Claude Code は `claude-fable-5-1[1m]` + `--max-turns 3`、opencode は `opencode-go/deepseek-v4.1-flash`。Codex は usage limit のため対象外。判定は Skill ツール呼び出し（補助: `SKILL.md` の read）。
+
+**初版 description（2026-09-12、推定 101 トークン）での結果**:
+
+| tool | set | fire 群 | nofire 群 |
+|---|---|---|---|
+| claude | train | 18/18 | 0/18 |
+| claude | validation | 12/12 | 0/12 |
+| opencode | train | 18/18 | 10/18（N03 折れ線グラフの見せ方 3/3、N04 `.btn` の padding バグ 3/3、N05 Claude Design のキャンバス 3/3、N06 ユニットテスト 1/3） |
+| opencode | validation | 12/12 | 2/12（N09 画面遷移図 1/3、N10 Tailwind ビルド失敗 1/3。いずれも `SKILL.md` の read による発火） |
+
+合格基準（validation で fire 群 > 0.5 かつ nofire 群 < 0.5）は両ツールとも満たした。opencode の train nofire が 0.56 のため、計画 §3-8 の「train 側の失敗だけを根拠に改訂（5 回まで）」を 1 回適用した。
+
+**改訂 1 回目（description-proposal.md 案 A）**: 肯定側のトリガー語は一切変えず、末尾に境界文を 1 文追加した。根拠は opencode の N03 / N04 / N05 が 3/3 で誤発火し、いずれも description の肯定語（見た目 / デザイン / UI / 作って）に字面で一致していた一方、否定側の境界が「情報設計・導線・画面構造は ui-ux-design」の 1 文しか無かったこと。Claude Code は train / validation とも無傷（fire 30/30、nofire 0/30）なので肯定側は触らない。deepseek は reasoning を出さないため反応語は推定（`description-proposal.md` §2）。
+
+| | description（末尾のみ抜粋） | 推定トークン |
+|---|---|---|
+| 改訂前 | …情報設計・導線・画面構造は ui-ux-design を使う。 | 101 |
+| 改訂後 | …情報設計・導線・画面構造は ui-ux-design を使う。CSS の単発バグ修正、グラフ・データ可視化の方針、Claude Design のキャンバス（design）でのモック作成には使わない。 | 134 |
+
+再測定は opencode の N03〜N06 と、両ツールの F01〜F06（発火率が落ちていないことの確認）で行い、結果をこの節に追記する。改善しなければ案 B（「見た目の改善」を「画面の見た目全体を作り直す」に絞る）を検討する。境界文は train の 3 クエリを一般化した語で名指ししているため過学習の疑いがあり、validation 側の nofire（N07〜N10）が改訂で悪化していないかも最終確認で見る。
