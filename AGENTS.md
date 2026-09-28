@@ -263,8 +263,11 @@ Skill instructions here.
   agent-prompt-design は文面そのものの執筆原則（記述高度・既習概念の指名・工程とメンタルモデルの切替・
   停止条件の書き方）で、発火場面は「プロンプト・instructions を書く/直す/レビューする」瞬間。
   agent-native-project-design はリポジトリ側の機構と規約（指示ファイル・スキルの配置・発火設計。
-  skill-authoring.md が機械規約の正本のまま）、agent-harness-engineering はランタイム機構（コンテキスト・
-  ループ・ツール表面）が主題で、発火場面は設計相談。コア公理は従来の2スキルを正本とし、
+  skill-authoring.md が機械規約の正本のまま）で、発火場面は設計相談。agent-harness-engineering は
+  ランタイム機構（コンテキスト・ループ・ツール表面・評価）が主題で、発火場面は設計相談に加え、
+  実モデルの応答が期待と違う・揺らぐときや、verify・eval・LLM judge の仕組みを作る/直すとき。
+  LLM judge の仕組みは agent-harness-engineering、LLM judge のプロンプトと rubric の文面は
+  agent-prompt-design が扱う。コア公理は従来の2スキルを正本とし、
   agent-prompt-design は参照のみ行い複製しない。統合すると「書く場面」と「設計する場面」の
   発火条件が混在し、文面原則が設計憲章の中に埋もれて発火漏れが再発する。
 - **メモ・起票系**（`skill-memo` / `issue-report-dev` / `issue-report-user`）— keep-separate:
