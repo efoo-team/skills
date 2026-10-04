@@ -24,7 +24,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-34 本（うち explicit-only 20 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+35 本（うち explicit-only 21 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -58,6 +58,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `formation-designer` | oh-my-openagent のフォーメーション設計（opencode 限定） | auto |
 | Mastra | `mastra-ai-architecture-rules` | Mastra ベース AI サービスの責務分離 | auto |
 | | `mastra-framework-guide` | Mastra の現行 API 検証とバージョン移行 | auto |
+| デザイン制作 | `logo-design` | サービスのロゴを、3 つの問いで方針を決めてから、3 ラウンド以上の比較検討・利用者による選定・仕上げまで制作 | explicit-only |
 | 調査・保守 | `ask` | 編集を行わない read-only の分析と回答 | explicit-only |
 | | `oracle` | Oracle CLI（ChatGPT ブラウザモード）で外部モデルへ高度な推論・レビューを依頼 | auto |
 | | `search-history` | Claude Code / Codex の会話履歴検索 | explicit-only |
