@@ -9,8 +9,8 @@
 | --- | --- | --- |
 | `home-screen.mjs` | ホーム画面の確認画像（アプリアイコンと参考ロゴの画像を同じ大きさで並べたホーム画面のモックアップ）と、size-compare（小さいサイズの並べ比べ）を書き出す | `home-screen-light.png`・`home-screen-dark.png`、`size-compare-<ID>-light.png`・`size-compare-<ID>-dark.png` |
 | `candidate-comparison.mjs` | 選定用の比較画像（表示場面ごとの行に全案を並べた 1 枚と、案ごとの 1 枚）を書き出す | `comparison.png`、`comparison.parts/`、`comparison.<ID>.png` |
-| `before-after.mjs` | 工程 5（制作品質の修正と書き出し）で直した箇所を、修正前後の SVG で並べた比較画像を 1 枚書き出す | 指定した 1 つの PNG |
-| `export-png.mjs` | 工程 5（制作品質の修正と書き出し）で、SVG から必要な大きさのアプリアイコンと favicon の実ピクセルの PNG を書き出す | `<基本名>-<size>.png` |
+| `before-after.mjs` | 直した箇所の修正前後を比べるために、修正前後の SVG を並べた比較画像を 1 枚書き出す | 指定した 1 つの PNG |
+| `export-png.mjs` | 必要なサイズのアプリアイコンと favicon の PNG を、SVG から実ピクセルで書き出す | `<基本名>-<size>.png` |
 | `selftest.mjs` | 上の 4 つのスクリプトの自己検査（外部コマンドなし）。`--out` を省くと一時ディレクトリに書き、終了時に消す | `--out` 指定時は指定先 |
 | `setup.sh` | 依存と取得物を `LOGO_DESIGN_HOME` に用意する（冪等） | |
 
@@ -30,7 +30,7 @@ node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる�
 | `venv/` | text2path 用の Python venv | `text2path/` |
 | `fonts/` | text2path 用の書体 | `text2path/` |
 
-`setup.sh` は次の順に実行する。各手順の前提（Node 22 以上・npm・python3 3.10 以上と venv・registry への接続）を調べ、足りなければ対処つきのメッセージで止まる。`similar/` や `text2path/` の入力ファイルが無い手順は、警告を出して飛ばす。最後に、入れたもの・置き場所・次にすること（`node scripts/selftest.mjs`）を出力する。
+`setup.sh` は次の順に実行する。各手順の前提（Node 22 以上・npm・python3 3.10 以上と venv・registry への接続）を調べ、足りなければ対処つきのメッセージで止まる。`similar/` と `text2path/` の入力ファイル（`package.json`・`requirements.txt`・`fetch_fonts.py` など）が欠けているときは、配置が壊れているため、警告を出してその手順を飛ばす。最後に、入れたもの・置き場所・次にすること（`node scripts/selftest.mjs`）を出力する。
 
 1. `LOGO_DESIGN_HOME` を作る。
 2. `render/` に `playwright-core` を入れる。
@@ -153,23 +153,25 @@ node scripts/export-png.mjs <svg> --sizes 1024,120,32,16 --out <出力dir> [--na
 
 `--bg none`（既定）は透過である。`<ID>.icon.svg` のように四隅まで塗った正方形を渡すと、四隅まで塗られた PNG になる（角丸の切り抜きはしない。ストアなどへ渡すアプリアイコンの形は、提出先の規則を原文で確認する）。`--bg light` と `--bg dark` は、明るい画面の背景・暗い画面の背景の色を敷いた不透明な PNG にする。シンボルマークだけの SVG（`symbol.svg`）を、背景つきで確認したいときに使う。
 
-次のときは、直し方つきのメッセージで止まる。SVG の構文エラー、`viewBox` が無い、`viewBox` が正方形でない、`--sizes` が無い・不正（整数でない、0 以下、8192 超）、`--bg` が不正。工程 5（制作品質の修正と書き出し）での書き出し例は、アプリアイコンなら `icon.svg` に `--sizes 1024,512,180,120` など、favicon なら `favicon.svg` に `--sizes 32,16` である（必要な大きさは、提出先・配置先の要件で決める）。
+次のときは、直し方つきのメッセージで止まる。SVG の構文エラー、`viewBox` が無い、`viewBox` が正方形でない、`--sizes` が無い・不正（整数でない、0 以下、8192 超）、`--bg` が不正。書き出し例は、アプリアイコンなら `icon.svg` に `--sizes 1024,512,180,120` など、favicon なら `favicon.svg` に `--sizes 32,16` である（必要な大きさは、提出先・配置先の要件で決める）。
 
 ## 依存とライセンス
 
 | 項目 | 内容 |
 | --- | --- |
-| 実行環境 | Node 22 以上（確認したのは 22.23）。外部コマンド（ImageMagick・rsvg-convert など）は使わない |
+| 実行環境 | Node 22 以上。外部コマンド（ImageMagick・rsvg-convert など）は使わない |
 | `playwright-core` 1.62.1 | Apache-2.0（パッケージ内の `LICENSE` と `NOTICE` で確認）。`scripts/package.json` で版を固定し、`package-lock.json` を同梱する |
 | chromium（`chromium-headless-shell` 151.0.7922.34、playwright のリビジョン 1234） | Chromium Project のライセンス（BSD 3-Clause 系。取得物の `LICENSE.headless_shell` で確認）。同梱する第三者部品はそれぞれのライセンスに従う。リポジトリには置かず、利用者の環境に取得する |
+
+連続曲率の角丸の式は、figma-squircle（MIT License）による。
 
 ブラウザは Playwright の headless chromium（`chromium.launch({ headless: true })`）だけを使う。ウィンドウを表示する Chrome は開かず、利用者の Chrome にも CDP 接続しない。
 
 ## 既知の限界
 
-- 動作の確認は macOS（Apple Silicon、Node 22.23）だけである。Linux と Windows は未確認で、Linux では chromium の OS 依存ライブラリが必要になることがある（`npx playwright-core install-deps chromium-headless-shell`）。
+- Linux と Windows は未検証である。Linux では chromium の OS 依存ライブラリが必要になることがある（`npx playwright-core install-deps chromium-headless-shell`）。
 - 比較画像の文字の書体は、macOS のシステム書体（San Francisco・ヒラギノ）を先頭にした指定である。他の OS ではフォールバックの和文書体で描かれ、字幅が変わる。
-- 連続曲率の角丸は Figma の corner smoothing の近似で、Apple の公式の形ではない。ホーム画面の余白・行間と壁紙は、実機の計測ではなく標準的な値とグラデーションによる。
+- 連続曲率の角丸は Figma の corner smoothing による近似で、Apple の公式の形ではない。ホーム画面の余白・行間・壁紙は、標準的な値とグラデーションによる近似で、特定の機種の再現ではない。
 - `consent-screen`・`store-listing`・`site-header`・`browser-tab` は、特定の連携先の画面を再現していないモックアップである。連携先ごとのアプリアイコンの表示の大きさ・切り抜きの形は、各社の規則を原文で確認する。
 - 案の SVG の `mix-blend-mode`・グラデーション・透明度は、ブラウザの描画のとおりに出る。`<text>` は OS の書体で描かれる（Web フォントは読めない）。文字は outline（path）にしておく（text2path）。
 - 参考ロゴの透過の扱いの判定（`auto`）はピクセルの統計による近似である。凸でない背景図形（影つきなど）を持つ参考ロゴは、シンボルマークだけの画像として扱われる。合成結果が不自然なら `--ref-background none` にするか、整えた PNG に置き換える。

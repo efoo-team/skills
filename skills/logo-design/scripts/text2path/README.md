@@ -19,7 +19,7 @@
 
 `text2path`（wrapper）は、`$LOGO_DESIGN_HOME/venv/bin/python` で `text2path.py` を実行する。venv が無いと、`scripts/setup.sh を先に実行してください` を含むエラー（終了コード 2）で止まる。
 
-| 置き場所 | 内容 | 大きさ（実測） |
+| 置き場所 | 内容 | 大きさ（目安） |
 | --- | --- | --- |
 | `$LOGO_DESIGN_HOME/venv/` | fonttools・uharfbuzz・skia-pathops | 約 54 MB |
 | `$LOGO_DESIGN_HOME/fonts/` | 取得した書体（`<書体ファミリー>/` ごとに、書体ファイル・`OFL.txt`・`SOURCE.txt`）と `index.json` | 約 30 MB |
@@ -117,14 +117,14 @@ scripts/text2path/text2path inter --info
 ## 可変書体の軸
 
 - 可変書体は、指定した軸の値に全ての軸を固定した static な書体を作ってから outline を取る。**未指定の軸は `fvar` の既定値**になる。`wght` は必ず明示する。既定値は書体ごとに違い、たとえば Outfit・Noto Sans JP は `wght` 100、Inter は 400 である。
-- `opsz` は、CSS の `font-optical-sizing: auto` のように font-size へ自動では合わせない。値を指定する（Inter は 14〜32）。
+- `opsz` は `--size` から自動では決まらない。値を指定する（Inter は 14〜32）。
 - 存在しない軸、範囲外の値はエラーにする。範囲は `--info` か `--list-fonts` で見られる。
 - static の書体（`zen-maru-gothic`）で指定できる軸は `wght` だけで、そのファイルの weight class（300・400・500・700・900）と一致する値に限る。
 - 固定した書体は `$LOGO_DESIGN_HOME/text2path/cache/` に保存して再利用する。作業用であり、配布しない。
 
 ## 書体（`fonts.json`）
 
-`fetch_fonts.py` が `fonts.json` の書体を、google/fonts の固定したコミットから取得する。すべて SIL Open Font License 1.1（OFL）で、取得後に `OFL.txt` の本文と `METADATA.pb` の license を検査し、OFL でなければ拒否して置いたファイルを消す。書体ファミリーごとの license は、取得したコミットの `OFL.txt` と `METADATA.pb` で確かめた。
+`fetch_fonts.py` が `fonts.json` の書体を、google/fonts の固定したコミットから取得する。すべて SIL Open Font License 1.1（OFL）で、取得後に `OFL.txt` の本文と `METADATA.pb` の license を検査し、OFL でなければ拒否して置いたファイルを消す。
 
 | フォルダ名 | 書体ファミリー | 分類 | 軸 | license | Reserved Font Name |
 | --- | --- | --- | --- | --- | --- |
@@ -182,5 +182,5 @@ $LOGO_DESIGN_HOME/venv/bin/python scripts/text2path/selftest.py [--only inter,ou
 
 - 左から右へ書く横書きを想定する。縦書き、右から左へ書く文字、色付き書体（COLR・SVG）は扱わない。
 - 字間を指定しても、合字は自動では無効にならない（CSS の `letter-spacing` と異なる）。必要なら `--features=-liga` を付ける。
-- instancer が TrueType の座標を整数の font unit に丸める。可変書体の outline は、HarfBuzz が可変のまま描く outline と、最大で 1 font unit ずれうる（UPM 1000 の書体で 0.1%）。同梱の 8 書体の実測は最大 0.5 単位（1 em = 1000 単位）で、`selftest.py` が許容 1 単位との差を検査する。1 単位を超える差は、丸めでは説明できない（軸の取り違え、shaping の食い違い）として失敗にする。
+- instancer が TrueType の座標を整数の font unit に丸める。可変書体の outline は、HarfBuzz が可変のまま描く outline と、最大で 1 font unit ずれうる（UPM 1000 の書体で 0.1%）。許容は 1 単位（1 em = 1000 単位）で、`selftest.py` が検査する。1 単位を超える差は、丸めでは説明できない（軸の取り違え、shaping の食い違い）として失敗にする。
 - 書体に無い文字は `.notdef` の outline になる（警告を出す）。日本語の文字は `noto-sans-jp`・`zen-maru-gothic` を使う。

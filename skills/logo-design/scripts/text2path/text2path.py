@@ -286,7 +286,7 @@ class Typeface:
         try:
             path.simplify(fix_winding=True, keep_starting_points=False)
         except pathops.PathOpsError as e:
-            print(f"警告: glyph {name} の重なりを除けなかったので、元の outline を使う: {e}", file=sys.stderr)
+            print(f"警告: glyph {name} の重なりを除けなかったので、重なりを除く前の outline を使う: {e}", file=sys.stderr)
             return value
         out = RecordingPen()
         path.draw(out)

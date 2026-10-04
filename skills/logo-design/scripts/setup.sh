@@ -3,9 +3,11 @@
 #
 #   LOGO_DESIGN_HOME（既定 ~/.cache/logo-design）
 #     render/node_modules   比較画像の書き出し用（playwright-core）
-#     similar/node_modules  類似検索用（scripts/similar が package.json を持つとき）
-#     venv/                 text2path 用の Python venv（scripts/text2path/requirements.txt があるとき）
-#     fonts/                text2path 用の書体（scripts/text2path/fetch_fonts.py があるとき）
+#     similar/node_modules  類似検索用（scripts/similar の package.json と package-lock.json から入れる）
+#     venv/                 text2path 用の Python venv（scripts/text2path/requirements.txt から入れる）
+#     fonts/                text2path 用の書体（scripts/text2path/fetch_fonts.py で取得する）
+#
+# scripts/similar と scripts/text2path の入力ファイルが欠けているとき（配置が壊れているとき）は、警告を出して、その手順を飛ばす。
 #
 # chromium（headless shell）は playwright-core の既定の置き場（macOS: ~/Library/Caches/ms-playwright、
 # Linux: ~/.cache/ms-playwright。PLAYWRIGHT_BROWSERS_PATH で変更可）に取得される。
@@ -49,7 +51,7 @@ say "LOGO_DESIGN_HOME = $LOGO_DESIGN_HOME"
 install_npm_group() {
   local group="$1" src="$2"
   local dest="$LOGO_DESIGN_HOME/$group"
-  [ -f "$src/package.json" ] && [ -f "$src/package-lock.json" ] || { warn "$group: $src に package.json と package-lock.json がそろっていないため、この手順を飛ばします"; SKIPPED+=("$group の依存"); return 0; }
+  [ -f "$src/package.json" ] && [ -f "$src/package-lock.json" ] || { warn "$group: $src に package.json と package-lock.json がそろっていません（配置が壊れています）。この手順を飛ばします"; SKIPPED+=("$group の依存"); return 0; }
   mkdir -p "$dest"
   if cmp -s "$src/package.json" "$dest/package.json" && cmp -s "$src/package-lock.json" "$dest/package-lock.json" && [ -d "$dest/node_modules" ]; then
     say "$group: 依存は最新です（$dest/node_modules）"
@@ -66,7 +68,7 @@ install_npm_group render "$SCRIPT_DIR"
 if [ -d "$SCRIPT_DIR/similar" ]; then
   install_npm_group similar "$SCRIPT_DIR/similar"
 else
-  warn "similar: $SCRIPT_DIR/similar がありません。類似検索は使えません"
+  warn "similar: $SCRIPT_DIR/similar がありません（配置が壊れています）。類似検索は使えません"
   SKIPPED+=("similar の依存")
 fi
 
@@ -88,7 +90,7 @@ if [ -f "$SCRIPT_DIR/text2path/requirements.txt" ]; then
   say "venv: pip install -r text2path/requirements.txt"
   "$VENV/bin/python" -m pip install --disable-pip-version-check -q -r "$SCRIPT_DIR/text2path/requirements.txt" || die "pip install に失敗しました。上のログを確認し、$VENV を消して再実行してください。"
 else
-  warn "text2path: $SCRIPT_DIR/text2path/requirements.txt がありません。text2path の依存は入れません"
+  warn "text2path: $SCRIPT_DIR/text2path/requirements.txt がありません（配置が壊れています）。text2path の依存は入れません"
   SKIPPED+=("text2path の Python 依存")
 fi
 
@@ -100,7 +102,7 @@ if [ -f "$SCRIPT_DIR/text2path/fetch_fonts.py" ]; then
   "$VENV/bin/python" "$SCRIPT_DIR/text2path/fetch_fonts.py" || die "書体の取得に失敗しました。ネットワークを確認して再実行してください。"
   INSTALLED+=("書体の取得・確認（$LOGO_DESIGN_HOME/fonts。取得済みの書体ファミリーは飛ばす）")
 else
-  warn "text2path: $SCRIPT_DIR/text2path/fetch_fonts.py がありません。書体は取得しません"
+  warn "text2path: $SCRIPT_DIR/text2path/fetch_fonts.py がありません（配置が壊れています）。書体は取得しません"
   SKIPPED+=("text2path の書体")
 fi
 
@@ -132,13 +134,13 @@ fi
 echo
 say "完了しました。"
 if [ "${#INSTALLED[@]}" -gt 0 ]; then
-  say "今回入れたもの:"
+  say "この実行で入れたもの:"
   for item in "${INSTALLED[@]}"; do say "  - $item"; done
 else
-  say "今回入れたものはありません（すべて最新）。"
+  say "この実行で入れたものはありません（すべて最新）。"
 fi
 if [ "${#SKIPPED[@]}" -gt 0 ]; then
-  say "入れなかったもの（対応するファイルがまだ無い）:"
+  say "入れなかったもの（対応するファイルが無い）:"
   for item in "${SKIPPED[@]}"; do say "  - $item"; done
 fi
 say "置き場所: ${LOGO_DESIGN_HOME}（render/・similar/・venv/・fonts/）"

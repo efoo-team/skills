@@ -52,7 +52,6 @@ options:
   --ref-background auto       参考ロゴに透過があるときの扱い（auto・white・black・none）。既定: auto
   --no-parts                  表示場面ごとの PNG（comparison.parts/）を書かない
   --no-singles                comparison.<ID>.png（案ごとの 1 枚）を書かない
-  --debug-boxes <file>        実ピクセルの図の位置を JSON に書く（selftest 用）
   --help`;
 
 const { values, positionals } = parseOrExit(
@@ -70,6 +69,7 @@ const { values, positionals } = parseOrExit(
       'ref-background': { type: 'string' },
       'no-parts': { type: 'boolean' },
       'no-singles': { type: 'boolean' },
+      // selftest が実ピクセルの図の位置を取るための内部用オプション（USAGE には載せない）
       'debug-boxes': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },

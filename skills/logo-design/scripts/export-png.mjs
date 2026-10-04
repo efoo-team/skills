@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// export-png: SVG から、指定の大きさの実ピクセルの PNG を書き出す（工程 5（制作品質の修正と書き出し）で、必要な大きさのアプリアイコンと favicon の PNG を作る）。
+// export-png: SVG から、指定の大きさの実ピクセルの PNG を書き出す（必要なサイズのアプリアイコンと favicon の PNG を書き出すときに使う）。
 //   ブラウザが画像を描くのと同じ方法（DPR 1 の空ページに <img> を置いて画面を切り出す。lib/raster.mjs）で、拡大縮小の補間も含めて実ピクセルにする。
 //
 //   node export-png.mjs <svg> --sizes 1024,120,32,16 --out <dir> [--name <基本名>] [--bg none|light|dark]

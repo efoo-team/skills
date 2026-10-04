@@ -40,7 +40,7 @@ export function isCacheFresh(def) {
   }
 }
 
-// 追加のアイコン集のキャッシュのうち、元のディレクトリが無くなったものを消す。dir を渡すと、その下にあったものも消す。
+// 追加のアイコン集のキャッシュのうち、SVG を置いたディレクトリが無くなったものを消す。dir を渡すと、その下にあったものも消す。
 export function pruneExtraCaches({ underDir } = {}) {
   if (!existsSync(CACHE_DIR)) return;
   for (const file of readdirSync(CACHE_DIR)) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// before-after: 工程 5（制作品質の修正と書き出し）で直した箇所を、修正前後の SVG から並べた 1 枚の PNG にする（比較画像）。
+// before-after: 直した箇所の修正前後を比べるための比較画像として、修正前後の SVG を並べた 1 枚の PNG を書き出す。
 //   明るい背景・暗い背景のそれぞれに、1024 px・120 px・16 px（実寸と ×8 拡大）を、修正前と修正後で並べる。
 //
 //   node before-after.mjs <before.svg> <after.svg> --out <file.png> [--name <サービス名>] [--big <px>]
@@ -38,7 +38,6 @@ options:
   --out <file.png>            出力先の PNG（必須）
   --name <サービス名>         見出しに添える名前
   --big <px>                  1024 px の図の表示の大きさ。既定: 1024（実寸）
-  --debug-boxes <file>        実ピクセルの図の位置を JSON に書く（selftest 用）
   --help`;
 
 const { values, positionals } = parseOrExit(
@@ -48,6 +47,7 @@ const { values, positionals } = parseOrExit(
       out: { type: 'string' },
       name: { type: 'string' },
       big: { type: 'string' },
+      // selftest が実ピクセルの図の位置を取るための内部用オプション（USAGE には載せない）
       'debug-boxes': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },

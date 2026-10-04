@@ -8,7 +8,7 @@ import { LAYOUT, PAPER, SURFACE } from './theme.mjs';
 import { esc } from './util.mjs';
 
 /**
- * 1 案ぶんの描画用データ（Session.prepareDesigns の full 版に、スクリーンショットの図を足したもの）。
+ * 1 案ぶんの描画用データ（Session.prepareDesigns の full の結果と、スクリーンショットの図から成る）。
  * @typedef {object} Bundle
  * @property {import('./designs.mjs').Design} c
  * @property {string} key

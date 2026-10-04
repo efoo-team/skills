@@ -1,12 +1,10 @@
 // iOS のアプリアイコンの形に近い、連続曲率の角丸（squircle）。
 //
 // CSS の border-radius は円弧の角丸で、iOS の連続曲率の角丸とは曲線が違う。このため、Figma の corner smoothing と
-// 同じ式で作った path で切り抜く。式は figma-squircle 1.1.0（MIT）の getPathParamsForCorner / getSVGPathFromPathParams
-// を、正方形・4 隅が同じ半径の場合へ書き直したもの（同じ入力で同じ path になることを、その npm パッケージの出力と
-// 突き合わせて確かめてある）。
+// 同じ式（正方形・4 隅が同じ半径の場合に限る）で作った path で切り抜く。
 //
-// 半径はアプリアイコンの幅の 22.37%、smoothing は 60%。この 2 つの値が iOS の見え方に近い近似として広く使われる値である。
-// Apple の公式の path ではない（近似）。
+// 半径はアプリアイコンの幅の 22.37%、smoothing は 60%。この 2 つの値は、iOS のアプリアイコンの形に近づけた近似値で、
+// Apple の公式の path ではない。
 
 /** 角丸の半径 / アプリアイコンの幅。 */
 export const ICON_RADIUS = 0.2237;
@@ -15,7 +13,7 @@ export const ICON_SMOOTHING = 0.6;
 
 const toRad = (degrees) => (degrees * Math.PI) / 180;
 
-/** 1 つの角の寸法（figma-squircle の getPathParamsForCorner。budget は辺の半分）。 */
+/** 1 つの角の寸法（budget は辺の半分）。 */
 function cornerParams(radius, smoothing, budget) {
   let p = (1 + smoothing) * radius;
   const maxSmoothing = budget / radius - 1;
