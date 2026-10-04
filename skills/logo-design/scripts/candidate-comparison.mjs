@@ -25,7 +25,6 @@ import {
   pngSize,
   reportOutputs,
   requireOption,
-  shortPath,
   warn,
 } from './lib/util.mjs';
 
@@ -39,12 +38,12 @@ const USAGE = `使い方:
 
 options:
   --refs <dir>                参考ロゴのディレクトリ（必須。中の .png と .svg をすべて使う。表示名は任意の manifest.json）
-  --name <サービス名>         browser-tab のタイトル・site-header のサービス名・consent-screen と store-listing の名前・lockup の表示に使う（必須）
+  --name <サービス名>         browser-tab のタイトル・site-header・store-listing・lockup に表示するサービス名（必須）
   --out <dir>                 出力先のディレクトリ（必須）。comparison.png・comparison.parts/・comparison.<ID>.png を書く
   --scenes ${SCENE_IDS.join(',')}
                               載せる表示場面（カンマ区切り）。既定: 全部。app-icon は 1024 px のアプリアイコン、home-screen はホーム画面のモックアップ、
-                              size-compare は小さいサイズの並べ比べ、browser-tab はブラウザのタブ、consent-screen は OAuth 同意画面、
-                              site-header は公開サイトのヘッダー、store-listing はストアの一覧、lockup はロックアップ、pixel-zoom は favicon の実ピクセルの拡大
+                              size-compare は小さいサイズの並べ比べ、browser-tab はブラウザのタブ、
+                              site-header はサイトのヘッダー、store-listing はストアの一覧、lockup はロックアップ、pixel-zoom は favicon の実ピクセルの拡大
   --only A,B,C                使う案の ID（この順に並べる）。既定: 全部
   --width <px>                comparison.png の幅。既定: 1 列 560 px で、4 案以上は 2400〜3200 px。列が ${LAYOUT.minColumn} px を割るときは広げる
   --b-width <px>              comparison.<ID>.png の幅。既定: 1800
@@ -97,7 +96,7 @@ function registerShot(site, key, name, buffer) {
 
 async function main() {
   if (positionals.length !== 1) fail(`案のディレクトリを 1 つ指定してください（指定: ${positionals.length} 個）\n\n${USAGE}`);
-  const serviceName = requireOption(values, 'name', USAGE, 'browser-tab のタイトルや consent-screen に使うサービス名を指定してください。');
+  const serviceName = requireOption(values, 'name', USAGE, 'browser-tab のタイトルなどに表示するサービス名を指定してください。');
   const outDir = path.resolve(requireOption(values, 'out', USAGE, '出力先のディレクトリを指定してください。'));
   const scenes = values.scenes ? parseList(values.scenes) : SCENE_IDS;
   for (const scene of scenes) {
@@ -171,7 +170,7 @@ async function main() {
 
     // ───────── 組み立てと書き出し ─────────
     const refsForPage = refIcons.map((i) => ({ kind: 'ref', label: i.label, src: i.src }));
-    const meta = `案のディレクトリ: <b>${esc(shortPath(dir))}</b>（${n} 案）／ 参考ロゴ ${refIcons.length} 件（商標は各社のもの。比較のためだけに使い、コミットも公開もしない）／ ホーム画面に並べた参考ロゴ（左から順）: ${esc(refIcons.slice(0, homeRows * 4 - 1).map((r) => r.label).join(', '))}`;
+    const meta = `案 ${n} 件 ／ 参考ロゴ ${refIcons.length} 件（商標は各社のもの。比較のためだけに使い、成果物や公開物に含めない）／ ホーム画面に並べた参考ロゴ（左から順）: ${esc(refIcons.slice(0, homeRows * 4 - 1).map((r) => r.label).join(', '))}`;
 
     await fs.mkdir(outDir, { recursive: true });
     const outA = path.join(outDir, 'comparison.png');

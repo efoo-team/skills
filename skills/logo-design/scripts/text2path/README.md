@@ -9,7 +9,7 @@
 ## ロゴタイプに使うときの決まり
 
 - ロゴタイプの書体は、OFL（SIL Open Font License 1.1）など、ロゴタイプへの使用と outline 化を許すライセンスのものに限る。同梱の `fonts.json` の書体はすべて OFL である。
-- outline 化して path にしても、**書体名とライセンスを記録する**。ロゴの SVG の隣（または制作の記録）に、書体のファミリー名・固定した軸の値（`wght` など）・ライセンス・取得元を残す。`--format json` の `font`（ファミリー名・版・固定した軸）と、書体のフォルダの `SOURCE.txt`（著作権表示・取得元・コミット）をそのまま使える。
+- outline 化して path にしても、**書体名とライセンスを記録する**。ロゴの SVG の隣に、書体のファミリー名・固定した軸の値（`wght` など）・ライセンス・取得元を残す。`--format json` の `font`（ファミリー名・版・固定した軸）と、書体のフォルダの `SOURCE.txt`（著作権表示・取得元・コミット）をそのまま使える。
 - ロゴタイプを path にした SVG だけを配り、書体ファイル自体は配らない。OFL は、書体ファイルを改変して配るときに Reserved Font Name（Source Sans 3 と Noto Sans JP は `Source`、Playfair Display は `Playfair Display`）を使えない、と定める。軸を固定した書体（`cache/` のファイル）は作業用であり、配布しない。
 - 書体のライセンスが OFL でない書体（商用書体など）を使うときは、outline 化とロゴタイプへの使用がライセンスで許されることを、書体の利用条件の原文で確かめる。
 
@@ -124,7 +124,7 @@ scripts/text2path/text2path inter --info
 
 ## 書体（`fonts.json`）
 
-`fetch_fonts.py` が `fonts.json` の書体を、google/fonts の固定したコミットから取得する。すべて SIL Open Font License 1.1（OFL）で、取得後に `OFL.txt` の本文と `METADATA.pb` の license を検査し、OFL でなければ拒否して置いたファイルを消す。
+`fetch_fonts.py` が `fonts.json` の書体を、google/fonts の固定したコミットから取得する。すべて SIL Open Font License 1.1（OFL）で、書体ファミリーごとに、書体の置き場所の下の一時フォルダ（`.<folder>.tmp`）へ取得して、`OFL.txt` の本文と `METADATA.pb` の license を検査する。検査に通ったときだけ `<folder>/` と置き換える。OFL でない書体は拒否し、取得に失敗したときも、既存の `<folder>/`・`SOURCE.txt`・`index.json` の項目は変えない。途中で止まって残った一時フォルダは、次の実行の最初に消す。
 
 | フォルダ名 | 書体ファミリー | 分類 | 軸 | license | Reserved Font Name |
 | --- | --- | --- | --- | --- | --- |

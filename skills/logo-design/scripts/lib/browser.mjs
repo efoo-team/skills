@@ -1,5 +1,4 @@
-// Playwright の headless chromium を起動する。ウィンドウを表示する Chrome・利用者の Chrome・CDP 接続には触れない
-// （channel も connectOverCDP も使わない）。
+// Playwright の headless chromium だけを起動する。
 import { requireDep } from './deps.mjs';
 import { fail } from './util.mjs';
 

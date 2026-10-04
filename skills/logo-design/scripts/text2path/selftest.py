@@ -81,27 +81,37 @@ def check_family(fam: dict, fonts_dir: Path, texts: list[str]) -> list[tuple[flo
                 adv_diff = max(adv_diff, abs(pos.x_advance * s - g["advance"]))
                 x += pos.x_advance
             bb = res["bbox"]
-            diff = max(
-                adv_diff,
-                abs(x * s - res["advance"]),
-                abs(bounds[0] - bb["x_min"]),
-                abs(bounds[1] - bb["y_min"]),
-                abs(bounds[2] - bb["x_max"]),
-                abs(bounds[3] - bb["y_max"]),
-            )
+            diff = max(adv_diff, abs(x * s - res["advance"]))
+            if bounds is None and bb is None:
+                pass  # 空白だけの文字列は outline が無いので、送り幅だけを比べる
+            elif bounds is None or bb is None:
+                diff = float("inf")  # 片方にだけ outline がある
+            else:
+                diff = max(
+                    diff,
+                    abs(bounds[0] - bb["x_min"]),
+                    abs(bounds[1] - bb["y_min"]),
+                    abs(bounds[2] - bb["x_max"]),
+                    abs(bounds[3] - bb["y_max"]),
+                )
             out.append((diff, f"{fam['family']} {text!r} {axes}"))
     return out
 
 
-def check_cli(folder: str) -> list[str]:
-    """CLI の終了コードと SVG の出力を確かめる。失敗した項目の説明を返す。"""
+def check_cli(fam: dict, fonts_dir: Path) -> list[str]:
+    """CLI の終了コードと SVG の出力を、書体ファミリー fam で確かめる。失敗した項目の説明を返す。"""
     failures = []
-    run = lambda *a: subprocess.run([sys.executable, str(HERE / "text2path.py"), *a], capture_output=True, text=True)  # noqa: E731
+    folder = fam["folder"]
+    first = fam["files"][0]
+    wght = 600 if first["variable"] else first["weight_class"]  # その書体ファミリーで指定できる wght
+    run = lambda *a: subprocess.run(  # noqa: E731
+        [sys.executable, str(HERE / "text2path.py"), *a, "--fonts-dir", str(fonts_dir)], capture_output=True, text=True
+    )
     if run("no-such-font", "Acme").returncode != 2:
         failures.append("存在しない書体が終了コード 2 で止まらない")
     if run(folder, "Acme", "-a", "wght=99999").returncode != 2:
         failures.append("範囲外の軸が終了コード 2 で止まらない")
-    ok = run(folder, "Acme", "-a", "wght=600", "--format", "svg", "--origin", "bbox")
+    ok = run(folder, "Acme", "-a", f"wght={wght}", "--format", "svg", "--origin", "bbox")
     try:
         root = ET.fromstring(ok.stdout)
         paths = [e for e in root.iter() if e.tag.endswith("path") and e.get("d")]
@@ -148,7 +158,7 @@ def main() -> int:
     print(f"件数 {len(worst)}  最大の差 {worst[0][0]:.3f}（許容 {TOLERANCE}、1 em = 1000 単位）")
     failed = worst[0][0] > TOLERANCE
 
-    cli_failures = check_cli(families[0]["folder"])
+    cli_failures = check_cli(families[0], args.fonts_dir)
     for message in cli_failures:
         print(f"FAIL CLI: {message}")
     print("CLI の検査: " + ("失敗" if cli_failures else "ok（存在しない書体・範囲外の軸は終了コード 2、svg は XML として読める）"))

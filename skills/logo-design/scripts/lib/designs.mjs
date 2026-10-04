@@ -127,7 +127,7 @@ export function parseOnly(textValue) {
 
 /**
  * 選んだ表示場面が使うファイルが案に無いとき、案ごとに 1 行の警告を出す（止めない）。
- * `<ID>.icon.svg` だけで足りる表示場面（app-icon・home-screen・size-compare・consent-screen・store-listing）は対象にしない。
+ * `<ID>.icon.svg` だけで足りる表示場面（app-icon・home-screen・size-compare・store-listing）は対象にしない。
  * @param {Design[]} designs
  * @param {string[]} scenes 書き出す表示場面
  */

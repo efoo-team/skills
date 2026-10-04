@@ -21,7 +21,7 @@ bash scripts/setup.sh          # 初回に 1 回。何度実行してもよい�
 node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる。画像を見るときは --out <dir>）
 ```
 
-依存と取得物は、リポジトリにも skill の配布先にも置かず、環境変数 `LOGO_DESIGN_HOME`（既定は `~/.cache/logo-design`）に置く。`npx skills` で skill を配布し直しても消えない。
+依存と取得物は、skill のディレクトリの外（環境変数 `LOGO_DESIGN_HOME` の場所。既定は `~/.cache/logo-design`）に置く。置き場所は環境変数で変えられる。
 
 | 置き場所（`$LOGO_DESIGN_HOME/` の下） | 内容 | 使うスクリプト |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる�
 | `venv/` | text2path 用の Python venv | `text2path/` |
 | `fonts/` | text2path 用の書体 | `text2path/` |
 
-`setup.sh` は次の順に実行する。各手順の前提（Node 22 以上・npm・python3 3.10 以上と venv・registry への接続）を調べ、足りなければ対処つきのメッセージで止まる。`similar/` と `text2path/` の入力ファイル（`package.json`・`requirements.txt`・`fetch_fonts.py` など）が欠けているときは、配置が壊れているため、警告を出してその手順を飛ばす。最後に、入れたもの・置き場所・次にすること（`node scripts/selftest.mjs`）を出力する。
+`setup.sh` は冪等である。すべてが最新なら何もせず、ネットワークにも接続しないので、オフラインでも終了コード 0 で終わる。最新かどうかは手順ごとに判定し、変わっている手順だけを実行する。判定の基準は、`render/` と `similar/` が `package.json` と `package-lock.json` の写し、`venv/` が `requirements.txt` の写し（`venv/.requirements.txt`）、`fonts/` が `fonts.json` の写し（`fonts/.fonts.json`）、chromium が起動できるかどうかである。次の順に実行する。各手順の前提（Node 22 以上・npm・python3 3.10 以上と venv）を調べ、足りなければ対処つきのメッセージで止まる。ダウンロードが必要な手順の前には、registry への接続を調べる。`similar/` と `text2path/` の入力ファイル（`package.json`・`requirements.txt`・`fetch_fonts.py`・`fonts.json` など）が欠けているときは、配置が壊れているため、警告を出してその手順を飛ばす。最後に、入れたもの・置き場所・次にすること（`node scripts/selftest.mjs`）を出力する。
 
 1. `LOGO_DESIGN_HOME` を作る。
 2. `render/` に `playwright-core` を入れる。
@@ -60,9 +60,9 @@ node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる�
 
 `symbol.svg` と `symbol-dark.svg` の `viewBox` は、シンボルマークの外接矩形（描かれた部分がちょうど収まる矩形）に合わせて切る。正方形でなくてよい。余白は付けない。余白（行の高さ 56 px と、左右 20 px）は、モックアップ側が付ける。
 
-`site-header` は、シンボルマークを高さ 24 CSS px に合わせ、幅は viewBox の縦横比のまま置く（上限 112 px）。横長でも縦長でもレイアウトが乱れず、行の高さ 56 px と、左右 20 px の余白は、モックアップ側が付ける。`symbol.svg` を読む表示場面は `site-header` だけである。`browser-tab` と `pixel-zoom` は `favicon.svg`、`consent-screen` と `store-listing` は `icon.svg`、`lockup` は `lockup.svg` を読む。
+`site-header` は、シンボルマークを高さ 24 CSS px に合わせ、幅は viewBox の縦横比のまま置く（上限 112 px）。横長でも縦長でもレイアウトが乱れず、行の高さ 56 px と、左右 20 px の余白は、モックアップ側が付ける。`symbol.svg` を読む表示場面は `site-header` だけである。`browser-tab` と `pixel-zoom` は `favicon.svg`、`store-listing` は `icon.svg`、`lockup` は `lockup.svg` を読む。
 
-**注意**: 1024 角の余白つきの `symbol.svg`（`icon.svg` から背景だけを消したもの、など）を渡すと、シンボルマークは viewBox の一部にしか描かれない。高さ 24 px に収めると、シンボルマークが小さく表示される。たとえばシンボルマークが viewBox の 20% なら、約 5 px になる。`candidate-comparison.mjs` は、シンボルマークが viewBox の幅か高さの 90% 未満しか占めていないと、標準エラーに「シンボルマークは viewBox の幅の N%・高さの N% しか占めていません」と警告する（止めない）。警告が出たら、`viewBox` をシンボルマークの外接矩形に合わせて切り直す。`viewBox` が無い、または読めない `symbol.svg` も警告する。
+**注意**: 1024 角の余白つきの `symbol.svg`（`icon.svg` から背景だけを消したもの、など）を渡すと、シンボルマークは viewBox の一部にしか描かれない。高さ 24 px に収めると、シンボルマークが小さく表示される。たとえばシンボルマークが viewBox の 20% なら、約 5 px になる。`candidate-comparison.mjs` は、`site-header` を選んでいるときに、シンボルマークが viewBox の幅か高さの 90% 未満しか占めていないと、標準エラーに「シンボルマークは viewBox の幅の N%・高さの N% しか占めていません」と警告する（止めない）。警告が出たら、`viewBox` をシンボルマークの外接矩形に合わせて切り直す。`viewBox` が無い、または読めない `symbol.svg` も、同じ条件で警告する。
 
 #### `designs.json`
 
@@ -77,7 +77,7 @@ node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる�
 
 #### 足りないファイルと入力仕様違反
 
-`candidate-comparison.mjs` と `home-screen.mjs` は、選んだ表示場面が使うファイルが案に無いとき、案ごとに 1 行の警告を標準エラーに出す（止めない）。例: `D: symbol.svg が無いため、「site-header 表示場面を生成していない」という注記の枠を表示します`。`<ID>.icon.svg` だけで足りる表示場面（`app-icon`・`home-screen`・`size-compare`・`consent-screen`・`store-listing`）は警告しない。`--scenes` で選んでいない表示場面のファイルも警告しない。`home-screen.mjs` が書き出す表示場面（`home-screen` と `size-compare`）は `icon.svg` だけで足りるため、`home-screen.mjs` が警告を出すことはない。
+`candidate-comparison.mjs` と `home-screen.mjs` は、選んだ表示場面が使うファイルが案に無いとき、案ごとに 1 行の警告を標準エラーに出す（止めない）。例: `D: symbol.svg が無いため、「site-header 表示場面を生成していない」という注記の枠を表示します`。`<ID>.icon.svg` だけで足りる表示場面（`app-icon`・`home-screen`・`size-compare`・`store-listing`）は警告しない。`--scenes` で選んでいない表示場面のファイルも警告しない。`home-screen.mjs` が書き出す表示場面（`home-screen` と `size-compare`）は `icon.svg` だけで足りるため、`home-screen.mjs` が警告を出すことはない。
 
 読み込み時に、次を全案まとめて調べ、1 つでもあれば直し方つきで止まる。SVG の構文エラー（ファイル名つき）、`viewBox` が `0 0 1024 1024` でない、`id="background"` が無い、`<g id="symbol">` が無い、1024 px に描いたときに四隅が透明。`icon.svg` 以外の SVG は構文だけを調べる。
 
@@ -91,9 +91,9 @@ node scripts/selftest.mjs      # 自己検査（成功すると 0 で終わる�
 
 `{ "<slug>": "<表示名>" }` の形も読む。表示順は `manifest.json` の順で、残りは名前順である。同じ `slug` に `.png` と `.svg` が両方あるときは両方を並べる（2 つ目の表示名に `(svg)` を添える）。ディレクトリが無い・空のときは止まる。
 
-PNG に透過があるときは、既定（`--ref-background auto`）で色を敷いて、他の画像と並べられる形にする。全面が塗られていればそのまま使う。参考ロゴ自身の背景図形（角丸・円）を持つ画像は、縁の色を敷く。シンボルマークだけの画像は、白を敷く（シンボルマークが明るければ暗色を敷く）。`white` と `black` は全部の画像にその色を敷き、`none` は透過のままにする。100 px 未満の画像は拡大して描くためぼやける、という警告を出す。
+PNG に透過があるときは、既定（`--ref-background auto`）で色を敷いて、他の画像と並べられる形にする。全面が塗られていればそのまま使う。参考ロゴ自身の背景図形（角丸・円）を持つ画像は、縁の色を敷く。シンボルマークだけの画像は、白を敷く（シンボルマークが明るければ暗色を敷く）。`white` と `black` は全部の画像にその色を敷き、`none` は透過のままにする。正方形で 1 辺が 100 px 未満の画像は、拡大して描くためぼやける、という警告を出す。
 
-参考ロゴの画像は第三者の商標や著作物を含む。この skill は同梱しない。利用者が用意し、**比較専用**として使い、コミットも公開もしない（書き出した PNG も外へ出さない）。
+参考ロゴの画像は第三者の商標や著作物を含む。この skill は同梱しない。利用者が用意し、**比較専用**として使い、成果物や公開物に含めない（書き出した PNG も同じ）。
 
 ## 表示場面
 
@@ -103,9 +103,8 @@ PNG に透過があるときは、既定（`--ref-background auto`）で色を�
 | `home-screen` | ホーム画面のモックアップ。幅 390 pt の画面・4 列・アプリアイコン 60 pt。連続曲率の角丸（Figma の corner smoothing 60%・半径 22.37%）で切り抜く。明るい壁紙と暗い壁紙の両方（壁紙はグラデーションの生成）。`candidate-comparison.mjs` では全案が、同じ位置（2 行目の 2 列目）で、同じ参考ロゴに挟まれて並ぶ | `icon.svg` |
 | `size-compare` | 小さいサイズ（120・60・40・29・16 px）の並べ比べ。参考ロゴと並べる。明るい背景・暗い背景の両方 | `icon.svg` |
 | `browser-tab` | ブラウザのタブの favicon（16 CSS px）。明るい背景・暗い背景の両方、DPR 1 と 2 の実ピクセル | `favicon.svg` |
-| `consent-screen` | 白い OAuth 同意画面の汎用のモックアップ 1 種（アプリ名とアプリアイコン。72 px の連続曲率の角丸で表示し、48 px の正方形と円の切り抜きも並べる） | `icon.svg`、`--name` |
-| `site-header` | 公開サイトのヘッダーのモックアップ（製品の CSS を使わない固定の CSS。シンボルマークだけの行と、シンボルマークとサービス名のテキストの行。シンボルマークは高さ 24 px）。明るい背景・暗い背景の両方、DPR 2 の実ピクセル | `symbol.svg`、`symbol-dark.svg`、`--name` |
-| `store-listing` | ストアの一覧（64 px）とコンソールの表（28 px）の 1 行の、特定の連携先の画面を再現していないモックアップ。明るい背景・暗い背景の両方 | `icon.svg`、`--name` |
+| `site-header` | サイトのヘッダーのモックアップ（固定の CSS。シンボルマークだけの行と、シンボルマークとサービス名のテキストの行。シンボルマークは高さ 24 px）。明るい背景・暗い背景の両方、DPR 2 の実ピクセル | `symbol.svg`、`symbol-dark.svg`、`--name` |
+| `store-listing` | ストアの一覧の 1 行（アプリアイコン 64 px）のモックアップ。明るい背景・暗い背景の両方 | `icon.svg`、`--name` |
 | `lockup` | ロックアップを高さ 32 px と 64 px で、明るい背景・暗い背景のそれぞれに置く | `lockup.svg`、`lockup-dark.svg` |
 | `pixel-zoom` | favicon の実ピクセルの拡大図。32 px・16 px の実寸と、16 px の ×8 拡大（nearest-neighbor、1 ピクセルの境界にグリッド線） | `favicon.svg` |
 
@@ -133,7 +132,7 @@ node scripts/candidate-comparison.mjs <案dir> --refs <参考ロゴdir> --name <
 | `comparison.parts/<番号>-<表示場面>.png` | `comparison.png` を表示場面ごとに切り出した PNG（`0-names.png` が冒頭）。`--no-parts` で省く |
 | `comparison.<ID>.png` | 案ごとの 1 枚。幅は 1800 px（`--b-width` で変える）。見出しと冒頭に、案の名前・着想・発想の種類・配色・ロゴタイプの書体を載せる。`--no-singles` で省く |
 
-`--scenes` は `app-icon,home-screen,size-compare,browser-tab,consent-screen,site-header,store-listing,lockup,pixel-zoom`（既定は全部。この順で表示場面の番号が付く）。ほかの options は `--only A,B,C`、`--width`、`--home-rows`（既定は 3 行で、アプリアイコンと参考ロゴの画像 12 個）、`--ref-background`。画像を Read で開くと縮小されるため、細部は `comparison.parts/` か `comparison.<ID>.png` で見る。実ピクセルで見るはずの図（`browser-tab`・`site-header`・`pixel-zoom`）が列の狭さで拡縮・はみ出したときは警告する。
+`--scenes` は `app-icon,home-screen,size-compare,browser-tab,site-header,store-listing,lockup,pixel-zoom`（既定は全部。この順で表示場面の番号が付く）。ほかの options は `--only A,B,C`、`--width`、`--home-rows`（既定は 3 行で、アプリアイコンと参考ロゴの画像 12 個）、`--ref-background`。画像を Read で開くと縮小されるため、細部は `comparison.parts/` か `comparison.<ID>.png` で見る。実ピクセルで見るはずの図（`browser-tab`・`site-header`・`pixel-zoom`）が列の狭さで拡縮・はみ出したときは警告する。
 
 ### before-after.mjs
 
@@ -151,9 +150,9 @@ node scripts/export-png.mjs <svg> --sizes 1024,120,32,16 --out <出力dir> [--na
 
 正方形の SVG を、`--sizes` の各大きさ（1 辺の px。1〜8192 の整数）の実ピクセルの PNG に書き出す。出力は `<基本名>-<size>.png` で、基本名の既定は SVG のファイル名から拡張子を除いたものである。ブラウザが画像を描くのと同じ方法（DPR 1 の空ページに `<img>` を置いて画面を切り出す）で縮小するので、`candidate-comparison.mjs` の favicon や `before-after.mjs` の 16 px と同じ実ピクセルになる。
 
-`--bg none`（既定）は透過である。`<ID>.icon.svg` のように四隅まで塗った正方形を渡すと、四隅まで塗られた PNG になる（角丸の切り抜きはしない。ストアなどへ渡すアプリアイコンの形は、提出先の規則を原文で確認する）。`--bg light` と `--bg dark` は、明るい画面の背景・暗い画面の背景の色を敷いた不透明な PNG にする。シンボルマークだけの SVG（`symbol.svg`）を、背景つきで確認したいときに使う。
+`--bg none`（既定）は透過である。`<ID>.icon.svg` のように四隅まで塗った正方形を渡すと、四隅まで塗られた PNG になる（角丸の切り抜きはしない）。`--bg light` と `--bg dark` は、明るい画面の背景・暗い画面の背景の色を敷いた不透明な PNG にする。シンボルマークだけの SVG（`symbol.svg`）を、背景つきで確認したいときに使う。
 
-次のときは、直し方つきのメッセージで止まる。SVG の構文エラー、`viewBox` が無い、`viewBox` が正方形でない、`--sizes` が無い・不正（整数でない、0 以下、8192 超）、`--bg` が不正。書き出し例は、アプリアイコンなら `icon.svg` に `--sizes 1024,512,180,120` など、favicon なら `favicon.svg` に `--sizes 32,16` である（必要な大きさは、提出先・配置先の要件で決める）。
+次のときは、直し方つきのメッセージで止まる。SVG の構文エラー、`viewBox` が無い、`viewBox` が正方形でない、`--sizes` が無い・不正（整数でない、0 以下、8192 超）、`--bg` が不正。書き出し例は、アプリアイコンなら `icon.svg` に `--sizes 1024,512,180,120` など、favicon なら `favicon.svg` に `--sizes 32,16` である（必要な大きさは、ロゴを置く画面の要件で決める）。
 
 ## 依存とライセンス
 
@@ -165,14 +164,14 @@ node scripts/export-png.mjs <svg> --sizes 1024,120,32,16 --out <出力dir> [--na
 
 連続曲率の角丸の式は、figma-squircle（MIT License）による。
 
-ブラウザは Playwright の headless chromium（`chromium.launch({ headless: true })`）だけを使う。ウィンドウを表示する Chrome は開かず、利用者の Chrome にも CDP 接続しない。
+ブラウザは Playwright の headless chromium（`chromium.launch({ headless: true })`）だけを使う。
 
 ## 既知の限界
 
 - Linux と Windows は未検証である。Linux では chromium の OS 依存ライブラリが必要になることがある（`npx playwright-core install-deps chromium-headless-shell`）。
 - 比較画像の文字の書体は、macOS のシステム書体（San Francisco・ヒラギノ）を先頭にした指定である。他の OS ではフォールバックの和文書体で描かれ、字幅が変わる。
 - 連続曲率の角丸は Figma の corner smoothing による近似で、Apple の公式の形ではない。ホーム画面の余白・行間・壁紙は、標準的な値とグラデーションによる近似で、特定の機種の再現ではない。
-- `consent-screen`・`store-listing`・`site-header`・`browser-tab` は、特定の連携先の画面を再現していないモックアップである。連携先ごとのアプリアイコンの表示の大きさ・切り抜きの形は、各社の規則を原文で確認する。
+- `home-screen`・`browser-tab`・`site-header`・`store-listing` のモックアップは、標準的な値による近似である。
 - 案の SVG の `mix-blend-mode`・グラデーション・透明度は、ブラウザの描画のとおりに出る。`<text>` は OS の書体で描かれる（Web フォントは読めない）。文字は outline（path）にしておく（text2path）。
 - 参考ロゴの透過の扱いの判定（`auto`）はピクセルの統計による近似である。凸でない背景図形（影つきなど）を持つ参考ロゴは、シンボルマークだけの画像として扱われる。合成結果が不自然なら `--ref-background none` にするか、整えた PNG に置き換える。
 - 並べる参考ロゴの画像は利用者が用意する。案と同じ領域の実在のアプリの選定は、このスクリプトの外で行う。

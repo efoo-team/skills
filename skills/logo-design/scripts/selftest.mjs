@@ -210,8 +210,8 @@ async function runChecks(work) {
     const comparisonPng = comparisonFiles.get('comparison.png');
     const sizeA = comparisonPng ? pngSize(await fs.readFile(comparisonPng)) : null;
     check('comparison.png の幅（4 案は 2400）と高さ', sizeA?.width === 2400 && sizeA.height > 1000, `実際 ${sizeA?.width}×${sizeA?.height}`);
-    const partNames = ['names', 'app-icon', 'home-screen', 'size-compare', 'browser-tab', 'consent-screen', 'site-header', 'store-listing', 'lockup', 'pixel-zoom'].map((id, i) => path.join('comparison.parts', `${i}-${id}.png`));
-    check('comparison.parts/ に表示場面ごとの PNG（names + 9 表示場面）がある', partNames.every((n) => comparisonFiles.has(n)), `${partNames.filter((n) => comparisonFiles.has(n)).length} / ${partNames.length}`);
+    const partNames = ['names', 'app-icon', 'home-screen', 'size-compare', 'browser-tab', 'site-header', 'store-listing', 'lockup', 'pixel-zoom'].map((id, i) => path.join('comparison.parts', `${i}-${id}.png`));
+    check('comparison.parts/ に表示場面ごとの PNG（names + 8 表示場面）がある', partNames.every((n) => comparisonFiles.has(n)), `${partNames.filter((n) => comparisonFiles.has(n)).length} / ${partNames.length}`);
     for (const n of partNames) {
       const size = comparisonFiles.has(n) ? pngSize(await fs.readFile(comparisonFiles.get(n))) : null;
       const ok = size?.width === 2400 - LAYOUT.pad * 2 && size.height > 50;

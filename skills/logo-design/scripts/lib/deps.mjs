@@ -1,4 +1,4 @@
-// 依存パッケージの解決。依存と取得物はリポジトリにも skill の配布先にも置かず、LOGO_DESIGN_HOME に置く。
+// 依存パッケージの解決。依存と取得物は、skill のディレクトリの外（LOGO_DESIGN_HOME の場所）に置く。
 //   $LOGO_DESIGN_HOME/render/node_modules   表示場面の書き出し用（playwright-core）
 //   $LOGO_DESIGN_HOME/similar/node_modules  類似検索用
 //   $LOGO_DESIGN_HOME/venv                  text2path 用の Python venv

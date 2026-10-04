@@ -4,7 +4,7 @@
 - 取得する書体は、同じフォルダの fonts.json に書く（書体ファミリー・取得するファイル）。OFL の書体だけを載せる。
 - 取得元は google/fonts のコミット（fonts.json の google_fonts_commit）に固定する。再実行しても同じ版が得られる。
 - 各 `fonts/<family>/` に、upright の書体ファイル・OFL.txt・SOURCE.txt を置く。斜体は取得しない。
-- 取得後に OFL.txt の本文と METADATA.pb の license を検査し、OFL でなければ失敗として止める。版・軸を読んで `fonts/index.json` を書く。
+- 各書体ファミリーは `fonts/.<folder>.tmp` に取得し、OFL.txt の本文と METADATA.pb の license を検査して、通ったときだけ `fonts/<folder>/` と置き換える。OFL でなければ拒否し、既存のフォルダは変えない。取得に失敗したときも、既存のフォルダは変えない。版・軸を読んで `fonts/index.json` を書く。
 - 取得済みの書体（ファイル・OFL.txt・SOURCE.txt が揃っている書体ファミリー）は取得し直さない（`--force` で取り直す）。
 
 使い方: $LOGO_DESIGN_HOME/venv/bin/python fetch_fonts.py [--only inter,outfit] [--fonts-dir DIR] [--config fonts.json] [--force]
@@ -128,12 +128,66 @@ def describe_font(path: Path) -> dict[str, object]:
     }
 
 
+def temp_dir(fonts_dir: Path, folder: str) -> Path:
+    return fonts_dir / f".{folder}.tmp"
+
+
+def backup_dir(fonts_dir: Path, folder: str) -> Path:
+    return fonts_dir / f".{folder}.old"
+
+
+def cleanup_leftovers(fonts_dir: Path) -> None:
+    """中断した実行が残した一時フォルダを消す。置き換えの途中で止まっていたら、退避したフォルダを戻す。"""
+    for old in sorted(fonts_dir.glob(".*.old")):
+        target = fonts_dir / old.name[1 : -len(".old")]
+        if target.exists():
+            shutil.rmtree(old, ignore_errors=True)
+        else:
+            os.replace(old, target)
+    for tmp in fonts_dir.glob(".*.tmp"):
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def install(fonts_dir: Path, folder: str) -> None:
+    """一時フォルダを `<folder>` に置き換える。既存のフォルダは置き換えの直前に退避し、置き換えが成功してから消す。"""
+    tmp, out, old = temp_dir(fonts_dir, folder), fonts_dir / folder, backup_dir(fonts_dir, folder)
+    shutil.rmtree(old, ignore_errors=True)
+    had_existing = out.exists()
+    if had_existing:
+        os.replace(out, old)
+    try:
+        os.replace(tmp, out)
+    except OSError:
+        if had_existing:
+            os.replace(old, out)
+        raise
+    shutil.rmtree(old, ignore_errors=True)
+
+
 def fetch_family(entry: dict[str, object], commit: str, fonts_dir: Path) -> dict[str, object]:
+    """書体ファミリーを一時フォルダに取得して検査し、検査に通ったときだけ `<folder>` と置き換える。
+
+    検査に通らない・取得に失敗したときは、一時フォルダだけを消し、既存の `<folder>` には触れない。
+    戻り値の `problems` が空でないときは、置き換えていない。
+    """
     folder, family, gdir = str(entry["folder"]), str(entry["family"]), str(entry["google_fonts_dir"])
     files = [str(f) for f in entry["files"]]  # type: ignore[union-attr]
     style = str(entry.get("style", ""))
-    out = fonts_dir / folder
-    out.mkdir(parents=True, exist_ok=True)
+    out = temp_dir(fonts_dir, folder)
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    try:
+        result = _fetch_into(out, entry, commit, folder, family, gdir, files, style)
+        if not result["problems"]:
+            install(fonts_dir, folder)
+        return result
+    finally:
+        shutil.rmtree(out, ignore_errors=True)
+
+
+def _fetch_into(
+    out: Path, entry: dict[str, object], commit: str, folder: str, family: str, gdir: str, files: list[str], style: str
+) -> dict[str, object]:
     for name in files:
         (out / name).write_bytes(get(raw_url(commit, gdir, name)))
     ofl_text = get(raw_url(commit, gdir, "OFL.txt")).decode("utf-8")
@@ -264,6 +318,7 @@ def main() -> int:
             f"エラー: 書体の置き場所を作れない: {fonts_dir}（{e}）。LOGO_DESIGN_HOME か --fonts-dir を書き込める場所にする。"
         )
 
+    cleanup_leftovers(fonts_dir)
     index_path = fonts_dir / "index.json"
     indexed: dict[str, dict[str, object]] = {}
     if index_path.is_file():
@@ -289,12 +344,10 @@ def main() -> int:
             except Exception as err:  # noqa: BLE001 - 失敗した書体名を出して続行する
                 print(f"FAIL {e['folder']}: {err}", file=sys.stderr, flush=True)
 
-    # ライセンスの検査に通らなかった書体は置かない（OFL 以外は拒否する）
+    # ライセンスの検査に通らなかった書体は置き換えない（OFL 以外は拒否する）。既存のフォルダと index.json の項目はそのまま残る
     rejected = {k: r["problems"] for k, r in results.items() if r["problems"]}
     for folder, problems in rejected.items():
-        shutil.rmtree(fonts_dir / folder, ignore_errors=True)
-        indexed.pop(folder, None)
-        print(f"拒否 {folder}（OFL の検査に通らない。置いたファイルは消した）: {problems}", file=sys.stderr)
+        print(f"拒否 {folder}（OFL の検査に通らない。取得したファイルは置かず、既存のフォルダは変えない）: {problems}", file=sys.stderr)
         del results[folder]
 
     indexed.update(results)

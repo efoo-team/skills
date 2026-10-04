@@ -99,7 +99,7 @@ def resolve_font_file(spec: str, wght: float | None, fonts_dir: Path | None = No
     root = fonts_dir or FONTS_DIR
     folder = root / slug(spec)
     if not folder.is_dir():
-        have = sorted(d.name for d in root.iterdir() if d.is_dir()) if root.is_dir() else []
+        have = sorted(d.name for d in root.iterdir() if d.is_dir() and not d.name.startswith(".")) if root.is_dir() else []
         hint = f"ある書体: {', '.join(have)}" if have else f"{root} に書体が無い。{SETUP_HINT}（書体の取得は fetch_fonts.py）"
         raise Text2PathError(f"書体が見つからない: {spec!r}（ファイルのパスか、{root} 配下のフォルダ名を指定する）。{hint}")
     files = sorted(f for f in folder.iterdir() if f.suffix.lower() in {".ttf", ".otf"})
@@ -112,10 +112,11 @@ def resolve_font_file(spec: str, wght: float | None, fonts_dir: Path | None = No
     by_weight: dict[int, Path] = {}
     for f in files:
         by_weight[int(TTFont(f, lazy=True)["OS/2"].usWeightClass)] = f
-    want = 400 if wght is None else int(wght)
-    if want not in by_weight:
-        raise Text2PathError(f"{folder.name} に wght={want} の static な書体が無い（あるのは {sorted(by_weight)}）")
-    return by_weight[want]
+    want = 400.0 if wght is None else float(wght)
+    for weight_class, file in by_weight.items():
+        if float(weight_class) == want:
+            return file
+    raise Text2PathError(f"{folder.name} に wght={want:g} の static な書体が無い（あるのは {sorted(by_weight)}）")
 
 
 # ───────────────────────── 書体の読み込み ─────────────────────────
@@ -254,7 +255,7 @@ class Typeface:
             blob, pinned = _pin_variable(path, data, axes, use_cache)
             return cls(path, blob, pinned, True)
         # static な書体: 軸は指定できない。wght だけは weight class が一致すれば受け付ける
-        extra = {t: v for t, v in axes.items() if not (t == "wght" and int(v) == int(probe["OS/2"].usWeightClass))}
+        extra = {t: v for t, v in axes.items() if not (t == "wght" and float(v) == float(probe["OS/2"].usWeightClass))}
         if extra:
             raise Text2PathError(
                 f"{path.name} は static な書体で、軸 {extra} は指定できない（weight class は {probe['OS/2'].usWeightClass}）"
@@ -551,7 +552,7 @@ def list_fonts(fonts_dir: Path) -> list[dict[str, Any]]:
     if not fonts_dir.is_dir():
         raise Text2PathError(f"書体のディレクトリが無い: {fonts_dir}。{SETUP_HINT}")
     out: list[dict[str, Any]] = []
-    for folder in sorted(d for d in fonts_dir.iterdir() if d.is_dir()):
+    for folder in sorted(d for d in fonts_dir.iterdir() if d.is_dir() and not d.name.startswith(".")):
         files = sorted(f for f in folder.iterdir() if f.suffix.lower() in {".ttf", ".otf"})
         if not files:
             continue

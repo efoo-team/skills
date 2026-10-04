@@ -3,7 +3,7 @@
 //   案ごとの比較画像（comparison.<ID>.png）: 全案の比較画像と同じ表示場面を大きく見せる
 // 表示場面の中身は CELLS の関数が 1 案ぶんの HTML を返し、2 種類の比較画像が寸法（ctx）だけ変えて同じ関数を使う。
 import { HOME_CSS, SIZE_COMPARE_CSS, HOME, SIZE_COMPARE_SIZES, homeScreenHtml, sizeCompareFit, sizeCompareHtml } from './home-screen-page.mjs';
-import { MOCK_CSS, consentHtml, storeHtml, zoomPanelHtml } from './mockups.mjs';
+import { MOCK_CSS, storeHtml, zoomPanelHtml } from './mockups.mjs';
 import { LAYOUT, PAPER, SURFACE } from './theme.mjs';
 import { esc } from './util.mjs';
 
@@ -109,19 +109,14 @@ export const SCENES = [
     note: 'favicon を、明るいタブ・暗いタブのモックアップに 16 CSS px で置く。使う SVG は `<ID>.favicon.svg`（無ければ `<ID>.icon.svg`）である。',
   },
   {
-    id: 'consent-screen',
-    title: 'OAuth 同意画面のモックアップ',
-    note: '白地の、特定の連携先の画面を再現していないモックアップ。アプリ名には `--name` の値を使う。アプリアイコンの見え方（72 px の連続曲率の角丸、48 px の正方形と円）を見るためのモックアップである。',
-  },
-  {
     id: 'site-header',
-    title: '公開サイトのヘッダー',
-    note: '製品の CSS を使わない固定の CSS で組んだヘッダーのモックアップ（シンボルマークだけの行と、シンボルマークとサービス名の行）。明るい背景用は `<ID>.symbol.svg`、暗い背景用は `<ID>.symbol-dark.svg`（無ければ `.symbol.svg`）。',
+    title: 'サイトのヘッダー',
+    note: '固定の CSS で組んだヘッダーのモックアップ（シンボルマークだけの行と、シンボルマークとサービス名の行）。明るい背景用は `<ID>.symbol.svg`、暗い背景用は `<ID>.symbol-dark.svg`（無ければ `.symbol.svg`）。',
   },
   {
     id: 'store-listing',
-    title: 'ストアの一覧・コンソールの表示',
-    note: 'ストアの一覧の 1 行（64 px）とコンソールの表の 1 行（28 px）に、アプリアイコンを連続曲率の角丸で載せる。明るい背景・暗い背景の両方を載せる。',
+    title: 'ストアの一覧',
+    note: 'ストアの一覧の 1 行（64 px）に、アプリアイコンを連続曲率の角丸で載せる。明るい背景・暗い背景の両方を載せる。',
   },
   {
     id: 'lockup',
@@ -168,10 +163,6 @@ ${cap('DPR 2（32×32 のピクセル。実ピクセルで表示）', 'top')}<di
 ${cap('DPR 1（16×16 のピクセル）', 'top')}<div class="pair">${shotImg(t.light[1])}${shotImg(t.dark[1])}</div>`;
   },
 
-  'consent-screen'(a, ctx) {
-    return `${tag(a, ctx)}${consentHtml({ icon: a.iconSrc, name: ctx.name })}${cap('連携先によって、切り抜きの形（角丸・正方形・円）と大きさは異なる。ここでは 3 通りを並べて見る')}`;
-  },
-
   'site-header'(a, ctx) {
     const one = (theme, label) =>
       a.header[theme]
@@ -181,7 +172,7 @@ ${cap('DPR 1（16×16 のピクセル）', 'top')}<div class="pair">${shotImg(t.
   },
 
   'store-listing'(a, ctx) {
-    return `${tag(a, ctx)}<div class="stack" style="align-items:stretch">${storeHtml({ icon: a.iconSrc, name: ctx.name, theme: 'light' })}${storeHtml({ icon: a.iconSrc, name: ctx.name, theme: 'dark' })}</div>${cap('一覧の行は 64 px、表の行は 28 px')}`;
+    return `${tag(a, ctx)}<div class="stack" style="align-items:stretch">${storeHtml({ icon: a.iconSrc, name: ctx.name, theme: 'light' })}${storeHtml({ icon: a.iconSrc, name: ctx.name, theme: 'dark' })}</div>${cap('一覧の行のアプリアイコンは 64 px')}`;
   },
 
   lockup(a, ctx) {
@@ -285,7 +276,7 @@ ${names}${sections}
 
 /**
  * 案ごとの比較画像: 案ごとの 1 枚。全案の比較画像と同じ表示場面を大きく見せる。3 つの縦の列に表示場面のカードを固定の割り当てで並べる
- * （左: アプリアイコン・同意画面・ストア・ロックアップ、中: 明るい壁紙のホーム画面・タブ・拡大図、右: 暗い壁紙のホーム画面・ヘッダー）。
+ * （左: アプリアイコン・ストアの一覧・ロックアップ、中: 明るい壁紙のホーム画面・タブ・拡大図、右: 暗い壁紙のホーム画面・ヘッダー）。
  * size-compare の画像は 3 列の下に全幅で置く。
  * @param {object} p
  * @param {Bundle} p.bundle
@@ -311,7 +302,7 @@ export function comparisonBHtml({ bundle: a, refs, scenes, width, name, meta }) 
   const card = (id, ctx = base, title = sceneOf(id).title) =>
     `<div class="cell" id="b-${id}"><div class="cardtitle">${esc(title)}</div>${CELLS[id](a, ctx)}</div>`;
   const homeTitle = (label) => `${sceneOf('home-screen').title}（${label}）`;
-  const left = ['app-icon', 'consent-screen', 'store-listing', 'lockup'].filter(has).map((id) => card(id)).join('');
+  const left = ['app-icon', 'store-listing', 'lockup'].filter(has).map((id) => card(id)).join('');
   const middle = [
     has('home-screen') ? card('home-screen', { ...base, wallpapers: ['light'] }, homeTitle('明るい壁紙')) : '',
     has('browser-tab') ? card('browser-tab') : '',

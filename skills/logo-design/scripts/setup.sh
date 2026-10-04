@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# logo-design のスクリプトの依存と取得物を LOGO_DESIGN_HOME に用意する（冪等。何度実行してもよい）。
+# logo-design のスクリプトの依存と取得物を LOGO_DESIGN_HOME に用意する。
+# 冪等で、すべてが最新なら何もせず、ネットワークにも接続しない（オフラインでも終了コード 0 で終わる）。
 #
 #   LOGO_DESIGN_HOME（既定 ~/.cache/logo-design）
 #     render/node_modules   比較画像の書き出し用（playwright-core）
 #     similar/node_modules  類似検索用（scripts/similar の package.json と package-lock.json から入れる）
-#     venv/                 text2path 用の Python venv（scripts/text2path/requirements.txt から入れる）
-#     fonts/                text2path 用の書体（scripts/text2path/fetch_fonts.py で取得する）
+#     venv/                 text2path 用の Python venv（scripts/text2path/requirements.txt から入れる。
+#                           入れた requirements.txt を venv/.requirements.txt に保存し、同じなら再実行で飛ばす）
+#     fonts/                text2path 用の書体（scripts/text2path/fetch_fonts.py で取得する。
+#                           取得した fonts.json を fonts/.fonts.json に保存し、同じなら再実行で飛ばす）
 #
 # scripts/similar と scripts/text2path の入力ファイルが欠けているとき（配置が壊れているとき）は、警告を出して、その手順を飛ばす。
 #
@@ -15,6 +18,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOGO_DESIGN_HOME="${LOGO_DESIGN_HOME:-$HOME/.cache/logo-design}"
+# 引用された ~（シェルが展開しなかったもの）を HOME に直す。SC2088 の警告は、この意図した引用のため無視してよい
 case "$LOGO_DESIGN_HOME" in
   "~") LOGO_DESIGN_HOME="$HOME" ;;
   "~/"*) LOGO_DESIGN_HOME="$HOME/${LOGO_DESIGN_HOME#"~/"}" ;;
@@ -30,9 +34,9 @@ SKIPPED=()
 
 # ───────── 前提の検査 ─────────
 
-command -v node >/dev/null 2>&1 || die "node が見つかりません。Node 22 以上を入れてください（例: mise use -g node@24、または https://nodejs.org/）。"
+command -v node >/dev/null 2>&1 || die "node が見つかりません。Node 22 以上を入れてください（入手先: https://nodejs.org/）。"
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-[ "$NODE_MAJOR" -ge 22 ] || die "Node $(node -v) は古すぎます。Node 22 以上にしてください（例: mise use -g node@24）。"
+[ "$NODE_MAJOR" -ge 22 ] || die "Node $(node -v) は古すぎます。Node 22 以上を入れてください。"
 command -v npm >/dev/null 2>&1 || die "npm が見つかりません。Node に同梱の npm を使える状態にしてください（Node を入れ直すと入ります）。"
 
 # registry に届くか。ダウンロードが要る手順の前にだけ呼ぶ。
@@ -75,7 +79,7 @@ fi
 # ───────── Python venv（text2path） ─────────
 
 VENV="$LOGO_DESIGN_HOME/venv"
-command -v python3 >/dev/null 2>&1 || die "python3 が見つかりません。Python 3.10 以上を入れてください（text2path が使います。例: mise use -g python@3.12）。"
+command -v python3 >/dev/null 2>&1 || die "python3 が見つかりません。Python 3.10 以上を入れてください（text2path が使います）。"
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' || die "python3 は $(python3 -V 2>&1) です。Python 3.10 以上にしてください。"
 python3 -c 'import venv, ensurepip' 2>/dev/null || die "python3 の venv が使えません。venv と ensurepip を含む Python を入れてください（Debian 系: apt install python3-venv）。"
 if [ -x "$VENV/bin/python" ]; then
@@ -85,10 +89,17 @@ else
   python3 -m venv "$VENV" || die "venv の作成に失敗しました。$VENV を消して再実行してください。"
   INSTALLED+=("Python venv（${VENV}）")
 fi
-if [ -f "$SCRIPT_DIR/text2path/requirements.txt" ]; then
-  check_network
-  say "venv: pip install -r text2path/requirements.txt"
-  "$VENV/bin/python" -m pip install --disable-pip-version-check -q -r "$SCRIPT_DIR/text2path/requirements.txt" || die "pip install に失敗しました。上のログを確認し、$VENV を消して再実行してください。"
+REQUIREMENTS="$SCRIPT_DIR/text2path/requirements.txt"
+if [ -f "$REQUIREMENTS" ]; then
+  if cmp -s "$REQUIREMENTS" "$VENV/.requirements.txt"; then
+    say "venv: Python の依存は最新です"
+  else
+    check_network
+    say "venv: pip install -r text2path/requirements.txt"
+    "$VENV/bin/python" -m pip install --disable-pip-version-check -q -r "$REQUIREMENTS" || die "pip install に失敗しました。上のログを確認し、$VENV を消して再実行してください。"
+    cp "$REQUIREMENTS" "$VENV/.requirements.txt"
+    INSTALLED+=("Python の依存（${VENV}）")
+  fi
 else
   warn "text2path: $SCRIPT_DIR/text2path/requirements.txt がありません（配置が壊れています）。text2path の依存は入れません"
   SKIPPED+=("text2path の Python 依存")
@@ -96,13 +107,20 @@ fi
 
 # ───────── 書体（text2path） ─────────
 
-if [ -f "$SCRIPT_DIR/text2path/fetch_fonts.py" ]; then
-  check_network
-  say "fonts: fetch_fonts.py を実行します（$LOGO_DESIGN_HOME/fonts）"
-  "$VENV/bin/python" "$SCRIPT_DIR/text2path/fetch_fonts.py" || die "書体の取得に失敗しました。ネットワークを確認して再実行してください。"
-  INSTALLED+=("書体の取得・確認（$LOGO_DESIGN_HOME/fonts。取得済みの書体ファミリーは飛ばす）")
+FONTS_DIR="${LOGO_DESIGN_FONTS_DIR:-$LOGO_DESIGN_HOME/fonts}"
+FONTS_CONFIG="$SCRIPT_DIR/text2path/fonts.json"
+if [ -f "$SCRIPT_DIR/text2path/fetch_fonts.py" ] && [ -f "$FONTS_CONFIG" ]; then
+  if [ -f "$FONTS_DIR/index.json" ] && cmp -s "$FONTS_CONFIG" "$FONTS_DIR/.fonts.json"; then
+    say "fonts: 書体は最新です（${FONTS_DIR}）"
+  else
+    check_network
+    say "fonts: fetch_fonts.py を実行します（${FONTS_DIR}）"
+    "$VENV/bin/python" "$SCRIPT_DIR/text2path/fetch_fonts.py" || die "書体の取得に失敗しました。ネットワークを確認して再実行してください。"
+    cp "$FONTS_CONFIG" "$FONTS_DIR/.fonts.json"
+    INSTALLED+=("書体（${FONTS_DIR}。取得済みの書体ファミリーは飛ばす）")
+  fi
 else
-  warn "text2path: $SCRIPT_DIR/text2path/fetch_fonts.py がありません（配置が壊れています）。書体は取得しません"
+  warn "text2path: $SCRIPT_DIR/text2path/fetch_fonts.py か fonts.json がありません（配置が壊れています）。書体は取得しません"
   SKIPPED+=("text2path の書体")
 fi
 
