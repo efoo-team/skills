@@ -1,0 +1,32 @@
+[
+  {
+    "id": "A",
+    "name": "軌道",
+    "idea": "中心の 1 点に、周りの動きが集まる。濃紺のアイコン背景に金の円を置いた、最も要素の少ない案。",
+    "ideaType": "動作の比喩",
+    "palette": ["#1f2a44", "#f4b942"],
+    "logotypeFont": "Example Sans Bold（架空の書体名）"
+  },
+  {
+    "id": "B",
+    "name": "折り返し",
+    "idea": "2 本の折れ線を重ねた、意味を持たせない形。紫から青へ変わるアイコン背景に白い線を置く。",
+    "ideaType": "純粋な抽象",
+    "palette": ["#6d28d9", "#2563eb", "#ffffff"],
+    "logotypeFont": "Example Sans Bold（架空の書体名）"
+  },
+  {
+    "id": "C",
+    "name": "重なり",
+    "idea": "3 つの半透明の円が重なって混ざる色で、にぎやかで温かい感じを伝える。favicon.svg と lockup-dark.svg が無い案の確認も兼ねる。",
+    "ideaType": "感情",
+    "palette": ["#e63946", "#2a9d8f", "#457b9d", "#f3efe6"]
+  },
+  {
+    "id": "D",
+    "name": "階段",
+    "idea": "頭文字の縦棒と横棒を、長さの違う 3 本の棒に抽象化して並べる。symbol.svg と lockup.svg が無い案の確認も兼ねる。",
+    "ideaType": "文字由来",
+    "palette": "ティール 1 色と白"
+  }
+]

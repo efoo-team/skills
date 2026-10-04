@@ -1,0 +1,13 @@
+{
+  "name": "logo-design-render",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ロゴ案の比較画像（ホーム画面のモックアップ・size-compare・表示場面ごとの全案の比較・修正前後の比較）と、SVG から実ピクセルの PNG を書き出すスクリプト",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "playwright-core": "1.62.1"
+  }
+}

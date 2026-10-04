@@ -1,0 +1,19 @@
+{
+  "google_fonts_commit": "9710da1eacb3be272583c3224dcb70f9da6eadbb",
+  "families": [
+    { "folder": "inter", "family": "Inter", "google_fonts_dir": "inter", "files": ["Inter[opsz,wght].ttf"], "style": "特徴を抑えたグロテスク（opsz 14〜32）" },
+    { "folder": "outfit", "family": "Outfit", "google_fonts_dir": "outfit", "files": ["Outfit[wght].ttf"], "style": "幾何サンセリフ" },
+    { "folder": "source-sans-3", "family": "Source Sans 3", "google_fonts_dir": "sourcesans3", "files": ["SourceSans3[wght].ttf"], "style": "ヒューマニスト・サンセリフ" },
+    { "folder": "space-grotesk", "family": "Space Grotesk", "google_fonts_dir": "spacegrotesk", "files": ["SpaceGrotesk[wght].ttf"], "style": "字形に特徴のあるグロテスク" },
+    { "folder": "nunito", "family": "Nunito", "google_fonts_dir": "nunito", "files": ["Nunito[wght].ttf"], "style": "丸ゴシック系（端が丸いサンセリフ）" },
+    { "folder": "playfair-display", "family": "Playfair Display", "google_fonts_dir": "playfairdisplay", "files": ["PlayfairDisplay[wght].ttf"], "style": "線の太さの差が大きいセリフ" },
+    { "folder": "noto-sans-jp", "family": "Noto Sans JP", "google_fonts_dir": "notosansjp", "files": ["NotoSansJP[wght].ttf"], "style": "日本語のゴシック" },
+    {
+      "folder": "zen-maru-gothic",
+      "family": "Zen Maru Gothic",
+      "google_fonts_dir": "zenmarugothic",
+      "files": ["ZenMaruGothic-Light.ttf", "ZenMaruGothic-Regular.ttf", "ZenMaruGothic-Medium.ttf", "ZenMaruGothic-Bold.ttf", "ZenMaruGothic-Black.ttf"],
+      "style": "日本語の丸ゴシック（static。wght は 300・400・500・700・900）"
+    }
+  ]
+}

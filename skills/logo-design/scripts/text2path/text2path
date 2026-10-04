@@ -1,0 +1,10 @@
+#!/bin/sh
+# text2path.py を、$LOGO_DESIGN_HOME/venv の python で実行する（既定の LOGO_DESIGN_HOME は ~/.cache/logo-design）
+DIR=$(cd "$(dirname "$0")" && pwd)
+HOME_DIR="${LOGO_DESIGN_HOME:-$HOME/.cache/logo-design}"
+PY="$HOME_DIR/venv/bin/python"
+if [ ! -x "$PY" ]; then
+  echo "エラー: $HOME_DIR/venv が無い。scripts/setup.sh を先に実行してください（LOGO_DESIGN_HOME を変えているときは、同じ値で実行する）。" >&2
+  exit 2
+fi
+exec "$PY" "$DIR/text2path.py" "$@"
