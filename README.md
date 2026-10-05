@@ -24,14 +24,14 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-35 本（うち explicit-only 21 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+35 本（うち explicit-only 20 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
 | カテゴリ | スキル | 用途 | トリガー |
 |---|---|---|---|
 | 要件・計画・実行 | `pre-define` | 曖昧な要望を `/define` の入力へ具体化 | explicit-only |
-| | `define` | 詳細要件定義 | explicit-only |
+| | `define` | 機能の要望を受けたとき、実装前に詳細要件定義 | auto |
 | | `plan-explain` | 計画ファイルの構造化要約 | explicit-only |
 | | `review-plan` | 実装計画の多観点レビュー | explicit-only |
 | | `execute` | 複雑なタスクのオーケストレーションと委譲 | explicit-only |
