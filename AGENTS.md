@@ -27,7 +27,7 @@ efoo-team の Agent Skills は 2 層で管理する。**2 層を横断する台�
 作成時の規律（重複・シャドウの回避、規約準拠）は `/create-skill` の対話ワークフローが担保する。
 
 - **共通層 (common layer)**: このリポジトリ (`efoo-team/skills`) が正本。`setup.sh` の
-  `npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` で `~/.agents/skills/` へ配布され、
+  `run_skills add efoo-team/skills -g -a "${GLOBAL_AGENTS[@]}" -y` で `~/.agents/skills/` へ配布され、
   Claude Code / Codex / opencode など各ツールがそこから解決する。
 - **プロジェクト層 (project layer)**: 各プロジェクトリポジトリ自身の `<repo>/.agents/skills/<name>/SKILL.md`
   が正本。Claude Code 向けには `<repo>/.claude/skills/<name>` からコミット済みの相対 symlink
@@ -90,8 +90,8 @@ efoo-team の Agent Skills は 2 層で管理する。**2 層を横断する台�
 ### External skill を追加する場合
 
 1. インストール対象の決定:
-   - **全エージェント共通**: `setup.sh` に `npx skills add <owner>/<repo> --skill <name> -g -a '*' -y` を追加する
-   - **特定エージェント限定**: `setup.sh` に `npx skills add <owner>/<repo> --skill <name> -g -a <agent> -y` を追加する
+   - **全エージェント共通**: `setup.sh` に `run_skills add <owner>/<repo> --skill <name> -g -a "${GLOBAL_AGENTS[@]}" -y` を追加する
+   - **特定エージェント限定**: `setup.sh` に `run_skills add <owner>/<repo> --skill <name> -g -a <agent> -y` を追加する
 2. このリポジトリには SKILL.md を配置しない（正本が外部にあるため二重管理になる）
 
 ## Agent-Specific Skills
@@ -101,10 +101,10 @@ efoo-team の Agent Skills は 2 層で管理する。**2 層を横断する台�
 ### Team-owned skill の場合
 
 1. SKILL.md の frontmatter に `metadata.internal: true` を追加する
-   - これにより `npx skills add efoo-team/skills -g -a '*' -y` の一括インストールから除外される
+   - これにより `setup.sh` の共通スキル一括インストールから除外される
 2. `setup.sh` に以下の形式でインストール行を追加する:
    ```bash
-   INSTALL_INTERNAL_SKILLS=1 npx skills add efoo-team/skills --skill <name> -g -a <agent> -y
+   INSTALL_INTERNAL_SKILLS=1 run_skills add efoo-team/skills --skill <name> -g -a <agent> -y
    ```
    - `INSTALL_INTERNAL_SKILLS=1`: internal スキルの発見を有効化する環境変数
    - `-a <agent>`: インストール先エージェントを指定する（例: `-a opencode`, `-a claude-code`）
@@ -113,7 +113,7 @@ efoo-team の Agent Skills は 2 層で管理する。**2 層を横断する台�
 
 1. `setup.sh` に `-a <agent>` でエージェントを限定したインストール行を追加する:
    ```bash
-   npx skills add <owner>/<repo> --skill <name> -g -a <agent> -y
+   run_skills add <owner>/<repo> --skill <name> -g -a <agent> -y
    ```
    - External skill は `metadata.internal` の設定は不要（正本は外部リポジトリにあるため）
 
@@ -162,9 +162,10 @@ Skill instructions here.
 
 - スキルの追加・削除時は `setup.sh` を必ず更新する
 - 削除対象のスキル名は `remove-skills.txt` に記録する
-- Team-owned skills（全エージェント）: `npx skills add efoo-team/skills -g -a '*' -y` の1行でカバーされる
+- Team-owned skills（全エージェント）: `run_skills add efoo-team/skills -g -a "${GLOBAL_AGENTS[@]}" -y` の1行でカバーされる
 - Team-owned skills（エージェント限定）: 個別の行を追加する
 - External skills: 個別の行を追加する
+- 追加・削除のコマンドは `run_skills` を通し、部分失敗を終了コードへ反映する。全エージェント向けには `GLOBAL_AGENTS` を指定する（グローバル対応70エージェント。Eve / PromptScript は非対応のため除外）。CLI のバージョン変更時は配列と失敗検知の仕様も確認する
 - lock ファイル（`~/.agents/.skill-lock.json`）はローカルマシン固有であり、このリポジトリでは管理しない
 
 ## Invocation Quick Reference（起動方法早見表）

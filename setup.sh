@@ -5,11 +5,57 @@ SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" >/dev/null 2>&1 && pwd)"
 REPO_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
 REMOVE_SKILLS_TMP=""
+SKILLS_LOG_TMP=""
+
+# skills@1.5.14 global targets; Eve and PromptScript have no globalSkillsDir.
+# Recheck the pinned CLI's agent registry when updating its version.
+GLOBAL_AGENTS=(
+  aider-desk amp antigravity antigravity-cli astrbot autohand-code augment bob
+  claude-code openclaw cline codearts-agent codebuddy codemaker codestudio codex
+  command-code continue cortex crush cursor deepagents devin dexto droid
+  firebender forgecode gemini-cli github-copilot goose hermes-agent inference-sh
+  jazz junie iflow-cli kilo kimi-code-cli kiro-cli kode lingma loaf mcpjam
+  mistral-vibe moxby mux opencode openhands ona pi qoder qoder-cn qwen-code
+  replit reasonix rovodev roo tabnine-cli terramind tinycloud trae trae-cn warp
+  windsurf zed zencoder zenflow neovate pochi adal universal
+)
 
 cleanup() {
   if [ -n "$REMOVE_SKILLS_TMP" ] && [ -f "$REMOVE_SKILLS_TMP" ]; then
     rm -f "$REMOVE_SKILLS_TMP"
   fi
+  if [ -n "$SKILLS_LOG_TMP" ] && [ -f "$SKILLS_LOG_TMP" ]; then
+    rm -f "$SKILLS_LOG_TMP"
+  fi
+}
+
+run_skills() {
+  local -a statuses
+  if [ -z "$SKILLS_LOG_TMP" ]; then
+    SKILLS_LOG_TMP="$(mktemp)"
+  fi
+  if npx skills@1.5.14 "$@" 2>&1 | tee "$SKILLS_LOG_TMP"; then
+    statuses=("${PIPESTATUS[@]}")
+  else
+    statuses=("${PIPESTATUS[@]}")
+  fi
+  if [ "${statuses[0]}" -ne 0 ]; then
+    return "${statuses[0]}"
+  fi
+  if [ "${statuses[1]}" -ne 0 ]; then
+    return "${statuses[1]}"
+  fi
+  # The pinned CLI reports partial add/remove failures but exits successfully.
+  awk '
+    { gsub(sprintf("%c", 27) "\\[[0-?]*[ -/]*[@-~]", "") }
+    /Failed to (install|remove) [1-9][0-9]*([[:space:]]|$)/ { failed = 1 }
+    END {
+      if (failed) {
+        print "=== Error: skills reported failed installations or removals; setup stopped ===" > "/dev/stderr"
+        exit 1
+      }
+    }
+  ' "$SKILLS_LOG_TMP"
 }
 
 load_remove_skills() {
@@ -68,18 +114,18 @@ else
 fi
 
 # Team-owned skills
-npx skills@1.5.14 add efoo-team/skills -g -a '*' -y
+run_skills add efoo-team/skills -g -a "${GLOBAL_AGENTS[@]}" -y
 
 # Team-owned skills (agent-specific)
-INSTALL_INTERNAL_SKILLS=1 npx skills@1.5.14 add efoo-team/skills --skill formation-designer -g -a opencode -y
+INSTALL_INTERNAL_SKILLS=1 run_skills add efoo-team/skills --skill formation-designer -g -a opencode -y
 
 # External skills
-npx skills@1.5.14 add abekdwight/code-debug-skills --skill code-debug-skill -g -a '*' -y
+run_skills add abekdwight/code-debug-skills --skill code-debug-skill -g -a "${GLOBAL_AGENTS[@]}" -y
 
 load_remove_skills
 if [ "${#REMOVE_SKILLS[@]}" -gt 0 ]; then
   echo "=== Removing blocked skills: ${REMOVE_SKILLS[*]} ==="
-  npx skills@1.5.14 remove "${REMOVE_SKILLS[@]}" -g -y
+  run_skills remove "${REMOVE_SKILLS[@]}" -g -y
 fi
 
 # Configure post-merge hook (if running inside the repo)
@@ -116,5 +162,5 @@ if ! run_mcp_sync; then
   echo "=== Warning: MCP sync failed (skills themselves are installed) ===" >&2
 fi
 
+npx skills@1.5.14 list -g
 echo "=== Done ==="
-npx skills@1.5.14 list
