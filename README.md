@@ -20,6 +20,8 @@ bash ~/ghq/github.com/efoo-team/skills/setup.sh
 
 Node.js 18 以上が必要。`npx skills` が `~/.claude/skills/` へ書き込むため、設定リポジトリ（「関連リポジトリ」節）の配置を先に済ませる。
 
+共通スキルと外部購読スキルは、グローバルインストールに対応する全70エージェントへ配布する。非対応の Eve と PromptScript は配布対象に含めない。配布または削除が一部でも失敗した場合は、`setup.sh` が終了コードを非ゼロにして停止する。最後にグローバルのインストール済みスキル一覧を表示し、その表示が成功した後に完了を知らせる。MCP 同期の失敗は警告として表示する。
+
 clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | bash` でも実行できるが、post-merge hook が設定されないため以降の自動反映は受けられない。
 
 ## スキル一覧
@@ -105,6 +107,10 @@ flowchart LR
 
 `setup.sh` は team-owned → エージェント限定（opencode のみの `formation-designer`）→ 外部購読の順にインストールし、`remove-skills.txt` の名前を削除して MCP を同期する。冪等であり、変更のないスキルはハッシュ比較でスキップする。
 
+配布対象は `setup.sh` の `GLOBAL_AGENTS` に記載する。`skills@1.5.14` の対応エージェントと一致させているため、CLI のバージョン変更時はこの一覧と失敗検知の仕様も確認する。スキルの追加・削除は `run_skills` を通して実行し、CLI が終了コード0で報告する部分失敗も検知する。
+
+セットアップの回帰確認は `node --test scripts/test-setup.mjs` で実行する。一時ディレクトリ内の代替コマンドを使うため、インストール済みスキルや各ツールの設定を変更しない。
+
 初回実行時に `core.hooksPath` が設定され、以降は `git pull` が `setup.sh` を再実行する。**push は全メンバーのマシンでの即時実行を意味するため、このリポジトリは PR 運用とする。**
 
 ## 正本と編集先
@@ -185,6 +191,7 @@ setup.sh                   # スキルの一括インストール
 sync-mcp.sh                # MCP 定義同期の入口（setup.sh から自動実行）
 hooks/post-merge           # git pull 時に setup.sh を再実行する git hook
 scripts/check-skills.py    # スキル規約の検査（手動実行）
+scripts/test-setup.mjs     # セットアップの回帰確認（配布先を変更しない）
 scripts/sync-mcp.mjs       # MCP 同期の実体
 skills/                    # 共通層スキルの実体
 ```
