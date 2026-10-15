@@ -115,6 +115,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
   "issues": [
     {
       "number": 12,
+      "state": "OPEN",
       "title": "注文履歴画面で注文一覧が表示されない",
       "labels": ["bug"],
       "crossCutting": false,
@@ -127,6 +128,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 
 - `crossCutting`: ラベル `scope:cross-cutting` の有無（ラベルのみで判定。タイトル文言では判定しない）
 - `areaSource`: `declared`（本文の「対象領域:」定型記載から取得）| `inferred`（定型記載が無く本文から推定）| `none`（推定も不能。`areas` は空配列とし、分類エージェントは統合先候補にしない）
+- `state`: `OPEN` | `CLOSED`（`gh issue list --state all` の `state`）。`CLOSED` の issue は統合先にせず、再発の判定にだけ使う（[`grouping-rules.md`](grouping-rules.md) §5）
 
 ### grouping-plan.json
 
@@ -164,6 +166,7 @@ parent は開始時に、環境のスクラッチ領域（無ければ `/tmp`）
 - `title`: 新規グループの issue タイトル（「どこで・何が」形式。横断グループは分類エージェントが `【横断】` 接頭辞を含めて確定する）。`merge` グループは `null`
 - `userExplanation`: parent がユーザーへ提示する、技術用語を使わないグルーピング理由（分類エージェントが必ず書く）
 - `relatedInFlight`: 任意。open な参照 PR により統合先不適格となった候補があるグループに書く（`new` へ切替えた場合も、次点候補へ統合した場合も）: `[{"issue": 12, "openPrs": [345]}]`（判定規則は [`grouping-rules.md`](grouping-rules.md) §5）。起草ワーカーが開発者向け参考情報の「関連:」行に使う
+- `recurrenceOf`: 任意。closed の issue と同じ不具合の再発と判断したグループに書く: `[34]`（判定規則は [`grouping-rules.md`](grouping-rules.md) §5）
 
 ## ユーザー対話のスケール設計
 
@@ -219,9 +222,9 @@ parent は次の2系統を**同時並行**で起動し、完了を待つ。paren
 - 報告された挙動に、それを意図した明示的な条件分岐・既存テスト・ドキュメント記述が見つかった場合は、確認できた事実のみを `intentSignals` に記録する（仕様の正否の判断・推測は書かない）
 - ソースコード・設定ファイルの編集は禁止（出力は成果物 JSON のみ）
 
-**issue 索引ワーカー（1体）への依頼**: `gh issue list --state open` を全件取得し、各 issue の本文から対象領域を抽出して `issue-index.json` を出力させる。
+**issue 索引ワーカー（1体）への依頼**: `gh issue list --state all` を全件取得し（open と closed。`state` を索引に含める）、各 issue の本文から対象領域を抽出して `issue-index.json` を出力させる。
 
-- 全件取得の確認: 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、**取得件数が limit を下回るまで** limit を倍にした再取得を繰り返す。倍増は1回では足りないことがある（open issue が初回上限の2倍以上あるリポジトリでは、倍増後も再び上限に達する）。繰り返しに代えて、`gh api graphql` で `pageInfo.hasNextPage` を辿り最後まで走査してもよい（REST の `/issues` は PR も返すため、issue のみを返す方法を選ぶ）
+- 全件取得の確認: 取得件数が `--limit` の値と一致した場合は取得漏れの可能性があるため、**取得件数が limit を下回るまで** limit を倍にした再取得を繰り返す。倍増は1回では足りないことがある（issue が初回上限の2倍以上あるリポジトリでは、倍増後も再び上限に達する）。繰り返しに代えて、`gh api graphql` で `pageInfo.hasNextPage` を辿り最後まで走査してもよい（REST の `/issues` は PR も返すため、issue のみを返す方法を選ぶ）
 - 取得件数が limit と一致したまま打ち切ってはならない。上限を超えた issue は照合から恒久的に漏れ、統合先の見逃し（重複 issue の温床）につながる
 - 対象領域は本文の「対象領域:」定型記載（[`issue-format.md`](issue-format.md)）を最優先で読み、無い issue は本文テキストから推定して `areaSource: "inferred"` を付ける。タイトル・本文からも推定できない issue（実行ログ等のメタ issue が該当しうる）は `areas: []`・`areaSource: "none"` とする
 - `crossCutting` はラベル `scope:cross-cutting` の有無のみで判定する
@@ -285,8 +288,9 @@ parent が `missingInfo` を束ね、不足している情報だけを質問す�
 
 分類エージェントが行うこと:
 
-- 各ケースの `touchAreas` と既存 issue の `areas` の重なり判定（既存 issue と重なるケースは `action: merge`。`areaSource: "none"` の issue は統合先候補にしない）
+- 各ケースの `touchAreas` と既存 issue の `areas` の重なり判定（open の既存 issue と重なるケースは `action: merge`。`areaSource: "none"` の issue は統合先候補にしない）
 - `merge` 候補ごとの open 参照 PR 確認（[`grouping-rules.md`](grouping-rules.md) §5 の2系統コマンド。対象は merge 候補のみ）。open PR が見つかった候補は統合先不適格とし、重なりの強い順に次点候補へ繰り下げて同じ確認を行い、最初に適格となった候補へ統合する（適格候補が尽きた場合にのみ `action: new` へ切替える）。不適格化した候補は `relatedInFlight` に記録する
+- closed の issue との再発判定（[`grouping-rules.md`](grouping-rules.md) §5）。同じ不具合の再発と判断したグループは `recurrenceOf` に記録する（closed の issue へは統合しない）
 - 新規ケース同士の重なり判定（重なるケースは同一グループへ統合）
 - 横断判定（主対象が横断領域のケースの昇格・分離）
 - グループごとの `rationale`（開発者向けの根拠）と `userExplanation`（画面の言葉での説明）の記述
@@ -300,7 +304,7 @@ parent は結果の意味判断をしない。`summary` の件数と構成だけ
 - `action: new` → 本文のみを `drafts/new-<groupId>.md` に出力する（タイトルは `grouping-plan.json` の `title` を正とする）
 - `action: merge` → 起草ワーカー自身が `gh issue view <番号> --json body,title,updatedAt` で現行本文を取得し、書き換え後の**完成本文**を `drafts/update-<issue番号>.md` に、取得した `updatedAt` を `drafts/update-<issue番号>.meta.json` に出力する（書き換え手順は [`issue-format.md`](issue-format.md)。この時点では GitHub へ書き込まない）。統合によりタイトル変更を提案する場合は、完了報告で変更後タイトルを parent へ返し、parent が登録計画に「タイトル変更」として含める
 - 対象リポジトリの `.github/ISSUE_TEMPLATE/` を確認し、該当する種類のテンプレートがあればその構成を優先する
-- グループに `relatedInFlight` がある場合は開発者向け参考情報へ「関連:」定型行を書き、担当ケースの `investigation` に `intentSignals` がある場合は「現在の挙動に関する観察（事実）:」定型行として転記する（いずれも書式は [`issue-format.md`](issue-format.md)）
+- グループに `relatedInFlight` がある場合は開発者向け参考情報へ「関連:」定型行を、`recurrenceOf` がある場合は「再発:」定型行を書き、担当ケースの `investigation` に `intentSignals` がある場合は「現在の挙動に関する観察（事実）:」定型行として転記する（いずれも書式は [`issue-format.md`](issue-format.md)）
 - わからなかった項目は削除せず「不明」と書いて残す
 
 ## Phase 7: 登録計画の承認と実行

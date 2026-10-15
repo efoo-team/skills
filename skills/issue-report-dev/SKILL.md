@@ -161,7 +161,7 @@ parent が調査ワーカーの `missingInfo` と `rootCause.unverified` を優�
 - **オーケストレーション詳細プロトコル（Phase 0〜7）**: [`../issue-report-user/references/orchestration-protocol.md`](../issue-report-user/references/orchestration-protocol.md)
   - 実行ディレクトリと成果物ファイルのスキーマ / 各フェーズの parent の仕事とワーカー依頼内容 / ユーザー対話のスケール設計 / 実行ワーカーの規律（統合先の直前再検証・ラベル付与の検証）
 - **グルーピング規則**: [`../issue-report-user/references/grouping-rules.md`](../issue-report-user/references/grouping-rules.md)
-  - 想定変更領域（touch set）の定義 / 重なり判定 / 横断領域の扱い / 既存 issue 照合規則（open 参照 PR による統合先不適格の判定）
+  - 想定変更領域（touch set）の定義 / 重なり判定 / 横断領域の扱い / 既存 issue 照合規則（open 参照 PR による統合先不適格の判定、close 済みの issue との再発判定）
 - **issue 本文の共通規約と書き換え手順**: [`../issue-report-user/references/issue-format.md`](../issue-report-user/references/issue-format.md)
   - 「対象領域:」定型形式 / 任意定型行 / 更新履歴 / 既存 issue 本文の書き換え（統合）手順。**本文テンプレートは本スキルでは使わない**
 - **本スキルの issue 本文テンプレート**: [`references/issue-format-dev.md`](references/issue-format-dev.md)
