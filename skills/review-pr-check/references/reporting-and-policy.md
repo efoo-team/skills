@@ -29,7 +29,7 @@
 
 ### 📊 レビュー件数サマリー
 
-各AIレビュアーからの指摘件数を表示。0件のレビュアーは記載を省略。
+各AIレビュアーからの指摘件数を表示。0件のレビュアーは記載を省略。レビュー本文の指摘も、そのレビュアーの件数に含める。
 
 ```
 Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
@@ -55,7 +55,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 ```
 **ID-01** 🔴 Major — 指摘の要旨（1行で完結）
 - 指摘AI: Codex, CodeRabbit, Copilot
-- `対象ファイル:行番号`（thread の場合）または `PR-level comment`（issue_comment の場合）
+- `対象ファイル:行番号`（thread の場合）、`PR-level comment`（issue_comment の場合）、または `レビュー本文の指摘`（review の本文の場合。対象ファイル・行が分かれば併記）
 - 判断根拠（1〜2文）
 - ステータス: ✅ done / 👀 in_progress / ⏳ pending / ⚪ skip / ⏸ hold
 ```
@@ -86,7 +86,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
   - 指摘が利用者ができることを狭める制限（上限・禁止・必須の手順・情報の省略）の追加で、要求・確かめた技術的限界の根拠も、仕様が誰から何を守ると定めた安全や認可の根拠もない
 - 「対応しない」の処理は、1 つ目の根拠なら `skip_invalid`（誤指摘）、2 つ目と 3 つ目なら `skip_declined`（理由つきの見送り）を使う（`orchestration-protocol.md` の 6-2・6-3）。
 - 指摘が妥当であれば、当初の変更意図に含まれていなかった論点であっても対応する。PRのスコープを理由に妥当な指摘を放置しない。
-- 「保留」は、情報不足で判断不能な場合と、仕様に無い安全や認可の制限を求める指摘のうち、具体的な害（誰が何を知り、または何ができて、何が起きるか）が示されていてユーザーの判断が要る場合に使用する。判断可能なものは保留にせず対応する。保留にした指摘は、PR の上では何もせず（`orchestration-protocol.md` の 6-3）、最終報告でユーザーに判断を求める。ループは止めない。
+- 「保留」は、情報不足で判断不能な場合と、仕様に無い安全や認可の制限を求める指摘のうち、具体的な害（誰が何を知り、または何ができて、何が起きるか）が示されていてユーザーの判断が要る場合と、指摘の修正がテストと両立せずユーザーの判断が要る場合（`orchestration-protocol.md` の 6-4）に使用する。判断可能なものは保留にせず対応する。保留にした指摘は、PR の上では何もせず（`orchestration-protocol.md` の 6-3）、最終報告でユーザーに判断を求める。ループは止めない。
 - nit・スタイル・命名などの軽微な指摘も「小さな負債の蓄積が将来の大きなコストになる」という前提で対応する。
 
 ### レビュアー特性の反映
@@ -132,11 +132,11 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 
 1. **ノイズエントリへの操作禁止**: Phase 3 で「ノイズ」と判定した `issue_comment`（このスキル自身が投稿したものを含む）に対して、Reaction 付与・コメント投稿・`gh pr-review-check resolve` の呼び出しを行ってはならない
 2. **新規トップレベルコメントの投稿禁止**: PR に対する新規の `issue_comment`（トップレベルコメント）を投稿してはならない。コメントは必ず既存スレッドへの返信（`addPullRequestReviewThreadReply`）として行う。**例外は次の2つのみ**:
-   - **返信先スレッドが存在しない指摘への対応報告**: `type: review` 本文内の outside-diff 指摘（プラットフォーム制約で inline thread 化されない指摘。CodeRabbit は review 本文冒頭に「Some comments are outside the diff and can't be posted inline」と明記する）は、スレッド返信が原理的に不可能で放置すると未応答に見えるため、対象ファイル・行と指摘の fingerprint（例: `cr-comment:v1:...`）を明記した**集約トップレベルコメント1件**で対応報告してよい（投稿手順は `status-and-resolve.md` を参照）
+   - **返信先スレッドが存在しない指摘への対応報告**: `type: review` の本文に載った、スレッドにならない指摘（レビュー本文の指摘。プラットフォーム制約で inline thread 化されない outside-diff の指摘〈CodeRabbit は review 本文冒頭に「Some comments are outside the diff and can't be posted inline」と明記する〉、本文にだけ載る nitpick、低確信度として抑制された指摘など）は、スレッド返信が原理的に不可能で放置すると未応答に見えるため、1 回の完了処理につき、レビューごとに**集約トップレベルコメント1件**で、対応した指摘を fingerprint（例: `cr-comment:v1:...`）・対象ファイル・行と結果つきで報告してよい。保留にした指摘は載せない。保留だった指摘を後で対応したときは、その指摘だけを別の集約トップレベルコメントで報告してよい（投稿手順と形式は `status-and-resolve.md` の「レビュー本文の指摘の対応報告」を参照）
    - **AI 再レビューのトリガー投稿**: Phase 7 の再レビューの確認で、レビュアーが再開の依頼を案内しているとき（一時停止やレート制限で止まった CodeRabbit への `@coderabbitai review` など）に限り、案内されている再レビュー運用コマンドを、最新の head commit につき 1 回だけ投稿してよい（手順は `orchestration-protocol.md` の Phase 7「再レビューの依頼の投稿」）
 3. **resolve 不可能な type への resolve 禁止**: `type: issue_comment` および `type: review` に対して `resolveReviewThread` を呼び出してはならない（GitHub API の制約上エラーになる）
 4. **人間レビュアー起票スレッドの自動 resolve 禁止**: 人間（非 bot）が起票したスレッドを自動的に resolve してはならない。返信と reaction のみ行い、resolve は人間レビュアーに委ねる
-5. **push 失敗時の resolve 禁止**: テストやプッシュが失敗した状態でスレッドを resolve してはならない。`in_progress` のまま維持する
+5. **push 失敗時・テスト失敗時の resolve 禁止**: push できていない、または入れた修正が原因でテストが落ちている状態で、`fix` の entry のスレッドを resolve してはならない。`in_progress` のまま維持し、直せないときは最終報告に書く（`orchestration-protocol.md` の 6-4）。修正の前から落ちていたと確かめたテストは、この禁止の対象外である。`skip_invalid`・`skip_declined` の entry はコードを変えないので、push やテストの成否によらず、返信・リアクション・resolve を行う（判断の結果を PR の上に残し、次の実行で判断し直さずに済むため）
 6. **重複操作の禁止**: 既に返信済み・reaction 済み・resolved 済みのエントリに対して、同じ操作を繰り返してはならない（冪等性チェック必須）
 7. **bot へのメンションの禁止**: 返信・投稿の本文に、`@` で始まるアカウント名（`@codex`・`@coderabbitai`・`@claude`・`@copilot` など）を書いてはならない。指摘を引用するときも `@` を外す。コードスパンの中に書いても bot が反応し、`@claude` は Claude Code の実行を起動しうるためである。例外は、禁止事項 2 の再レビューの依頼の投稿だけである
 
@@ -145,19 +145,22 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 ## 失敗時のハンドリング
 
 - `gh` 未導入/未ログイン: `gh --version` と `gh auth login` の案内のみ（処理継続不可）
-- `gh pr-review-check` 未インストール: インストールコマンドを案内
+- `gh pr-review-check` 未インストール: チームの `setup.sh`（`efoo-team/skills` リポジトリ直下）を実行すると入り、更新もされることを案内する。`setup.sh` を使わずに入れるときのコマンドは次のとおり
   ```bash
   gh extension install abekdwight/gh-pr-review-check
   ```
 - PR特定不能: 引数の確認を依頼し、中断
-- Analyzer 失敗: 部分結果で継続するかユーザーに確認
+- 分類サブエージェントの失敗: 失敗した shard は、parent が `SKILL.md`「サブエージェントが無い環境での縮退」と同じ規律で分類する。ループを止めてユーザーに確認しない。縮退したことは最終報告に書く（`status-and-resolve.md` の「最終報告」）
 
 ## 承認モード（オプション）
 
 デフォルトでは承認不要で自律実行する（Phase 0 → 8 を連続実行）。
 
-ユーザーが引数または指示で「承認してから対応して」「確認してから進めて」等と**明示的に指定した場合のみ**、以下の挙動に切り替わる:
+ユーザーが引数または指示で「承認してから対応して」「確認してから進めて」等と**明示的に指定した場合のみ**、次の挙動に切り替わる:
 
-1. Phase 3（レポート生成）まで実行し、レポートをユーザーに提示
-2. ユーザーからの承認を待つ
-3. 承認後、Phase 4 → 8 を実行
+1. Phase 6 を 6-2（対応判断）までで止める。実行ワーカーは、各 entry の妥当性と対応方針（`fix` / `skip_invalid` / `skip_declined` / `hold` と理由）を、実装せずに parent へ返す
+2. parent は、返却を「レポート出力フォーマット」でまとめてユーザーに示し、承認を待つ。各 entry の対応方針と理由は、指摘一覧の「判断根拠」に書き、ステータスは ⏳ pending（保留は ⏸ hold）にする
+3. 承認の後に、承認された方針を packet に添えて、実行ワーカーに 6-3 以降（実装・テスト・push・完了処理）を行わせる。承認のときにユーザーが方針を変えた entry は、その指示に従う
+4. ループの次の周で新しい entry が出たときも、手順 1〜3 を同じく行い、承認を待つ
+
+承認待ちはユーザーの明示の指示によるので、`orchestration-protocol.md` Phase 8 の「ユーザーに確認してからループする等の判断でループを中断することは禁止」の例外である。

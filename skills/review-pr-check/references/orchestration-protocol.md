@@ -15,13 +15,14 @@
     - 3-2: コンテキスト読み込みルール
     - 3-3: 除外条件（保留の一覧による除外を含む）
     - 3-4: ノイズ issue_comment の判定と除外
+    - 3-5: レビュー本文の指摘
   - Phase 4: work packet 確定
   - Phase 5: packet dispatch
   - Phase 6: 並行処理
     - 6-1: 妥当性検証
     - 6-2: 対応判断
-    - 6-3: 実装・完了処理（fix / skip_invalid / skip_declined / hold の処理フロー）
-    - 6-4: テスト・プッシュ
+    - 6-3: 実装・完了処理（fix / skip_invalid / skip_declined / hold の処理フロー、レビュー本文の指摘の完了処理）
+    - 6-4: テスト・プッシュ（テスト失敗・push 失敗の扱い）
     - 6-5: 実行ワーカーの返却と保留の一覧
   - Phase 7: 待機・ポーリング・再レビューの確認（必須・スキップ禁止）
   - Phase 8: ループ判定（必須・スキップ禁止）
@@ -51,7 +52,7 @@ gh pr view <pr-number>
 
 parent は収集ワーカーに `gh pr-review-check` CLI コマンドの実行を委譲し、PRのレビューデータを収集させる。収集ワーカーは output directory と basic-set を parent に返す。CLIは主要な収集手段だが、収集結果の完全性は自動的には保証されない。
 
-**重要**: このフェーズで得られる件数は **raw 収集件数** であり、そのまま「実際に対応すべきレビュー件数」ではない。収集エントリファイルには `thread` / `issue_comment` / `review` が混在し、後段で `type: review` の参考情報やノイズ `issue_comment` を除外して初めて **actionable（実処理対象）件数** が確定する。
+**重要**: このフェーズで得られる件数は **raw 収集件数** であり、そのまま「実際に対応すべきレビュー件数」ではない。収集エントリファイルには `thread` / `issue_comment` / `review` が混在し、後段で `type: review` の要約（参考情報）やノイズ `issue_comment` を除外し、`type: review` の本文から取り出したレビュー本文の指摘（3-5）を加えて初めて **actionable（実処理対象）件数** が確定する。
 
 ```bash
 # PR番号を指定して収集
@@ -109,7 +110,7 @@ fi
 **件数の用語**:
 
 - `rawOpenCount`: 収集エントリ（`ENTRIES_JSONL`）上で `action` が `pending` / `fix` / `in_progress` のレコード数。観測指標であり、完了判定には使わない
-- `actionableOpenCount`: Phase 3 で Oracle が `review`・除外対象 `issue_comment`・保留の一覧にある entry を落とし、work packet 化した後に残る実処理対象数。`pending` / `fix` に加えて、未完了の `in_progress` も含む。この数に入る entry を**未完了の actionable entry** と呼ぶ。完了判定はこれを使う
+- `actionableOpenCount`: Phase 3 で Oracle が `review` の entry 自体・除外対象 `issue_comment`・保留の一覧にある entry を落とし、`type: review` の本文から取り出したレビュー本文の指摘（対応済みを除く。3-5）を加えて、work packet 化した後に残る実処理対象数。`pending` / `fix` に加えて、未完了の `in_progress` も含む。この数に入る entry を**未完了の actionable entry** と呼ぶ。完了判定はこれを使う
 
 **エントリ構造**:
 
@@ -188,10 +189,9 @@ fi
 
 **Reviews（レビューサマリー）の扱い**:
 
-- ReviewsはAI botによるサマリーが多く、個別の対応は不要
-- `type: review` のエントリはステータス管理の対象外
-- 参考情報として扱う。`rawOpenCount` には含まれうるが、`actionableOpenCount` には含めない
-- 新 CLI は「関連する thread がすべて done の review」に `action: done` を導出する。旧 CLI の review は常に `pending` のままである。いずれにせよ review は actionable 対象外なので扱いは変わらない
+- Reviews は AI bot によるサマリーが多い。レビューの要約そのもの（指摘でない文）は、個別の対応は不要で、参考情報として扱う。`rawOpenCount` には含まれうるが、`actionableOpenCount` には含めない
+- `type: review` の entry 自体はステータス管理の対象外（スレッドのような返信・resolve ができない）。ただし本文に、スレッドにならない指摘が載ることがある。Oracle はそれを「レビュー本文の指摘」として取り出し、ほかの entry と同じく扱う（3-5）
+- 新 CLI は「関連する thread がすべて done の review」に `action: done` を導出する。旧 CLI の review は常に `pending` のままである。review の entry 自体が actionable 対象外であることは変わらないが、この `action` を本文の指摘の対応済みの判断に使えるかは、3-5 で決める
 
 ### Phase 2: 完全性検証
 
@@ -382,7 +382,7 @@ parent は Phase 3 の前に、今回の run が **Oracle 1体へ直送できる
 
 #### 3-0-C: 分類サブエージェントへの分類依頼
 
-`completenessState` が `complete` であることを確認した後、または fallback 実行後に収集エントリファイル（`RAW_REVIEWS_PATH`）を追加収集済みのレビュー集合で更新した後、parent は分類担当サブエージェント（デフォルト: Oracle）に分類を依頼する。fallback 後も `completenessState` 自体は `incomplete` / `inconclusive` のまま残りうるため、その場合は **degraded collection** として Oracle/worker に明示して扱う。**parent 自身が validity 判定・ノイズ判定・グループの意味付けを行ってはならない。**
+`completenessState` が `complete` であることを確認した後、または fallback 実行後に収集エントリファイル（`RAW_REVIEWS_PATH`）を追加収集済みのレビュー集合で更新した後、parent は分類担当サブエージェント（デフォルト: Oracle）に分類を依頼する。fallback 後も `completenessState` 自体は `incomplete` / `inconclusive` のまま残りうるため、その場合は **degraded collection** として Oracle/worker に明示して扱う。**parent 自身が validity 判定・ノイズ判定・グループの意味付けを行ってはならない（縮退時と、失敗した shard の分類を除く）。**
 
 small run の Oracle 入力:
 
@@ -407,6 +407,7 @@ Oracle が返すもの:
 
 - `action=pending` / `action=fix` の処理対象エントリ一覧
 - Phase 3-3 / 3-4 を適用した除外結果
+- `type: review` の本文から取り出したレビュー本文の指摘（ID・fingerprint・対象ファイル・行。対応済みとして除いたものは、その根拠つき。3-5）
 - shard ごとの分類結果
 - Phase 4 相当のグループ分け結果
 - Phase 5 で parent が配布できる work packet 一覧
@@ -414,6 +415,8 @@ Oracle が返すもの:
 - `rawOpenCount` と `actionableOpenCount`（保留の一覧にある entry を除く）の区別を含む件数要約
 
 Oracle の責務は**分類・グループ化・ワークパケット生成のみ**である。実装・返信・resolve・push は Phase 6 の実行ワーカーが行う。
+
+分類サブエージェントが失敗した shard は、parent が `SKILL.md`「サブエージェントが無い環境での縮退」と同じ規律で分類する。ループを止めてユーザーに確認しない。縮退したことは最終報告に書く（`reporting-and-policy.md`「失敗時のハンドリング」）。
 
 #### 3-1: parent の軽量前処理（medium/large run のみ）
 
@@ -450,9 +453,9 @@ coarse grouping ルール:
 - **small run**: `action: pending` / `fix` のエントリを本文込みで読み込んでよい。ただしこれは raw 集合であり、Oracle が actionable 集合へ絞り込む
 - **medium/large run**: Oracle はまず shard を読み、必要な shard のみ本文を深掘りする
 - **`action: done` / `skip` / `in_progress` のエントリ**: メタデータのみ保持し、判断材料として参照可能にする
-  - `thread`: id / action / path / line / comments[0].author の要約
+  - `thread`: id / action / path / line / parentReviewId / comments[0].author の要約
   - `issue_comment`: id / action / author の要約
-  - `review`: 処理対象外のため読み込み不要
+  - `review`: id / action / author の要約。`action` が `done` または `skip` で thread を持たない review は、本文を読まない。それ以外の review は、`action` によらず本文を読んで、レビュー本文の指摘を取り出す（3-5）
 
 ```bash
 # まず raw の open 集合を slurp して扱う（mixed-schema JSONL を inputs 前提で雑に扱わない）
@@ -473,10 +476,10 @@ jq -sr '
   | map({id, type, action, author, body: .body[:300]})
 ' "${ENTRIES_JSONL}"
 
-# review: 参考情報として別扱いする。actionable 集合に混ぜない
+# review: 本文からレビュー本文の指摘を取り出す対象（3-5）。action によらず全件を出す（thread を持つ review の action: done は、本文の指摘の対応済みを意味しないため）。本文は切らない（切ると取り出せない指摘が出る）。review の entry 自体は actionable 集合に混ぜない
 jq -sr '
-  map(select((.action == "pending" or .action == "fix") and .type == "review"))
-  | map({id, type, action, author, state, body: .body[:300]})
+  map(select(.type == "review"))
+  | map({id, type, action, author, state, body})
 ' "${ENTRIES_JSONL}"
 ```
 
@@ -484,7 +487,7 @@ jq -sr '
 
 以下のエントリは処理対象から**完全に除外**する:
 
-- `type: review` のエントリ（AIレビュアーのサマリー。参考情報としてのみ扱う）
+- `type: review` のエントリ自体（レビューの要約。参考情報としてのみ扱う。本文にある、スレッドになっていない指摘は、3-5 で「レビュー本文の指摘」として取り出す）
 - `is_resolved: true` のスレッド（既に解決済み）
 
 **保留の一覧による除外**: 保留の一覧（6-5）にある entry は、work packet に入れず、`actionableOpenCount` に数えない。一覧に載っていない entry が一覧の指摘と同じ懸念なら（AI レビュアーは、閉じた指摘と同じ懸念を新しいスレッドで出し直すことがある）、work packet に入れず、同じ保留に加える entry として parent へ返す。parent はその entry を、同じ保留の下で一覧に加える。同じ懸念かどうかは、Oracle が一覧の「決めてほしいこと」と entry の本文を読んで判断する。
@@ -496,9 +499,9 @@ jq -sr '
 1. **投稿者がbot**である（`[bot]` サフィックス、または既知のbot名: `chatgpt-codex-connector[bot]`, `coderabbitai[bot]`, `github-actions[bot]` 等）
 2. **本文がコード変更を要求する具体的な指摘を含まない**（レビュートリガー応答、「no issues found」系サマリー、定型メッセージ等）
 
-**このスキル自身が投稿した `issue_comment`**（再レビューの依頼と、outside-diff の集約報告）も、指摘ではないので、ノイズと同じく分類から除く。投稿者は `gh` にログインしているアカウントで、bot とは限らないため、上の 2 条件だけでは除外できない。このスキルの投稿かどうかは、Oracle が本文を読んで判断する。
+**このスキル自身が投稿した `issue_comment`**（再レビューの依頼と、レビュー本文の指摘への集約報告）も、指摘ではないので、ノイズと同じく分類から除く。投稿者は `gh` にログインしているアカウントで、bot とは限らないため、上の 2 条件だけでは除外できない。このスキルの投稿かどうかは、Oracle が本文を読んで判断する。
 
-**ノイズエントリ（このスキル自身の投稿を含む）への処理**: Reaction付与・コメント投稿・`gh pr-review-check resolve` の呼び出しは**一切行わない**。レポートにも含めない。分類の対象にはしないが、Phase 7 の再レビューの確認では、レビュアーのコメントとして読む。
+**ノイズエントリ（このスキル自身の投稿を含む）への処理**: Reaction付与・コメント投稿・`gh pr-review-check resolve` の呼び出しは**一切行わない**。レポートにも含めない。分類の対象にはしないが、Phase 7 の再レビューの確認では、レビュアーのコメントとして読む。集約報告は、3-5 で、レビュー本文の指摘が対応済みかの記録として読む。
 
 **除外してはならないもの（保護対象）**:
 
@@ -511,6 +514,23 @@ jq -sr '
 - `rawOpenCount` にはノイズ判定前の `issue_comment` が含まれうる
 - `actionableOpenCount` には、Oracle がノイズでないと判断した `issue_comment` だけを含める
 
+#### 3-5: レビュー本文の指摘
+
+`type: review` の本文には、スレッドにならない指摘が載ることがある（CodeRabbit の「Outside diff range comments」や本文にだけ載る nitpick、Copilot の「Comments suppressed due to low confidence」など）。thread の entry には出ないので、拾わなければ仕分けも対応も報告もされない。Oracle は各 `type: review` の本文を読み、スレッドになっていない指摘を**レビュー本文の指摘**として 1 件ずつ取り出す。レビューの要約そのもの（指摘でない文）は、参考情報として扱い、取り出さない。
+
+レビュー本文の指摘は、拡張機能が出力する entry ではなく、Oracle が `type: review` の entry から作る entry である。次を持たせる:
+
+- ID: `<review の entry ID>#<連番>`（連番は本文に現れる順）
+- fingerprint: レビュアーが本文に埋め込んでいればそれ（例: `cr-comment:v1:...`）。無ければ対象ファイル・行・見出し
+- レビュアー、対象ファイル・行（本文に書かれていれば）、指摘の本文
+
+**対応済みの見分け方**: 次の指摘は対応済みとして除く（work packet に入れず、`actionableOpenCount` に数えない）:
+
+- このスキル自身が、同じレビュー（1 行目の review の entry ID で見分ける）について投稿した集約トップレベルコメント（`reporting-and-policy.md` 禁止事項 2 の例外。形式は `status-and-resolve.md`）に、fingerprint（無ければ対象ファイル・行・見出し）で載っている指摘。集約コメントを主な記録にするのは、拡張機能の版によらず見分けられるためである。別のレビューで同じ fingerprint の指摘が出し直されたときは、新しい指摘として判断し直す（修正で解消していなかった指摘を取りこぼさないため。すでに直っていれば `skip_invalid` になる）
+- `action` が `done` または `skip` の `type: review` の本文の指摘すべて（拡張機能が、レビュー本体への viewer〈`gh` にログインしているアカウント〉のリアクションを読む版で付く値）。ただし、その review の ID を `parentReviewId` に持つ thread の entry があるときは、この判定を使わない（thread がすべて done であることからも `action: done` が付く版があり、本文の指摘の対応済みを意味しないため）
+
+**扱い**: レビュー本文の指摘は、ほかの entry と同じく妥当性と対応方針（6-1・6-2）を決め、未完了の actionable entry に数え、保留にもなる。保留なら PR の上では何もしない（6-3）。連番は本文の更新でずれうるので、保留の一覧では fingerprint で同じ指摘かを見分ける（6-5）。work packet には、指摘の本文・fingerprint・対象ファイル・行・review の entry ID を入れる。
+
 ### Phase 4: work packet 確定
 
 Oracle が関連する指摘をグループ化し、効率的な処理を可能にする。parent は Oracle が返した分類結果を統合し（同じ保留に加える entry は保留の一覧に加える。3-3）、必要なら packet を再分割する。
@@ -520,6 +540,7 @@ Oracle が関連する指摘をグループ化し、効率的な処理を可能�
 1. **同一ファイル**: 同じファイルへの指摘は同じグループ
 2. **同一機能**: 機能的に関連する複数ファイルの指摘
 3. **依存関係**: 修正が他の修正に依存する場合
+4. **同一 review の本文の指摘**: 同じ `type: review` から取り出したレビュー本文の指摘は同じグループ（集約トップレベルコメントをレビューごとに 1 件にするため。6-3）
 
 **グループ構造**:
 
@@ -545,6 +566,7 @@ Group-C:
 - 大きすぎるグループは parent が sibling packet に再分割する
 - 再分割後の packet はそれぞれ独立セッションの実行ワーカーへ渡す
 - 再分割は意味判断を伴わない機械処理に限定する
+- 同じ review の本文の指摘は、再分割しても分けない
 
 ### Phase 5: packet dispatch
 
@@ -572,6 +594,8 @@ parent が Oracle から受け取った work packet を N 個の実行ワーカ�
 
 各実行ワーカーが割り当てられたグループ / work packet を自律的に処理する。
 
+**承認モード**: ユーザーが承認モード（`reporting-and-policy.md`「承認モード」）を明示したときは、各実行ワーカーは 6-2 までで止め、各 entry の妥当性と対応方針（`fix` / `skip_invalid` / `skip_declined` / `hold` と理由）を、実装せずに parent へ返す。承認の後に、承認された方針を packet に添えて、実行ワーカーに 6-3 以降を行わせる。
+
 **入力制約**:
 
 - 1ワーカー = 1 packet
@@ -597,7 +621,7 @@ parent が Oracle から受け取った work packet を N 個の実行ワーカ�
 | `fix`          | 対応する             | validity >= medium                                      |
 | `skip_invalid` | 対応しない（誤指摘） | 事実誤認、実装の誤読、既に対応済みなど。resolveしてよい |
 | `skip_declined` | 対応しない（理由つきの見送り） | 指摘の内容は正しいが、直すとリグレッションの危険が負債を残す危険を上回るもの、または仕様に根拠の無い制限の追加を求めるもの（具体的な害が示されているものは `hold`）。resolveしてよい |
-| `hold`         | 保留                 | 情報不足でユーザーの判断が必要、または仕様に無い安全・認可の制限を求める指摘で、具体的な害が示されておりユーザーの判断が必要。ループは止めず、最終報告でユーザーに判断を求める（6-3 の hold の処理フロー） |
+| `hold`         | 保留                 | 次のいずれかでユーザーの判断が必要: 情報不足／仕様に無い安全・認可の制限を求める指摘で、具体的な害が示されている／指摘の修正がテストと両立しない（6-4）。ループは止めず、最終報告でユーザーに判断を求める（6-3 の hold の処理フロー） |
 
 #### 6-3: 実装・完了処理
 
@@ -611,7 +635,7 @@ parent が Oracle から受け取った work packet を N 個の実行ワーカ�
 
 2. **修正実施**: 対象ファイルの現状を確認し、影響範囲を考慮して修正
 
-3. **テスト・プッシュ**: 修正後のテスト・push は 6-4 で一括実施。**push が成功してから**以下のステップ 4〜6 を実行する。push が失敗した場合は `in_progress` のまま維持し、resolve しない
+3. **テスト・プッシュ**: 修正後のテスト・push は 6-4 で一括実施。**push が成功してから**以下のステップ 4〜6 を実行する。push が失敗した場合は 6-4 の手順で扱い、直せなければ `in_progress` のまま維持して resolve しない
 
 4. **コメント返信**: スレッドに修正内容を 1 回だけ返信する（`type: thread` の場合）。本文は「修正しました（commit <hash>）。」に続けて修正内容の説明を書き、`status-and-resolve.md` の「返信本文の渡し方」の手順で渡す
 
@@ -656,13 +680,20 @@ parent が Oracle から受け取った work packet を N 個の実行ワーカ�
 
 ##### `action: hold` の処理フロー
 
-PR の上では何もしない。返信・リアクション・resolve のどれもしない。決めるのはユーザーで、ユーザーが読むのは会話に出る最終報告であり、スレッドは AI レビュアーが自分で resolve したり書き換えたりするので、保留の状態を PR の上には保てないためである。
+PR の上では何もしない。返信・リアクション・resolve のどれもしない。決めるのはユーザーで、ユーザーが読むのは会話に出る最終報告であり、スレッドは AI レビュアーが自分で resolve したり書き換えたりするので、保留の状態を PR の上には保てないためである。修正を始めた後に保留にした entry（6-4 のテスト失敗など）は、付けた 👀 を外して、PR の上を元に戻す（`status-and-resolve.md` の「リアクションを外す」）。
 
 実行ワーカーは、次のものを parent へ返す（6-5）:
 
 - entry ID
 - レビュアー
 - ユーザーに決めてほしいこと: 誰が何を知り、または何ができて、どんな害が起きるか。仕様が定めていること、定めていないこと。仕様に書き足す案（答えごとの対応を含む）。情報不足による保留では、判断に足りない情報とその問い
+
+##### レビュー本文の指摘の完了処理
+
+レビュー本文の指摘（3-5）には、返信先のスレッドも resolve も無い。コードの修正（`fix`）、対応しない判断（`skip_invalid` / `skip_declined`）、保留（`hold`。PR の上では何もしない）は、thread の entry と同じに行う。対応開始時の 👀 は付けない（指摘ごとのリアクション先が無く、レビュー本体への 👍 は全件の対応後に付けるため）。完了処理は次のとおり:
+
+1. **集約トップレベルコメント**: push の後に（その周に push が無いときは、対応方針を決めた後に）、レビューごとに 1 件投稿する。そのレビューでこの周に対応した本文の指摘を、fingerprint・対象ファイル・行と結果（修正した commit／誤指摘の理由／見送りの理由）つきで並べる。保留にした指摘は載せない。形式と手順は `status-and-resolve.md` の「レビュー本文の指摘の対応報告」。push に失敗した周は、修正した指摘を載せず、誤指摘と見送りの指摘だけを載せて投稿する（修正した指摘は、次の収集でも未完了の actionable entry のまま残る。6-4。誤指摘と見送りはコードを変えないので、push の成否によらず記録する。`reporting-and-policy.md` 禁止事項 5）
+2. **レビュー本体への 👍**: そのレビューの本文の指摘に保留が無く、すべて対応し終えたときだけ、レビュー本体に 👍 を付ける（`status-and-resolve.md` の `type: review` エントリの手順）。対応し終えたかは、この周の指摘と、このスキルの集約トップレベルコメントに載っている指摘を合わせて判断する
 
 ##### 冪等性チェック（全アクション共通）
 
@@ -671,16 +702,17 @@ PR の上では何もしない。返信・リアクション・resolve のどれ
 - **返信済みチェック**: スレッドに既に自分（bot）の返信が存在する場合は重複投稿しない
 - **reaction済みチェック**: 該当エントリに既に同種の reaction がある場合はスキップ
 - **resolved済みチェック**: 既に `is_resolved: true` のスレッドには何もしない
+- **集約コメントの投稿済みチェック**: 同じレビューの同じ fingerprint の指摘が、そのレビューについてこのスキルが投稿した集約トップレベルコメントに既に載っているときは、載せ直さない
 
 ##### resolve 対象の制限
 
 - `type: thread` のみ resolve 可能（GitHub API の制約）
-- `type: issue_comment` と `type: review` は resolve できず、返信先のスレッドも無い（新しいトップレベルコメントの投稿は、`reporting-and-policy.md` 禁止事項 2 の例外を除いて禁止）ため、reaction のみで対応
+- `type: issue_comment` と `type: review` は resolve できず、返信先のスレッドも無い（新しいトップレベルコメントの投稿は、`reporting-and-policy.md` 禁止事項 2 の例外を除いて禁止）ため、reaction のみで対応する。`type: review` の本文の指摘は、これに加えて集約トップレベルコメントで報告する（レビュー本文の指摘の完了処理）
 - **bot 起票**のスレッドのみ自動 resolve。**人間レビュアー起票**のスレッドは返信 + reaction のみとし、resolve は行わない
 
 #### 6-4: テスト・プッシュ
 
-全ての修正完了後、ローカルでテストを実行し、成功したらプッシュする。**push 成功後に** Phase 6-3 の完了処理（コメント返信・reaction・resolve）を実行する。
+全ての修正完了後、ローカルでテストを実行し、成功したら（修正の前から落ちていたテストだけが落ちているときを含む）プッシュする。**push 成功後に** Phase 6-3 の完了処理（コメント返信・reaction・resolve）を実行する。
 
 1. **ローカルテスト実行**:
 
@@ -689,7 +721,10 @@ PR の上では何もしない。返信・リアクション・resolve のどれ
    npm test  # または make test, go test ./... など
    ```
 
-2. **テスト失敗時**: 修正を継続し、テストが通るまで繰り返す
+2. **テスト失敗時**: 失敗の原因を確かめて、次のとおり扱う:
+   - 入れた修正が原因なら、直して再実行する
+   - 同じテストが同じ原因で、2 回直しても通らないときは、その entry の修正だけを取り消し（ほかの entry の修正は残す）、その entry に付けた 👀 を外して、保留にする。指摘とテストが両立しない理由と選べる対応を、決めてほしいこととして parent へ返す（6-3 の hold の処理フロー）。ループは続ける
+   - 修正を入れる前の commit でも、同じテストが同じ理由で落ちる（もとから落ちている、環境が原因）と確かめたものは、このループでは直さない。push へ進み、最終報告に「修正の前から落ちていたテスト」として書き、2 つ目のテンプレートを使う（落ちているテストがあるまま「マージ可能です」とは書かない）。確かめるときは、作業ツリーを壊さない方法（`git worktree` で別の作業ツリーを作る、など）で、修正を入れる前の commit のテストを実行する
 
 3. **プッシュ**:
 
@@ -697,7 +732,12 @@ PR の上では何もしない。返信・リアクション・resolve のどれ
    git push origin $(git branch --show-current)
    ```
 
-4. **ユーザーへ報告**: プッシュ完了を通知
+   push に失敗したときは、原因で扱いを分ける:
+   - **non-fast-forward で拒否された**: `git pull --rebase origin $(git branch --show-current)` でリモートの commit を取り込み、テストをやり直してから push し直す（CI の自動コミットなどで、リモートのブランチが先に進むことがあるため）。rebase で衝突したら解消して続ける。解消できなければ `git rebase --abort` して、「直せない失敗」と同じに扱う
+   - **それ以外の失敗**（認証、権限、保護されたブランチ、pre-push フックの失敗など）: 変更の中で直せる原因（pre-push フックの指摘など）なら、直して push し直す。直せなければ「直せない失敗」とする
+   - **直せない失敗**: 修正（`fix`）の entry を `in_progress` のまま残して resolve せず、ループを終える（Phase 7 の待機には進まず、Phase 8 の手順 1 で最終報告へ進む。push できていない変更に対する再レビューは来ないため）。最終報告の 2 つ目のテンプレートに「push できなかった変更」として、エラーと対象の entry を書く。`skip_invalid`・`skip_declined` の entry は、push の成否によらず返信・リアクション・resolve を済ませる（`reporting-and-policy.md` 禁止事項 5）
+
+4. **ユーザーへ報告**: プッシュ完了を通知（修正の前から落ちていたテストがあるときは、「テスト成功」の代わりにそのテストを書く）
    ```
    ✅ 修正完了・テスト成功・プッシュ済み
    次のAI再レビューを待機します（初回2〜3分、以後バックオフ）...
@@ -705,9 +745,14 @@ PR の上では何もしない。返信・リアクション・resolve のどれ
 
 #### 6-5: 実行ワーカーの返却と保留の一覧
 
-**実行ワーカーの返却**: 実行ワーカーは、受け取った packet の entry ごとに、entry ID と実施した action（`fix` / `skip_invalid` / `skip_declined` / `hold`）を parent へ返す。`hold` には、レビュアーとユーザーに決めてほしいこと（6-3 の hold の処理フロー）を添える。parent はこの返却から、最終報告の件数と保留の一覧を作る。同じ entry が複数回返ったときは、最後の返却を数える。サブエージェント機構が無い環境では、parent 自身が packet ごとに同じ内容を記録する。
+**実行ワーカーの返却**: 実行ワーカーは、受け取った packet の entry ごとに、entry ID と実施した action（`fix` / `skip_invalid` / `skip_declined` / `hold`）を parent へ返す。`hold` には、レビュアーとユーザーに決めてほしいこと（6-3 の hold の処理フロー）を添える。次のものがあるときは、entry の返却に加えて返す:
 
-**保留の一覧**: parent は、その実行の間、保留の一覧（entry ID、レビュアー、決めてほしいこと）を会話の中で持つ。ファイルには書かず、実行をまたいで持ち越さない（ユーザーの答えは仕様に書き足されるので、次の実行は仕様から判断し直せるため）。一覧にある entry は GitHub の上では `pending` と同じに見えるので、Phase 3 の分類を依頼するときに一覧を分類サブエージェントへ渡す（3-0-C、3-3）。
+- push できなかった変更: エラーと対象の entry（6-4）
+- 修正の前から落ちていたテスト: テスト名・失敗の内容・確かめた commit（6-4）
+
+parent はこの返却から、最終報告の件数と節、保留の一覧を作る。同じ entry が複数回返ったときは、最後の返却を数える。同じテストは 1 件にまとめる。サブエージェント機構が無い環境では、parent 自身が packet ごとに同じ内容を記録する。
+
+**保留の一覧**: parent は、その実行の間、保留の一覧（entry ID、レビュアー、決めてほしいこと。レビュー本文の指摘は fingerprint も）を会話の中で持つ。ファイルには書かず、実行をまたいで持ち越さない（ユーザーの答えは仕様に書き足されるので、次の実行は仕様から判断し直せるため）。一覧にある entry は GitHub の上では `pending` と同じに見えるので、Phase 3 の分類を依頼するときに一覧を分類サブエージェントへ渡す（3-0-C、3-3）。
 
 一覧を持つことは hold の判定ではない。判定は分類サブエージェントと実行ワーカーが行い、parent は結果を記録するだけである（`SKILL.md` ルール 14）。
 
@@ -749,11 +794,11 @@ push の後、parent は、待つ AI レビュアーごとに、最新の head c
 
 - **待つ AI レビュアー**: この PR をレビューしたことのある AI レビュアー（PR を開いたときのレビューを含む）と、この PR にレビューしない・できないと述べたコメントを投稿したことのある AI レビュアー（利用上限で一度もレビューできていない Codex など。最終報告から漏らさないため）。下の「打ち切り」で push では再レビューしない設定とみなしたレビュアーは、待つ AI レビュアーから外す
 - 待つ AI レビュアーごとの結果は、次の 3 つのどれかになる:
-  - **確認できた**: 最新の head commit に対するレビューがある。または、最新の head commit について指摘が無いと述べたコメントがある
+  - **確認できた**: 最新の head commit に対するレビューがある（`gh api repos/<owner>/<repo>/pulls/<pr-number>/reviews --paginate` で、そのレビュアーのレビューの `commit_id` が最新の head commit のもの。この一覧には本文の無いレビューも載り、収集の経路によらず使える）。または、最新の head commit について指摘が無いと述べたコメントがある
   - **再レビューが来ない**: レビューしない・できないと述べたコメントがある（利用上限、ファイル数の上限、一時停止、レート制限、環境の未設定など）。そのレビュアーは待つのをやめ、理由を最終報告に書く。再開の依頼が案内されているもの（一時停止した CodeRabbit への `@coderabbitai review` など）は、最新の head commit ごとに 1 回だけ依頼を投稿してから待つ（下記「再レビューの依頼の投稿」）
   - **まだ来ていない**: 上のどれも無い。手順 2 のバックオフ（初回 2〜3 分、以後は指数バックオフ）でポーリングを続ける。最新の head commit のレビューに着手した・頼まれた形跡があるあいだは、待つ時間と周回の数に上限を設けない（指摘すべき内容がある限り、レビューは来続けるべきであり、上限は来るべきレビューを取りこぼすだけである）。形跡が無いときは、下の「打ち切り」までポーリングを続ける
 - **形跡**: 最新の head commit のレビューに着手した・頼まれた形跡は、`gh pr view <pr-number> --json reviewRequests,statusCheckRollup` で見えるレビュー依頼（`reviewRequests`）と head commit のチェック・ステータス（`statusCheckRollup` のうち実行中・待機中のもの。名前から、そのレビュアーのものかを判断する）、および、レビュアーが着手を述べたコメントやリアクションで確かめる。このスキルが投稿した再レビューの依頼のコメントは、形跡に数えない（依頼しただけで、無期限に待つことになるため）
-- **打ち切り**: 待ち始めから、バックオフが最長の間隔（1回あたり上限 10 分程度）に達し、その間隔で 1 回待った後の再収集でも、結果も形跡も無いレビュアーは、待つのをやめる。形跡の無いレビュアーを待ち続けても何も届かず、ループが終わらないためである。待ち始めは、最新の head commit が決まってからの最初の待機で、他の人や CI が push して最新の head commit が変わったときは数え直す。扱いは、そのレビュアーがこの PR の前の push を再レビューしていたか（そのレビュアーの `type: review` の entry の `commit` が 2 つ以上の異なる commit にわたるか。`type: thread` の entry の `commit` は値が入らないので使わない）で分ける:
+- **打ち切り**: 待ち始めから、バックオフが最長の間隔（1回あたり上限 10 分程度）に達し、その間隔で 1 回待った後の再収集でも、結果も形跡も無いレビュアーは、待つのをやめる。形跡の無いレビュアーを待ち続けても何も届かず、ループが終わらないためである。待ち始めは、最新の head commit が決まってからの最初の待機で、他の人や CI が push して最新の head commit が変わったときは数え直す。扱いは、そのレビュアーがこの PR の前の push を再レビューしていたか（「確認できた」と同じレビューの一覧で、そのレビュアーのレビューの `commit_id` が 2 つ以上の異なる commit にわたるか）で分ける:
   - 前の push を再レビューしていたレビュアー: 「再レビューが来ない」にする（理由: 再レビューの形跡が無い）
   - PR を開いたときにだけレビューしていたレビュアー: push では再レビューしない設定とみなして待つのをやめ、待つ AI レビュアーから外す。最終報告に ℹ️ の行で書く（この行だけでは「マージ可能です」を妨げない）
 - `issue_comment` の entry には commit も投稿時刻も無い。最新の head commit に対するものかを判断できないときは、`gh api repos/<owner>/<repo>/issues/<pr-number>/comments` の `node_id`（entry の ID に一致する）と `created_at` を引き、最新の head commit の commit 時刻（`gh api repos/<owner>/<repo>/commits/<sha> --jq .commit.committer.date`。`<sha>` は `headRefOid`）より後に投稿されたかで判断する。push の時刻は、他の人や CI の自動コミットでは分からないためである
@@ -779,16 +824,17 @@ push の後、parent は、待つ AI レビュアーごとに、最新の head c
 
 ループ継続/終了の最終権限は parent が持つ。Oracle や実行ワーカーは「完了」や「ループ離脱」を独自に決めてはならない。
 
-1. parent は Phase 7 で取得した最新 collection snapshot（未完了の actionable entry の数と、待つ AI レビュアーごとの再レビューの確認結果）を入力として使用する（未取得ならこの時点で再収集する）
-2. **完全性ゲート再確認**: `collection-manifest.json` の `completenessState` が `complete` であること、または `fallbackUsed == true` の degraded collection として扱えることを検証
-3. 保留の一覧を除いた未完了の actionable entry が何件あるか確認する（raw pending 件数では判断しない。保留の一覧にある entry は `pending` のまま残るので、raw pending 件数は 0 にならない）
-4. **1 件以上**: **必ず** その未完了の actionable entry を再処理して対応継続（ループ離脱禁止）。Phase 3 の分類結果から Phase 4 へ進む
-5. **0 件 かつ 待つ AI レビュアーに「まだ来ていない」がいる**: Phase 7 へ戻り、待機間隔を伸ばして（指数バックオフ）再収集する
-6. **0 件 かつ 「まだ来ていない」が無い かつ 完全性 `complete`**: ループ終了 → 最終報告へ進む（保留の一覧が空で、待つ AI レビュアーのすべてが「確認できた」なら **マージ可能状態**）
-7. **0 件 かつ 「まだ来ていない」が無い かつ 完全性 `incomplete/inconclusive` だが `fallbackUsed == true`**: degraded collection としての確認を完了したうえで、ループ終了 → 最終報告へ進む（最終報告に degraded を明記する。保留の一覧が空で、待つ AI レビュアーのすべてが「確認できた」なら **条件付きマージ可能状態**）
-8. **0 件 かつ 「まだ来ていない」が無い だが 完全性 `incomplete/inconclusive` かつ `fallbackUsed != true`**: Phase 3-0-A のフォールバックパスを実行してから再判定
+1. **直せない push の失敗（6-4）がある**: ループを終え、最終報告へ進む（2 つ目のテンプレート）。以降の手順は行わない。未完了の actionable entry が残っていても、ループは再開しない（直せない失敗は、ループを回しても進まないため）
+2. parent は Phase 7 で取得した最新 collection snapshot（未完了の actionable entry の数と、待つ AI レビュアーごとの再レビューの確認結果）を入力として使用する（未取得ならこの時点で再収集する）
+3. **完全性ゲート再確認**: `collection-manifest.json` の `completenessState` が `complete` であること、または `fallbackUsed == true` の degraded collection として扱えることを検証
+4. 保留の一覧を除いた未完了の actionable entry が何件あるか確認する（raw pending 件数では判断しない。保留の一覧にある entry は `pending` のまま残るので、raw pending 件数は 0 にならない）
+5. **1 件以上**: **必ず** その未完了の actionable entry を再処理して対応継続（ループ離脱禁止）。Phase 3 の分類結果から Phase 4 へ進む
+6. **0 件 かつ 待つ AI レビュアーに「まだ来ていない」がいる**: Phase 7 へ戻り、待機間隔を伸ばして（指数バックオフ）再収集する
+7. **0 件 かつ 「まだ来ていない」が無い かつ 完全性 `complete`**: ループ終了 → 最終報告へ進む
+8. **0 件 かつ 「まだ来ていない」が無い かつ 完全性 `incomplete/inconclusive` だが `fallbackUsed == true`**: degraded collection としての確認を完了したうえで、ループ終了 → 最終報告へ進む（最終報告に degraded を明記する）
+9. **0 件 かつ 「まだ来ていない」が無い だが 完全性 `incomplete/inconclusive` かつ `fallbackUsed != true`**: Phase 3-0-A のフォールバックパスを実行してから再判定
 
-**最終報告のテンプレート**: ループ終了のとき、保留の一覧が空で、待つ AI レビュアーのすべてが「確認できた」なら、1 つ目（マージ可能状態）を使う。保留の一覧に entry が残るか、「再レビューが来ない」レビュアーがいれば、2 つ目（マージの前に確認が要る）を使い、「マージ可能です」とは書かない。Phase 7 の「打ち切り」で push では再レビューしない設定とみなしたレビュアーは、待つ AI レビュアーから外れているので、どちらのテンプレートでも ℹ️ の行で書き添えるだけにする（`status-and-resolve.md` の「最終報告」）。
+**最終報告のテンプレート**: ループ終了のとき、次のすべてを満たすなら、1 つ目（マージ可能状態。手順 8 で終えたときは条件付きマージ可能状態）を使う: 保留の一覧が空、待つ AI レビュアーのすべてが「確認できた」、push できなかった変更が無い、修正の前から落ちていたテストが無い。保留の一覧に entry が残る、「再レビューが来ない」レビュアーがいる、push できなかった変更がある、修正の前から落ちていたテストがある、のどれかに当たれば、2 つ目（マージの前に確認が要る）を使い、「マージ可能です」とは書かない。Phase 7 の「打ち切り」で push では再レビューしない設定とみなしたレビュアーと、分類を縮退した shard は、どちらのテンプレートでも ℹ️ の行で書き添えるだけにする（これらだけでは「マージ可能です」を妨げない。`status-and-resolve.md` の「最終報告」）。
 
 **完了判定の必須条件**:
 
@@ -807,10 +853,15 @@ RAW_OPEN_COUNT=$(jq -c 'select(.action == "pending" or .action == "fix" or .acti
 ACTIONABLE_OPEN_COUNT=<latest-actionable-open-count>
 # WAITING_REVIEWER_COUNT は、待つ AI レビュアーのうち「まだ来ていない」の数（Phase 7 の再レビューの確認）
 WAITING_REVIEWER_COUNT=<not-yet-arrived-reviewer-count>
+# PUSH_FAILED は、直せない push の失敗（6-4）があるか（true | false）
+PUSH_FAILED=<true-or-false>
 COMPLETENESS=$(jq -r '.completenessState' "${MANIFEST_PATH}")
 FALLBACK_USED=$(jq -r '.fallbackUsed // false' "${MANIFEST_PATH}")
 
-if [ "$ACTIONABLE_OPEN_COUNT" -gt 0 ]; then
+if [ "$PUSH_FAILED" = "true" ]; then
+  echo "⚠️ push できなかった変更あり（直せない失敗）。ループを終える"
+  # → 最終報告へ（2 つ目のテンプレート）。以降の判定は行わない
+elif [ "$ACTIONABLE_OPEN_COUNT" -gt 0 ]; then
   echo "🔄 未完了 actionable entry あり: $ACTIONABLE_OPEN_COUNT 件 (rawOpenCount=$RAW_OPEN_COUNT)"
   # → Phase 3 へ
 elif [ "$WAITING_REVIEWER_COUNT" -gt 0 ]; then
@@ -819,7 +870,7 @@ elif [ "$WAITING_REVIEWER_COUNT" -gt 0 ]; then
 elif [ "$COMPLETENESS" = "complete" ]; then
   echo "✅ 未完了 actionable entry なし（完全性確認済み）"
   echo "ℹ️ rawOpenCount=$RAW_OPEN_COUNT は参考値"
-  # → ループ終了。保留の一覧と再レビューの確認結果から、最終報告のテンプレートを選ぶ
+  # → ループ終了。最終報告のテンプレートを選ぶ（上の「最終報告のテンプレート」の基準）
 elif [ "$FALLBACK_USED" = "true" ]; then
   echo "✅ 未完了 actionable entry なし（degraded collection で確認）"
   echo "⚠️ completenessState=$COMPLETENESS のため、fallback 後の条件付きマージ可能状態として扱う"
@@ -834,8 +885,8 @@ fi
 
 **禁止事項**:
 
-- 未完了の actionable entry（保留の一覧を除く）が存在する状態で処理を完了とすることは禁止
-- 「ユーザーに確認してからループする」等の判断でループを中断することは禁止（ループは自律的に継続する）。ユーザーの判断が要る指摘は hold にして、最終報告で判断を求める
+- 未完了の actionable entry（保留の一覧を除く）が存在する状態で処理を完了とすることは禁止（直せない push の失敗でループを終えるとき〈6-4〉を除く）
+- 「ユーザーに確認してからループする」等の判断でループを中断することは禁止（ループは自律的に継続する）。ユーザーの判断が要る指摘は hold にして、最終報告で判断を求める。例外は、ユーザーが明示した承認モードの承認待ちだけである（`reporting-and-policy.md`「承認モード」）
 - 保留の一覧にある entry を、未完了の actionable entry に数えてループを続けることは禁止（保留はユーザーの判断待ちで、ループを回しても進まない）
 - **`completenessState` を確認せずに完了とすることは禁止**
 - **不完全な収集結果を「未完了の actionable entry なし」として扱うことは禁止**
