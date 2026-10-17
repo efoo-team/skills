@@ -7,7 +7,7 @@
 | Reaction  | ステータス    | 意味                 | スレッドresolve |
 | --------- | ------------- | -------------------- | --------------- |
 | 👍 (+1)   | `done`        | 対応完了             | bot起票のみ可   |
-| 👎 (-1)   | `skip`        | 対応しない（誤指摘） | 誤指摘のみ可    |
+| 👎 (-1)   | `skip`        | 対応しない（誤指摘、または理由つきの見送り） | 誤指摘・見送りのみ可 |
 | 👀 (eyes) | `in_progress` | 対応中               | 不可            |
 | なし      | `pending`     | 未対応               | —               |
 
@@ -115,6 +115,7 @@ review 本文内の outside-diff 指摘へ対応した場合は、この reactio
 - collection quality: complete | degraded
 - 対応済み: N件（resolved: N件）
 - スキップ（誤指摘）: N件（resolved: N件）
+- 見送り（理由つき）: N件（resolved: N件）
 - 対応サイクル: N回
 
 ✅ マージ可能です（必要に応じて degraded を明記）
