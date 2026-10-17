@@ -166,6 +166,7 @@ Skill instructions here.
 - Team-owned skills（エージェント限定）: 個別の行を追加する
 - External skills: 個別の行を追加する
 - 追加・削除のコマンドは `run_skills` を通し、部分失敗を終了コードへ反映する。全エージェント向けには `GLOBAL_AGENTS` を指定する（グローバル対応70エージェント。Eve / PromptScript は非対応のため除外）。CLI のバージョン変更時は配列と失敗検知の仕様も確認する
+- `review-pr-check` が使う GitHub CLI 拡張機能 `abekdwight/gh-pr-review-check` も `setup.sh` が管理する（`run_gh_extension_sync`）。`gh` があれば、未導入なら `gh extension install`、導入済みなら `gh extension upgrade gh-pr-review-check` を実行し、拡張機能のリポジトリの既定ブランチへ追従する（バージョンは pin しない）。`gh` が無いマシンでは案内を出して飛ばす。失敗は MCP 同期と同じく警告にとどめ、終了コードに含めない（スキル自体は配布済みのため）
 - lock ファイル（`~/.agents/.skill-lock.json`）はローカルマシン固有であり、このリポジトリでは管理しない
 
 ## Invocation Quick Reference（起動方法早見表）

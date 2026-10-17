@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -15,6 +15,17 @@ iflow-cli kilo kimi-code-cli kiro-cli kode lingma loaf mcpjam mistral-vibe moxby
 opencode openhands ona pi qoder qoder-cn qwen-code replit reasonix rovodev roo
 tabnine-cli terramind tinycloud trae trae-cn warp windsurf zed zencoder zenflow
 neovate pochi adal universal`.split(/\s+/).sort();
+
+// PATH that contains the commands setup.sh needs but no gh, wherever the real gh is installed.
+function pathWithoutGh(fixture, bin) {
+  const tools = join(fixture, 'tools');
+  mkdirSync(tools);
+  for (const tool of ['awk', 'bash', 'cp', 'dirname', 'mktemp', 'rm', 'tee']) {
+    const found = process.env.PATH.split(':').map(dir => join(dir, tool)).find(candidate => existsSync(candidate));
+    symlinkSync(found, join(tools, tool));
+  }
+  return `${bin}:${tools}`;
+}
 
 function runSetup(t, options = {}) {
   const fixture = mkdtempSync(join(tmpdir(), 'skills-setup-test-'));
@@ -73,13 +84,30 @@ else
   echo 'Failed to install 0 skill(s)'
   echo 'Risk: High; scanner failed to analyze skill'
 fi`);
+  if (!options.noGh) {
+    command('gh', `
+printf 'gh\\t' >> "$TEST_CALLS"
+printf '%s\\t' "$@" >> "$TEST_CALLS"
+printf '\\n' >> "$TEST_CALLS"
+if [ "$2" = "\${GH_FAIL_AT:-none}" ]; then
+  echo "gh: $2 failed" >&2
+  exit 1
+fi
+if [ "$2" = list ]; then
+  printf 'gh image\\tdrogers0/gh-image\\tv1.2.0\\n'
+  printf 'gh pr-review-check-extra\\tother/gh-pr-review-check-extra\\t1a2b3c4d\\n'
+  if [ "\${GH_EXTENSION_INSTALLED:-0}" = 1 ]; then
+    printf 'gh pr-review-check\\tabekdwight/gh-pr-review-check\\t72c4acec\\n'
+  fi
+fi`);
+  }
   if (options.teeFailure) command('tee', 'cat > "$1"\nexit 11');
   const result = spawnSync('/bin/bash', [join(fixture, 'setup.sh')], {
     cwd: fixture,
     encoding: 'utf8',
     env: {
       ...process.env,
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: options.noGh ? pathWithoutGh(fixture, bin) : `${bin}:${process.env.PATH}`,
       TMPDIR: temporary,
       TEST_FIXTURE: fixture,
       TEST_CALLS: callsPath,
@@ -88,6 +116,8 @@ fi`);
       REMOVE_NO_MATCH: options.noMatch ? '1' : '0',
       REMOTE_SETUP: options.remote ? '1' : '0',
       MCP_STATUS: options.mcpFailure ? '9' : '0',
+      GH_FAIL_AT: options.ghFailAt ?? '',
+      GH_EXTENSION_INSTALLED: options.ghInstalled ? '1' : '0',
     },
   });
   assert.ifError(result.error);
@@ -112,6 +142,10 @@ function npxCalls(result) {
   return result.calls.filter(call => call[0] === 'npx');
 }
 
+function ghCalls(result) {
+  return result.calls.filter(call => call[0] === 'gh').map(call => call.slice(1));
+}
+
 test('successful setup preserves all 70 global targets and agent-specific installation', t => {
   const result = runSetup(t);
   assert.equal(result.status, 0);
@@ -129,7 +163,7 @@ test('successful setup preserves all 70 global targets and agent-specific instal
   assert.deepEqual(calls[1], ['npx', '1', 'skills@1.5.14', 'add', 'efoo-team/skills', '--skill', 'formation-designer', '-g', '-a', 'opencode', '-y']);
   assert.deepEqual(calls[3], ['npx', '0', 'skills@1.5.14', 'remove', 'blocked-one', 'blocked-two', '-g', '-y']);
   assert.deepEqual(calls[4], ['npx', '0', 'skills@1.5.14', 'list', '-g']);
-  assert.deepEqual(result.calls.slice(-3).map(call => call[0]), ['hook', 'mcp', 'npx']);
+  assert.deepEqual(result.calls.slice(-5).map(call => call[0]), ['hook', 'mcp', 'gh', 'gh', 'npx']);
   const listPosition = result.stdout.indexOf('completed list');
   const donePosition = result.stdout.indexOf('=== Done ===');
   assert.ok(listPosition >= 0);
@@ -195,5 +229,52 @@ test('MCP failure preserves warning and completion policy', t => {
   const result = runSetup(t, { mcpFailure: true });
   assert.equal(result.status, 0);
   assert.match(result.stderr, /Warning: MCP sync failed/);
+  assert.equal(ghCalls(result).length, 2);
   assert.match(result.stdout, /=== Done ===/);
 });
+
+const ghExtensionRepo = 'abekdwight/gh-pr-review-check';
+const ghExtensionList = ['extension', 'list'];
+const ghExtensionInstall = ['extension', 'install', ghExtensionRepo];
+const ghExtensionUpgrade = ['extension', 'upgrade', 'gh-pr-review-check'];
+
+test('gh extension is installed when no extension of that name exists', t => {
+  const result = runSetup(t);
+  assert.equal(result.status, 0);
+  assert.deepEqual(ghCalls(result), [ghExtensionList, ghExtensionInstall]);
+  assert.match(result.stdout, /=== Installing gh extension: abekdwight\/gh-pr-review-check ===/);
+  assert.match(result.stdout, /=== Done ===/);
+});
+
+test('installed gh extension is upgraded by name and other extensions are left alone', t => {
+  const result = runSetup(t, { ghInstalled: true });
+  assert.equal(result.status, 0);
+  assert.deepEqual(ghCalls(result), [ghExtensionList, ghExtensionUpgrade]);
+  assert.match(result.stdout, /=== Updating gh extension: gh-pr-review-check ===/);
+  assert.match(result.stdout, /=== Done ===/);
+});
+
+test('missing gh skips the extension with guidance', t => {
+  const result = runSetup(t, { noGh: true });
+  assert.equal(result.status, 0);
+  assert.deepEqual(ghCalls(result), []);
+  assert.match(result.stderr, /Warning: gh is not available; skipping gh extension abekdwight\/gh-pr-review-check/);
+  assert.match(result.stderr, /https:\/\/cli\.github\.com\//);
+  assert.equal(npxCalls(result).at(-1)[3], 'list');
+  assert.match(result.stdout, /=== Done ===/);
+});
+
+for (const [ghFailAt, ghInstalled, expectedCalls] of [
+  ['list', false, [ghExtensionList]],
+  ['install', false, [ghExtensionList, ghExtensionInstall]],
+  ['upgrade', true, [ghExtensionList, ghExtensionUpgrade]],
+]) {
+  test(`gh extension ${ghFailAt} failure only warns`, t => {
+    const result = runSetup(t, { ghFailAt, ghInstalled });
+    assert.equal(result.status, 0);
+    assert.deepEqual(ghCalls(result), expectedCalls);
+    assert.match(result.stderr, /Warning: gh extension sync failed/);
+    assert.equal(npxCalls(result).at(-1)[3], 'list');
+    assert.match(result.stdout, /=== Done ===/);
+  });
+}

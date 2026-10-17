@@ -162,5 +162,30 @@ if ! run_mcp_sync; then
   echo "=== Warning: MCP sync failed (skills themselves are installed) ===" >&2
 fi
 
+# GitHub CLI extension used by review-pr-check (canonical: abekdwight/gh-pr-review-check)
+run_gh_extension_sync() {
+  local repo="abekdwight/gh-pr-review-check"
+  local name="${repo#*/}"
+  local listing
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "=== Warning: gh is not available; skipping gh extension ${repo} (used by review-pr-check) ===" >&2
+    echo "    Install GitHub CLI (https://cli.github.com/) and re-run setup.sh" >&2
+    return 0
+  fi
+  # gh lists each extension as a "gh <command>" row.
+  listing="$(gh extension list)" || return $?
+  if grep -Eq "^gh ${name#gh-}([[:space:]]|\$)" <<<"$listing"; then
+    echo "=== Updating gh extension: ${name} ==="
+    gh extension upgrade "$name"
+  else
+    echo "=== Installing gh extension: ${repo} ==="
+    gh extension install "$repo"
+  fi
+}
+
+if ! run_gh_extension_sync; then
+  echo "=== Warning: gh extension sync failed (skills themselves are installed) ===" >&2
+fi
+
 npx skills@1.5.14 list -g
 echo "=== Done ==="

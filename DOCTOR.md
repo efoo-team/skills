@@ -11,7 +11,7 @@ bash ~/ghq/github.com/efoo-team/skills/setup.sh
 find ~/.claude/skills ~/.agents/skills -xtype l
 ```
 
-期待結果: `setup.sh` が exit 0 で完了し、最後にグローバルのインストール済みスキル一覧と完了メッセージを表示する。配布・削除の失敗表示がないことを確認する。`find` の出力は空（壊れ symlink 0 件）。
+期待結果: `setup.sh` が exit 0 で完了し、最後にグローバルのインストール済みスキル一覧と完了メッセージを表示する。配布・削除の失敗表示がないことを確認する。gh 拡張機能 `abekdwight/gh-pr-review-check` の導入・更新の警告（`=== Warning: gh extension sync failed` または `gh is not available`）が出ていないことも確認する（終了コードには表れないため）。`find` の出力は空（壊れ symlink 0 件）。
 
 ## 2. omo（oh-my-openagent）ペルソナの移植ずれ検知
 
