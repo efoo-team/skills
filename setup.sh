@@ -166,20 +166,24 @@ fi
 run_gh_extension_sync() {
   local repo="abekdwight/gh-pr-review-check"
   local name="${repo#*/}"
+  local command_name="${name#gh-}"
   local listing
   if ! command -v gh >/dev/null 2>&1; then
     echo "=== Warning: gh is not available; skipping gh extension ${repo} (used by review-pr-check) ===" >&2
     echo "    Install GitHub CLI (https://cli.github.com/) and re-run setup.sh" >&2
     return 0
   fi
-  # gh lists each extension as a "gh <command>" row.
+  # gh lists each extension as a "gh <command>" row. A row with no repository or version column is
+  # an extension installed from a local folder (gh extension install .), which gh cannot upgrade.
   listing="$(gh extension list)" || return $?
-  if grep -Eq "^gh ${name#gh-}([[:space:]]|\$)" <<<"$listing"; then
-    echo "=== Updating gh extension: ${name} ==="
-    gh extension upgrade "$name"
-  else
+  if ! grep -Eq "^gh ${command_name}([[:space:]]|\$)" <<<"$listing"; then
     echo "=== Installing gh extension: ${repo} ==="
     gh extension install "$repo"
+  elif grep -Eq "^gh ${command_name}[[:space:]]*\$" <<<"$listing"; then
+    echo "=== Skipping gh extension update: ${name} is installed from a local folder ==="
+  else
+    echo "=== Updating gh extension: ${name} ==="
+    gh extension upgrade "$name"
   fi
 }
 

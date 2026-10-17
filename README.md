@@ -22,7 +22,7 @@ Node.js 18 以上が必要。`npx skills` が `~/.claude/skills/` へ書き込�
 
 共通スキルと外部購読スキルは、グローバルインストールに対応する全70エージェントへ配布する。非対応の Eve と PromptScript は配布対象に含めない。配布または削除が一部でも失敗した場合は、`setup.sh` が終了コードを非ゼロにして停止する。最後にグローバルのインストール済みスキル一覧を表示し、その表示が成功した後に完了を知らせる。MCP 同期の失敗は警告として表示する。
 
-`gh`（GitHub CLI）があるマシンでは、`review-pr-check` が使う拡張機能 `abekdwight/gh-pr-review-check` も、未導入なら導入し、導入済みなら更新する。`gh` が無いマシンでは案内を表示して飛ばす。この処理の失敗も MCP 同期と同じく警告として表示し、終了コードには含めない。
+`gh`（GitHub CLI）があるマシンでは、`review-pr-check` が使う拡張機能 `abekdwight/gh-pr-review-check` も、未導入なら導入し、導入済みなら更新する。手元のフォルダーから `gh extension install .` で入れた拡張機能は gh が更新できないため、更新を飛ばしてその旨を 1 行表示する。`gh` が無いマシンでは案内を表示して飛ばす。この処理の失敗も MCP 同期と同じく警告として表示し、終了コードには含めない。
 
 clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/main/setup.sh | bash` でも実行できるが、post-merge hook が設定されないため以降の自動反映は受けられない。
 

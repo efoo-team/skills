@@ -96,8 +96,11 @@ fi
 if [ "$2" = list ]; then
   printf 'gh image\\tdrogers0/gh-image\\tv1.2.0\\n'
   printf 'gh pr-review-check-extra\\tother/gh-pr-review-check-extra\\t1a2b3c4d\\n'
+  printf 'gh pr-review-check-local\\t\\t\\n'
   if [ "\${GH_EXTENSION_INSTALLED:-0}" = 1 ]; then
     printf 'gh pr-review-check\\tabekdwight/gh-pr-review-check\\t72c4acec\\n'
+  elif [ "\${GH_EXTENSION_LOCAL:-0}" = 1 ]; then
+    printf 'gh pr-review-check\\t\\t\\n'
   fi
 fi`);
   }
@@ -118,6 +121,7 @@ fi`);
       MCP_STATUS: options.mcpFailure ? '9' : '0',
       GH_FAIL_AT: options.ghFailAt ?? '',
       GH_EXTENSION_INSTALLED: options.ghInstalled ? '1' : '0',
+      GH_EXTENSION_LOCAL: options.ghLocal ? '1' : '0',
     },
   });
   assert.ifError(result.error);
@@ -251,6 +255,16 @@ test('installed gh extension is upgraded by name and other extensions are left a
   assert.equal(result.status, 0);
   assert.deepEqual(ghCalls(result), [ghExtensionList, ghExtensionUpgrade]);
   assert.match(result.stdout, /=== Updating gh extension: gh-pr-review-check ===/);
+  assert.match(result.stdout, /=== Done ===/);
+});
+
+test('gh extension installed from a local folder is not upgraded and is not a warning', t => {
+  const result = runSetup(t, { ghLocal: true });
+  assert.equal(result.status, 0);
+  assert.deepEqual(ghCalls(result), [ghExtensionList]);
+  assert.match(result.stdout, /=== Skipping gh extension update: gh-pr-review-check is installed from a local folder ===/);
+  assert.doesNotMatch(result.stderr, /Warning/);
+  assert.equal(npxCalls(result).at(-1)[3], 'list');
   assert.match(result.stdout, /=== Done ===/);
 });
 
