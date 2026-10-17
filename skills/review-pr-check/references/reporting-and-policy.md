@@ -48,6 +48,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 - ⚪ 対応しない
 - ✅ 対応済み
 - 👀 対応中
+- ⏸ 保留
 
 **各エントリのフォーマット**:
 
@@ -56,7 +57,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 - 指摘AI: Codex, CodeRabbit, Copilot
 - `対象ファイル:行番号`（thread の場合）または `PR-level comment`（issue_comment の場合）
 - 判断根拠（1〜2文）
-- ステータス: ✅ done / 👀 in_progress / ⏳ pending / ⚪ skip
+- ステータス: ✅ done / 👀 in_progress / ⏳ pending / ⚪ skip / ⏸ hold
 ```
 
 **重複時のルール**: 複数AIが同一指摘をした場合、指摘AIに全てのAI名を列挙する（例: Codex, CodeRabbit, Copilot）。1つのAIのみの場合は単独で記載。
@@ -68,7 +69,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 - **対応中（N件）**: ID-05, ...
 - **対応しない — 誤指摘（N件）**: ID-09（理由）, ... [resolved]
 - **対応しない — 理由つきの見送り（N件）**: ID-11（理由）, ... [resolved]
-- **保留（N件）**: ID-04（確認事項）, ...
+- **保留（N件）**: ID-04（決めてほしいこと）, ...
 - **未処理（N件）**: ID-10, ...（次回ループで処理）
 ```
 
@@ -85,7 +86,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
   - 指摘が利用者ができることを狭める制限（上限・禁止・必須の手順・情報の省略）の追加で、要求・確かめた技術的限界の根拠も、仕様が誰から何を守ると定めた安全や認可の根拠もない
 - 「対応しない」の処理は、1 つ目の根拠なら `skip_invalid`（誤指摘）、2 つ目と 3 つ目なら `skip_declined`（理由つきの見送り）を使う（`orchestration-protocol.md` の 6-2・6-3）。
 - 指摘が妥当であれば、当初の変更意図に含まれていなかった論点であっても対応する。PRのスコープを理由に妥当な指摘を放置しない。
-- 「保留」は、情報不足で判断不能な場合と、仕様に無い安全や認可の制限を求める指摘のうち、具体的な害（誰が何を知り、または何ができて、何が起きるか）が示されていてユーザーの判断が要る場合に使用する。判断可能なものは保留にせず対応する。
+- 「保留」は、情報不足で判断不能な場合と、仕様に無い安全や認可の制限を求める指摘のうち、具体的な害（誰が何を知り、または何ができて、何が起きるか）が示されていてユーザーの判断が要る場合に使用する。判断可能なものは保留にせず対応する。保留にした指摘は、PR の上では何もせず（`orchestration-protocol.md` の 6-3）、最終報告でユーザーに判断を求める。ループは止めない。
 - nit・スタイル・命名などの軽微な指摘も「小さな負債の蓄積が将来の大きなコストになる」という前提で対応する。
 
 ### レビュアー特性の反映
@@ -100,7 +101,7 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 ### 妥当性の判断ルール
 
 - すべてのレビュワー指摘について妥当性を検討し、妥当性が高いものは積極的に採用して改善方針に反映
-- 判断が曖昧、または情報不足の場合は**ユーザーへ確認**してから方針を確定する
+- 判断が曖昧、または情報不足の場合は、確認のためにループを止めず、**保留にして最終報告でユーザーに判断を求める**（ユーザーが答えた後の扱いは `status-and-resolve.md` の「最終報告」）
 - `.md` への指摘は実装と比較し、ドキュメント更新不足の可能性を明示
 
 ---
@@ -129,14 +130,15 @@ Codex: N件 | CodeRabbit: N件 | Copilot: N件 | Claude: N件
 
 以下の操作は**絶対に行ってはならない**:
 
-1. **ノイズエントリへの操作禁止**: Phase 3 で「ノイズ」と判定した `issue_comment` に対して、Reaction 付与・コメント投稿・`gh pr-review-check resolve` の呼び出しを行ってはならない
+1. **ノイズエントリへの操作禁止**: Phase 3 で「ノイズ」と判定した `issue_comment`（このスキル自身が投稿したものを含む）に対して、Reaction 付与・コメント投稿・`gh pr-review-check resolve` の呼び出しを行ってはならない
 2. **新規トップレベルコメントの投稿禁止**: PR に対する新規の `issue_comment`（トップレベルコメント）を投稿してはならない。コメントは必ず既存スレッドへの返信（`addPullRequestReviewThreadReply`）として行う。**例外は次の2つのみ**:
    - **返信先スレッドが存在しない指摘への対応報告**: `type: review` 本文内の outside-diff 指摘（プラットフォーム制約で inline thread 化されない指摘。CodeRabbit は review 本文冒頭に「Some comments are outside the diff and can't be posted inline」と明記する）は、スレッド返信が原理的に不可能で放置すると未応答に見えるため、対象ファイル・行と指摘の fingerprint（例: `cr-comment:v1:...`）を明記した**集約トップレベルコメント1件**で対応報告してよい（投稿手順は `status-and-resolve.md` を参照）
-   - **AI 再レビューのトリガー投稿**: Phase 7 でレート制限等により push 後の自動再レビューが走らない場合に限り、`@coderabbitai review` 等の再レビュー運用コマンドを投稿してよい
+   - **AI 再レビューのトリガー投稿**: Phase 7 の再レビューの確認で、レビュアーが再開の依頼を案内しているとき（一時停止やレート制限で止まった CodeRabbit への `@coderabbitai review` など）に限り、案内されている再レビュー運用コマンドを、最新の head commit につき 1 回だけ投稿してよい（手順は `orchestration-protocol.md` の Phase 7「再レビューの依頼の投稿」）
 3. **resolve 不可能な type への resolve 禁止**: `type: issue_comment` および `type: review` に対して `resolveReviewThread` を呼び出してはならない（GitHub API の制約上エラーになる）
 4. **人間レビュアー起票スレッドの自動 resolve 禁止**: 人間（非 bot）が起票したスレッドを自動的に resolve してはならない。返信と reaction のみ行い、resolve は人間レビュアーに委ねる
 5. **push 失敗時の resolve 禁止**: テストやプッシュが失敗した状態でスレッドを resolve してはならない。`in_progress` のまま維持する
 6. **重複操作の禁止**: 既に返信済み・reaction 済み・resolved 済みのエントリに対して、同じ操作を繰り返してはならない（冪等性チェック必須）
+7. **bot へのメンションの禁止**: 返信・投稿の本文に、`@` で始まるアカウント名（`@codex`・`@coderabbitai`・`@claude`・`@copilot` など）を書いてはならない。指摘を引用するときも `@` を外す。コードスパンの中に書いても bot が反応し、`@claude` は Claude Code の実行を起動しうるためである。例外は、禁止事項 2 の再レビューの依頼の投稿だけである
 
 ---
 
