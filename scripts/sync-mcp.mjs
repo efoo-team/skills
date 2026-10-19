@@ -12,6 +12,7 @@
 //   exit 0 で完走する（setup.sh のスキル配布を巻き込まない。pull ごとの再実行で収束する）。
 // - env 変数参照記法 "${env:VAR}"（Claude `${VAR}` / opencode `{env:VAR}` / codex env_vars へ
 //   翻訳する構想）は将来用の予約であり、本実装では未対応。
+// - daemon.environmentFile はローカルの JSON 環境変数ファイルを読む。値はログへ出さず、plist は 0600 で保存する。
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -76,6 +77,66 @@ function sameEnv(a, b) {
   return ka.length === kb.length && ka.every((k, i) => k === kb[i] && na[k] === nb[k]);
 }
 
+function isLoopbackHost(hostname) {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
+}
+
+function daemonUrlMatches(urlText, port) {
+  try {
+    const url = new URL(urlText);
+    return url.protocol === 'http:' && isLoopbackHost(url.hostname) && url.port === String(port);
+  } catch {
+    return false;
+  }
+}
+
+function resolveEnvironmentFile(filePath) {
+  if (filePath === '~') return HOME;
+  if (filePath.startsWith('~/')) return path.join(HOME, filePath.slice(2));
+  if (filePath.startsWith('~')) throw new Error('unsupported home path');
+  return path.resolve(HOME, filePath);
+}
+
+function readEnvironmentFile(filePath) {
+  if (filePath === undefined) return Object.create(null);
+  const resolvedPath = resolveEnvironmentFile(filePath);
+  let contents;
+  try {
+    const stats = fs.statSync(resolvedPath);
+    if ((stats.mode & 0o077) !== 0) throw new Error('environment file permissions are too broad');
+    contents = fs.readFileSync(resolvedPath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') return Object.create(null);
+    throw new Error('environment file could not be read');
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(contents);
+  } catch {
+    throw new Error('environment file is not valid JSON');
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('environment file must contain a string-to-string object');
+  }
+
+  const environment = Object.create(null);
+  for (const [name, value] of Object.entries(parsed)) {
+    if (
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ||
+      name === 'PATH' ||
+      name === 'npm_config_ignore_scripts' ||
+      typeof value !== 'string' ||
+      /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(value)
+    ) {
+      throw new Error('environment file must contain valid environment variable names and string values');
+    }
+    environment[name] = value;
+  }
+  return environment;
+}
+
 // ---------- spec 検証（唯一の hard fail）----------
 
 const spec = readJsonOr(specPath, null);
@@ -97,14 +158,27 @@ for (const [name, s] of Object.entries(spec.servers)) {
     }
     if (s.daemon) {
       const d = s.daemon;
-      if (!d.launchdLabel || !Number.isInteger(d.port) || !Array.isArray(d.serverArgs)) {
+      if (!d.launchdLabel || !Number.isInteger(d.port) || d.port < 1 || d.port > 65535 || !Array.isArray(d.serverArgs)) {
         console.error(`sync-mcp: servers.${name} の daemon に launchdLabel / port / serverArgs が必要です`);
         process.exit(1);
       }
-      if (!s.definition.url.includes(`localhost:${d.port}/`)) {
+      if (d.environmentFile !== undefined) {
+        if (typeof d.environmentFile !== 'string' || d.environmentFile === '') {
+          console.error(`sync-mcp: servers.${name}.daemon.environmentFile は空でない文字列が必要です`);
+          process.exit(1);
+        }
+        try {
+          resolveEnvironmentFile(d.environmentFile);
+        } catch {
+          console.error(`sync-mcp: servers.${name}.daemon.environmentFile のホームパス指定が不正です`);
+          process.exit(1);
+        }
+      }
+      if (!daemonUrlMatches(s.definition.url, d.port)) {
         console.error(
-          `sync-mcp: servers.${name} の definition.url に daemon.port（${d.port}）が含まれていません。` +
-            ` url と port のどちらかだけを更新した可能性があります`
+          `sync-mcp: servers.${name} の definition.url は localhost / 127.0.0.1 / ::1 の HTTP URL で、` +
+            `daemon.port（${d.port}）と一致する必要があります。url と port のどちらかだけを` +
+            `更新した可能性があります`
         );
         process.exit(1);
       }
@@ -114,6 +188,25 @@ for (const [name, s] of Object.entries(spec.servers)) {
             `（起動コマンドは package と pin から組み立てる。バージョンの二重管理を防ぐ）`
         );
         process.exit(1);
+      }
+      if (d.proxy) {
+        const p = d.proxy;
+        if (
+          !p.package ||
+          !p.pin ||
+          !isLoopbackHost(String(p.host || '')) ||
+          !Array.isArray(p.proxyArgs) ||
+          p.proxyArgs.some((a) => typeof a !== 'string') ||
+          !Array.isArray(p.upstreamCommand) ||
+          p.upstreamCommand.length === 0 ||
+          p.upstreamCommand.some((a) => typeof a !== 'string' || a === '')
+        ) {
+          console.error(
+            `sync-mcp: servers.${name} の daemon.proxy に package / pin / loopback host / ` +
+              `文字列配列 proxyArgs / upstreamCommand が必要です`
+          );
+          process.exit(1);
+        }
       }
     }
   } else {
@@ -311,6 +404,18 @@ ${envXml}
 `;
 }
 
+function writePrivatePlist(plistPath, contents) {
+  const temporaryPath = `${plistPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(temporaryPath, contents, { flag: 'wx', mode: 0o600 });
+    fs.chmodSync(temporaryPath, 0o600);
+    fs.renameSync(temporaryPath, plistPath);
+  } catch (error) {
+    fs.rmSync(temporaryPath, { force: true });
+    throw error;
+  }
+}
+
 function resolveNpx() {
   // sync を実行中の node と同じ導入ディレクトリの npx を最優先する（mise 等の shim ではなく実体パス。
   // launchd はユーザーシェルの PATH を持たないため、実体パスを plist に焼き込む必要がある）
@@ -333,7 +438,18 @@ function launchdLoaded(uid, label) {
 
 function syncDaemon(name, s, state) {
   if (!s.daemon) return null;
+  let fileEnvironment;
+  try {
+    fileEnvironment = readEnvironmentFile(s.daemon.environmentFile);
+  } catch {
+    warn(`${name}: environmentFile を読み込めないか形式が不正なため、常駐サーバーを変更しません`);
+    return 'daemon:invalid-environment';
+  }
   if (process.platform !== 'darwin') {
+    if (s.daemon.proxy) {
+      warn(`${name}: 常駐サーバーの自動管理は macOS（launchd）のみ対応です。daemon の argv を手動で常駐させてください`);
+      return null;
+    }
     warn(
       `${name}: 常駐サーバーの自動管理は macOS（launchd）のみ対応です。手動で常駐させてください:` +
         ` npx -y ${s.package}@${s.pin} --port ${s.daemon.port} ${s.daemon.serverArgs.join(' ')}`
@@ -348,18 +464,38 @@ function syncDaemon(name, s, state) {
   const label = s.daemon.launchdLabel;
   const plistPath = path.join(HOME, 'Library', 'LaunchAgents', `${label}.plist`);
   const logPath = path.join(HOME, 'Library', 'Logs', `${label}.log`);
-  const programArgs = [
-    npx,
-    '-y',
-    '--prefer-offline',
-    `${s.package}@${s.pin}`,
-    '--port',
-    String(s.daemon.port),
-    ...s.daemon.serverArgs,
-  ];
+  const programArgs = s.daemon.proxy
+    ? [
+        npx,
+        '-y',
+        '--prefer-offline',
+        '--ignore-scripts',
+        `${s.daemon.proxy.package}@${s.daemon.proxy.pin}`,
+        '--port',
+        String(s.daemon.port),
+        '--host',
+        s.daemon.proxy.host,
+        ...s.daemon.proxy.proxyArgs,
+        '--',
+        ...s.daemon.proxy.upstreamCommand,
+        `${s.package}@${s.pin}`,
+        ...s.daemon.serverArgs,
+      ]
+    : [
+        npx,
+        '-y',
+        '--prefer-offline',
+        `${s.package}@${s.pin}`,
+        '--port',
+        String(s.daemon.port),
+        ...s.daemon.serverArgs,
+      ];
   // PATH は npx の実体ディレクトリ + OS 標準のみに固定する。direnv 等で揺れるフル PATH を
   // 焼き込むと、実行文脈が変わるたびに plist が差分扱いになり常駐サーバーが無駄に再起動される。
-  const envVars = { PATH: `${path.dirname(npx)}:/usr/local/bin:/usr/bin:/bin` };
+  const envVars = Object.create(null);
+  envVars.PATH = `${path.dirname(npx)}:/usr/local/bin:/usr/bin:/bin`;
+  if (s.daemon.proxy) envVars.npm_config_ignore_scripts = 'true';
+  for (const [key, value] of Object.entries(fileEnvironment)) envVars[key] = value;
   const plist = buildPlist(label, programArgs, envVars, logPath);
   const uid = process.getuid();
   let existing = null;
@@ -367,12 +503,18 @@ function syncDaemon(name, s, state) {
     existing = fs.readFileSync(plistPath, 'utf8');
   } catch {}
   if (existing === plist && launchdLoaded(uid, label)) {
+    try {
+      fs.chmodSync(plistPath, 0o600);
+    } catch {
+      warn(`${name}: 常駐サーバー設定のアクセス権を 0600 にできません`);
+      return 'daemon:failed';
+    }
     (state[name] ||= {}).daemonLabel = label;
     return 'daemon:up-to-date';
   }
   try {
     fs.mkdirSync(path.dirname(plistPath), { recursive: true });
-    fs.writeFileSync(plistPath, plist);
+    writePrivatePlist(plistPath, plist);
     try {
       run('launchctl', ['bootout', `gui/${uid}/${label}`]);
     } catch {
@@ -382,7 +524,8 @@ function syncDaemon(name, s, state) {
     (state[name] ||= {}).daemonLabel = label;
     return existing === plist ? 'daemon:reloaded' : 'daemon:updated';
   } catch (e) {
-    warn(`${name}: 常駐サーバーの launchd 登録に失敗しました: ${String(e.stderr || e.message).trim()}`);
+    // launchctl のエラー出力へ plist の内容が含まれる実装も考慮し、値はログへ転記しない。
+    warn(`${name}: 常駐サーバーの launchd 登録に失敗しました`);
     return 'daemon:failed';
   }
 }

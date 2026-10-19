@@ -97,19 +97,19 @@ trap cleanup EXIT
 
 echo "=== efoo-team skills setup ==="
 
-# Node.js version check (skills@1.5.14 requires Node >= 18)
-REQUIRED_NODE_MAJOR=18
+# Node.js 24 or newer is required for the shared MCP server packages.
+REQUIRED_NODE_MAJOR=24
 if command -v node >/dev/null 2>&1; then
   NODE_VERSION="$(node --version 2>/dev/null)"
   NODE_MAJOR="${NODE_VERSION#v}"
   NODE_MAJOR="${NODE_MAJOR%%.*}"
   if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] || [ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
-    echo "=== Warning: Node.js ${NODE_VERSION:-unknown} is too old; skills requires Node >= ${REQUIRED_NODE_MAJOR} ===" >&2
-    echo "    Upgrade Node and re-run, e.g.: nodebrew install-binary v22 && nodebrew use v22" >&2
+    echo "=== Warning: Node.js ${NODE_VERSION:-unknown} is too old; setup requires Node >= ${REQUIRED_NODE_MAJOR} ===" >&2
+    echo "    Upgrade Node and re-run, e.g.: nodebrew install-binary v24 && nodebrew use v24" >&2
     exit 1
   fi
 else
-  echo "=== Warning: node not found; skills requires Node >= ${REQUIRED_NODE_MAJOR}; install Node and re-run ===" >&2
+  echo "=== Warning: node not found; setup requires Node >= ${REQUIRED_NODE_MAJOR}; install Node and re-run ===" >&2
   exit 1
 fi
 

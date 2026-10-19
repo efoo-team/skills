@@ -7,7 +7,7 @@ Shared agent skills for efoo-team.
 | 資産 | 正本 | 配布先 |
 |---|---|---|
 | 共通層 Agent Skills | `skills/<name>/SKILL.md` | `~/.agents/skills/` → Claude Code / Codex / opencode |
-| global MCP サーバー定義 | `mcp-servers.json` | `~/.claude.json`（user スコープ）/ `opencode.json` |
+| global MCP サーバー定義 | `mcp-servers.json` | `~/.claude.json`（user スコープ）/ `opencode.json`。Codex は `codex-code-setting/config.shared.toml` で管理 |
 
 `MCP-REGISTRY.md` は project スコープを含む全 MCP サーバーの台帳。スキルの横断台帳は持たない。
 
@@ -18,7 +18,7 @@ ghq get efoo-team/skills
 bash ~/ghq/github.com/efoo-team/skills/setup.sh
 ```
 
-Node.js 18 以上が必要。`npx skills` が `~/.claude/skills/` へ書き込むため、設定リポジトリ（「関連リポジトリ」節）の配置を先に済ませる。
+Node.js 24 以上が必要。`npx skills` が `~/.claude/skills/` へ書き込むため、設定リポジトリ（「関連リポジトリ」節）の配置を先に済ませる。
 
 共通スキルと外部購読スキルは、グローバルインストールに対応する全70エージェントへ配布する。非対応の Eve と PromptScript は配布対象に含めない。配布または削除が一部でも失敗した場合は、`setup.sh` が終了コードを非ゼロにして停止する。最後にグローバルのインストール済みスキル一覧を表示し、その表示が成功した後に完了を知らせる。MCP 同期の失敗は警告として表示する。
 
@@ -72,11 +72,11 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## MCP サーバー定義
 
-正本は `mcp-servers.json`、現在は `playwright`（`@playwright/mcp@0.0.79`）のみ。playwright はマシン内共有の常駐 HTTP サーバー（launchd、`http://localhost:8931/mcp`）として1プロセスだけ起動し、`sync-mcp.sh` が常駐サーバーの管理と、Claude Code（user スコープ）・opencode への http 接続定義の配布を行う。Codex は照合のみ行う（Codex 側の正本は `codex-code-setting/config.shared.toml`。url のみのバージョンレス定義）。
+正本は `mcp-servers.json` で、Context7・Chrome DevTools・Playwright の3サーバーを管理する。各 Mac ではログイン時に launchd が共有サーバーを1つずつ起動し、`sync-mcp.sh` がサーバーの管理と Claude Code（user スコープ）・opencode への HTTP 接続定義の配布を行う。Codex の定義は別リポジトリ `codex-code-setting/config.shared.toml` で管理し、このリポジトリの sync は Codex の生成済み設定との一致を確認する。Context7 の API キーは任意で、必要な場合は各自の `~/.config/efoo-team/mcp/context7.environment.json` に保存する。ファイルは各 Mac 上だけに置き、リポジトリへ登録しない。
 
 - バージョン変更は `mcp-servers.json` の `pin` だけを更新する（バージョンは常駐サーバーの起動コマンドにのみ存在する）。手順は `MCP-REGISTRY.md`「バージョン更新手順」。
 - 配布対象から外すときは `servers` から消し、`retired` 配列へ名前を追加する（登録済み定義と常駐サーバーを sync が削除する）。
-- 常駐サーバーは `--browser=chrome-beta` でブラウザを起動するため、**macOS では `/Applications/Google Chrome Beta.app` が未導入のマシンでブラウザ操作ツールが実行できない**。Windows / Linux は各 OS 向けの公式 Chrome Beta インストーラーを使用する。導入方法は `MCP-REGISTRY.md` の「Chrome Beta の導入」を参照する。
+- Playwright の常駐サーバーは `--browser=chrome-beta` でブラウザを起動するため、**macOS では `/Applications/Google Chrome Beta.app` が未導入のマシンで Playwright のブラウザ操作が実行できない**。Windows / Linux は各 OS 向けの公式 Chrome Beta インストーラーを使用する。導入方法は `MCP-REGISTRY.md` の「Chrome Beta の導入」を参照する。
 
 ## 配布の仕組み
 

@@ -193,7 +193,7 @@ Skill instructions here.
 
 ## MCP Server Definitions（mcp-servers.json）
 
-このリポジトリはスキルに加えて、3ツール（Claude Code / Codex / opencode）へ横断配布する global MCP サーバー定義の正本 `mcp-servers.json` も保有する。`setup.sh` 末尾の `sync-mcp.sh` が Claude Code（`~/.claude.json` user スコープ）と opencode（`opencode.json`）へ配布し、Codex は `codex-code-setting/config.shared.toml`（そちらが Codex 側の正本）との一致を検査する。`definition.type: "http"` + `daemon` を持つサーバー（現在: playwright）は、sync がマシン内共有の常駐サーバー（launchd の LaunchAgent）として1プロセスだけ起動し、3ツールの全セッションが HTTP で接続する（詳細は `MCP-REGISTRY.md`「共有常駐サーバー」）。
+このリポジトリはスキルに加えて、Claude Code / Codex / opencode で使う global MCP サーバー定義の正本 `mcp-servers.json` も保有する。`setup.sh` 末尾の `sync-mcp.sh` が Claude Code（`~/.claude.json` user スコープ）と opencode（`opencode.json`）へ配布し、Codex は `codex-code-setting/config.shared.toml`（そちらが Codex 側の正本）との一致を検査する。`definition.type: "http"` + `daemon` を持つ Context7・Chrome DevTools・Playwright は、sync がマシン内共有の常駐サーバー（launchd の LaunchAgent）として各1プロセスを起動し、3ツールの全セッションが HTTP で接続する。Context7 の API キーは任意で、各 Mac の `~/.config/efoo-team/mcp/context7.environment.json` に保存し、リポジトリには保存しない（詳細は `MCP-REGISTRY.md`「共有常駐サーバー」）。
 
 - **バージョン変更（bump）は `mcp-servers.json` の `pin` だけを更新する**（バージョンは常駐サーバーの起動コマンドにのみ存在し、sync が pin から組み立てる。`codex-code-setting` 側は url のみのバージョンレス定義で bump 不要）。手順の正本は `MCP-REGISTRY.md`「バージョン更新手順」
 - 配布先（`~/.claude.json` / `opencode.json`）と生成物（`~/Library/LaunchAgents/*.plist`）を直接編集しない。サーバーの撤去は `servers` から消すだけでなく `retired` 配列へ名前を追加する

@@ -36,11 +36,12 @@ function runSetup(t, options = {}) {
   mkdirSync(bin);
   mkdirSync(temporary);
   mkdirSync(join(fixture, 'hooks'));
+  writeFileSync(callsPath, '');
   copyFileSync(setupPath, join(fixture, 'setup.sh'));
   writeFileSync(join(fixture, 'remove-skills.txt'), '# blocked skills\n blocked-one \n\nblocked-two\n');
   writeFileSync(join(fixture, 'sync-mcp.sh'), 'printf "mcp\\n" >> "$TEST_CALLS"\nexit "${MCP_STATUS:-0}"\n');
   const command = (name, body) => writeFileSync(join(bin, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
-  command('node', 'echo v22.0.0');
+  command('node', `echo ${options.nodeVersion ?? 'v24.0.0'}`);
   command('git', `
 if [ "$3" = rev-parse ]; then
   if [ "\${REMOTE_SETUP:-0}" = 1 ]; then exit 1; fi
@@ -125,7 +126,8 @@ fi`);
     },
   });
   assert.ifError(result.error);
-  const calls = readFileSync(callsPath, 'utf8').trim().split('\n').map(line => line.split('\t').filter(Boolean));
+  const callsText = readFileSync(callsPath, 'utf8').trim();
+  const calls = callsText ? callsText.split('\n').map(line => line.split('\t').filter(Boolean)) : [];
   const observable = {
     status: result.status,
     stdout: result.stdout,
@@ -150,8 +152,8 @@ function ghCalls(result) {
   return result.calls.filter(call => call[0] === 'gh').map(call => call.slice(1));
 }
 
-test('successful setup preserves all 70 global targets and agent-specific installation', t => {
-  const result = runSetup(t);
+test('Node.js 24 setup preserves all 70 global targets and agent-specific installation', t => {
+  const result = runSetup(t, { nodeVersion: 'v24.0.0' });
   assert.equal(result.status, 0);
   const calls = npxCalls(result);
   assert.deepEqual(calls.map(call => call[3]), ['add', 'add', 'add', 'remove', 'list']);
@@ -173,6 +175,15 @@ test('successful setup preserves all 70 global targets and agent-specific instal
   assert.ok(listPosition >= 0);
   assert.ok(donePosition >= 0);
   assert.ok(listPosition < donePosition);
+});
+
+test('Node.js 23 is rejected before setup changes', t => {
+  const result = runSetup(t, { nodeVersion: 'v23.0.0' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Node >= 24/);
+  assert.match(result.stderr, /nodebrew install-binary v24/);
+  assert.deepEqual(result.calls, []);
+  assert.ok(!result.stdout.includes('=== Done ==='));
 });
 
 for (const [failAt, failKind, count] of [

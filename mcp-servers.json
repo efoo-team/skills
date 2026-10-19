@@ -1,6 +1,59 @@
 {
   "version": 1,
   "servers": {
+    "context7": {
+      "description": "ライブラリ・フレームワーク・SDK の最新ドキュメント取得（共有 HTTP サーバー）",
+      "package": "@upstash/context7-mcp",
+      "pin": "4.4.2",
+      "definition": {
+        "type": "http",
+        "url": "http://127.0.0.1:8932/mcp"
+      },
+      "daemon": {
+        "launchdLabel": "com.efoo-team.context7-mcp",
+        "port": 8932,
+        "environmentFile": "~/.config/efoo-team/mcp/context7.environment.json",
+        "serverArgs": [],
+        "proxy": {
+          "package": "mcp-proxy",
+          "pin": "6.7.19",
+          "host": "127.0.0.1",
+          "proxyArgs": ["--server", "stream"],
+          "upstreamCommand": ["npx", "-y", "--prefer-offline", "--ignore-scripts"]
+        }
+      },
+      "targets": {
+        "claude-code": { "mode": "sync", "scope": "user" },
+        "opencode": { "mode": "sync" },
+        "codex": { "mode": "verify" }
+      }
+    },
+    "chrome-devtools": {
+      "description": "Chrome の開発者ツールを使ったブラウザ確認（共有 HTTP サーバー）",
+      "package": "chrome-devtools-mcp",
+      "pin": "1.11.0",
+      "definition": {
+        "type": "http",
+        "url": "http://127.0.0.1:8933/mcp"
+      },
+      "daemon": {
+        "launchdLabel": "com.efoo-team.chrome-devtools-mcp",
+        "port": 8933,
+        "serverArgs": [],
+        "proxy": {
+          "package": "mcp-proxy",
+          "pin": "6.7.19",
+          "host": "127.0.0.1",
+          "proxyArgs": ["--server", "stream"],
+          "upstreamCommand": ["npx", "-y", "--prefer-offline", "--ignore-scripts"]
+        }
+      },
+      "targets": {
+        "claude-code": { "mode": "sync", "scope": "user" },
+        "opencode": { "mode": "sync" },
+        "codex": { "mode": "verify" }
+      }
+    },
     "playwright": {
       "description": "ブラウザ自動化・E2E 操作（マシン内共有 HTTP サーバー。launchd 常駐 1 プロセスへ全セッションが接続する）",
       "package": "@playwright/mcp",
