@@ -28,7 +28,7 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 
 ## スキル一覧
 
-35 本（うち explicit-only 20 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
+34 本（うち explicit-only 20 本）。外部購読は `code-debug-skill`（`abekdwight/code-debug-skills`）の 1 本。
 
 トリガー列の `auto` は description に基づく自動発動、`explicit-only` は `/<name>`（Codex では `$<name>`）による明示起動のみを意味する。
 
@@ -59,7 +59,6 @@ clone せずに `curl -fsSL https://raw.githubusercontent.com/efoo-team/skills/m
 | | `agent-prompt-design` | プロンプト・instructions・スキル文面の執筆原則 | auto |
 | | `create-skill` | 新規スキルの対話的作成 | explicit-only |
 | | `agents-md-sync` | AGENTS.md 階層の生成・更新 | explicit-only |
-| | `formation-designer` | oh-my-openagent のフォーメーション設計（opencode 限定） | auto |
 | Mastra | `mastra-ai-architecture-rules` | Mastra ベース AI サービスの責務分離 | auto |
 | | `mastra-framework-guide` | Mastra の現行 API 検証とバージョン移行 | auto |
 | デザイン制作 | `logo-design` | サービスのロゴを、3 つの問いで方針を決めてから、3 ラウンド以上の比較検討・利用者による選定・仕上げまで制作 | explicit-only |
@@ -107,7 +106,7 @@ flowchart LR
 
 `~/.agents/skills/` が 3 ツールの合流点。Claude Code のみ per-skill の symlink を必要とし、Codex と opencode は直接検出する。
 
-`setup.sh` は team-owned → エージェント限定（opencode のみの `formation-designer`）→ 外部購読の順にインストールし、`remove-skills.txt` の名前を削除して MCP を同期し、続けて `gh` 拡張機能 `abekdwight/gh-pr-review-check` を導入または更新する。冪等であり、変更のないスキルはハッシュ比較でスキップする。
+`setup.sh` は team-owned → 外部購読の順にインストールし、`remove-skills.txt` の名前を削除して MCP を同期し、続けて `gh` 拡張機能 `abekdwight/gh-pr-review-check` を導入または更新する。冪等であり、変更のないスキルはハッシュ比較でスキップする。
 
 配布対象は `setup.sh` の `GLOBAL_AGENTS` に記載する。`skills@1.5.14` の対応エージェントと一致させているため、CLI のバージョン変更時はこの一覧と失敗検知の仕様も確認する。スキルの追加・削除は `run_skills` を通して実行し、CLI が終了コード0で報告する部分失敗も検知する。
 
@@ -148,7 +147,7 @@ explicit-only は次の 3 点をすべて揃える。1 つでも存在すれば 
 2. `agents/openai.yaml` の `policy.allow_implicit_invocation: false`
 3. description 冒頭の門番文 `Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.`
 
-例外は auto かつ `metadata.internal: true` のスキル（現在 `formation-designer`）で、2 のみを持ち Codex への暗黙起動を塞ぐ。
+例外は auto かつ `metadata.internal: true` の特定エージェント限定スキルで、2 のみを持ち Codex への暗黙起動を塞ぐ。
 
 ## 関連リポジトリ（Repository landscape）
 

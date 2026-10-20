@@ -69,7 +69,7 @@ python3 ~/ghq/github.com/efoo-team/skills/scripts/check-skills.py
 
 ## 6. 外部依存スキルの四半期鮮度再検証
 
-外部サービス・フレームワーク・上流リポジトリの仕様に依存するスキル（現在: `mastra-framework-guide` / `formation-designer`。以後追加されたものも含む）は本文冒頭に `Last verified:` 行を持つ。年月を確認し、**四半期（3ヶ月）を超過していたら**、各スキルに記載の検証手段（公式ドキュメント・インストール済みパッケージの型定義・`$schema` での validate）と突き合わせて内容を更新し、`Last verified:` を書き換える。
+外部サービス・フレームワーク・上流リポジトリの仕様に依存するスキル（現在: `mastra-framework-guide`。以後追加されたものも含む）は本文冒頭に `Last verified:` 行を持つ。年月を確認し、**四半期（3ヶ月）を超過していたら**、各スキルに記載の検証手段（公式ドキュメント・インストール済みパッケージの型定義・`$schema` での validate）と突き合わせて内容を更新し、`Last verified:` を書き換える。
 
 ```bash
 grep -rn "Last verified:" ~/ghq/github.com/efoo-team/skills/skills/*/SKILL.md

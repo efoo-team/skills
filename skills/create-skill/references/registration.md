@@ -36,7 +36,7 @@
 
    例外: auto スキルでも `metadata.internal: true` の特定エージェント限定スキルは、Codex への
    リーク（`~/.agents/skills` を Codex がネイティブ検出する）を防ぐため同ファイルを持ってよい
-   （実績: formation-designer。opencode 限定なのに Codex の暗黙起動リストに載るのを防ぐ）
+   （特定エージェント限定スキルで、対象外エージェントの暗黙起動リストに載るのを防ぐ）
 
 4. `README.md` の Structure 節の表に行を追加し、スキル数「Common-layer skills currently in `skills/` (N)」の N を更新する
 5. `setup.sh` の更新は不要（`npx skills@1.5.14 add efoo-team/skills -g -a '*' -y` の一括インストールでカバーされる）
@@ -53,7 +53,7 @@
    INSTALL_INTERNAL_SKILLS=1 npx skills@1.5.14 add efoo-team/skills --skill <name> -g -a <agent> -y
    ```
 
-3. `README.md` の表の Purpose 列に internal・限定配布である旨を書く（実例: `formation-designer`）
+3. `README.md` の表の Purpose 列に internal・限定配布である旨を書く
 
 ## 4. External（外部リポジトリ購読）
 

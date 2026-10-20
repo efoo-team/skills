@@ -154,7 +154,7 @@ Skill instructions here.
    ```
 3. description の**冒頭**に門番文「Only use when the user explicitly invokes /<name> (or $<name> in Codex). Never auto-invoke.」を置く
 
-例外: **auto スキルでも `metadata.internal: true` の特定エージェント限定スキルは②の `agents/openai.yaml` だけを持ってよい**（`check-skills.py` も許容する）。`~/.agents/skills` に実体がある限り Codex がネイティブ検出してしまうため、対象エージェント以外への暗黙起動リークを防ぐ目的で使う（実績: opencode 限定の formation-designer）。
+例外: **auto スキルでも `metadata.internal: true` の特定エージェント限定スキルは②の `agents/openai.yaml` だけを持ってよい**（`check-skills.py` も許容する）。`~/.agents/skills` に実体がある限り Codex がネイティブ検出してしまうため、対象エージェント以外への暗黙起動リークを防ぐ目的で使う。
 
 ## setup.sh Maintenance
 
