@@ -157,7 +157,7 @@ explicit-only は次の 3 点をすべて揃える。1 つでも存在すれば 
 |---|---|---|
 | `efoo-team/claude-code-setting` | `~/.claude` | `settings.json`、`commands/`、`agents/`、`CLAUDE.md` |
 | `efoo-team/codex-code-setting` | `~/.codex` | `config.shared.toml`、`AGENTS.md`、`automations/`、`scripts/` |
-| `efoo-team/opencode-setting` | `~/.config/opencode` | `formations/`、`agents/`、`prompts/`、`tui.json` |
+| `efoo-team/opencode-setting` | `~/.config/opencode` | `profiles/`、`config/cli.defaults.json`、`agents/`、`bin/opencode-profile`、`tui.json` |
 | `efoo-team/skills`（本リポジトリ） | `~/.agents/skills/` へ配布 | 共通層スキル、global MCP 定義、MCP 台帳 |
 
 ### 3 ツール同等性の原則
@@ -167,11 +167,11 @@ explicit-only は次の 3 点をすべて揃える。1 つでも存在すれば 
 | 設定の種類 | Claude Code | Codex | opencode |
 |---|---|---|---|
 | グローバル指示ファイル | `CLAUDE.md` | `AGENTS.md` | `AGENTS.md`（意図的に最小） |
-| 共有設定（モデル・env・permission） | `settings.json` | `config.shared.toml` | `opencode.json`・`tui.json` |
+| 共有設定（モデル・env・permission） | `settings.json` | `config.shared.toml` | `profiles/`（モデル割当） + `config/cli.defaults.json`（CLI設定） |
 | MCP（横断・同期対象） | `mcp-servers.json` | `config.shared.toml`（pin を同版に） | `mcp-servers.json` |
 | MCP（ツール限定） | `.mcp.json` / `~/.claude.json` | `config.shared.toml` | `opencode.json` |
 | スキル | 本リポジトリで共通管理 | 同左 | 同左 |
-| サブエージェント / ペルソナ | `agents/*.md` + `commands/` | `agents/*.toml` | `formations/` + `agents/*.md` + `prompts/` |
+| サブエージェント / ペルソナ | `agents/*.md` + `commands/` | `agents/*.toml` | `agents/*.md`（モデル指定なし） + `profiles/*.jsonc`（モデル割当） |
 | 自動実行フック | `settings.json` の `hooks` | `~/.codex/hooks.json`（未追跡） | — |
 
 ### ライブ設定リポジトリの git 運用規律
