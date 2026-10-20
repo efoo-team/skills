@@ -116,9 +116,6 @@ fi
 # Team-owned skills
 run_skills add efoo-team/skills -g -a "${GLOBAL_AGENTS[@]}" -y
 
-# Team-owned skills (agent-specific)
-INSTALL_INTERNAL_SKILLS=1 run_skills add efoo-team/skills --skill formation-designer -g -a opencode -y
-
 # External skills
 run_skills add abekdwight/code-debug-skills --skill code-debug-skill -g -a "${GLOBAL_AGENTS[@]}" -y
 

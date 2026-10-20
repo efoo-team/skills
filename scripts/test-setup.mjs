@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const setupPath = fileURLToPath(new URL('../setup.sh', import.meta.url));
+const removeSkillsPath = fileURLToPath(new URL('../remove-skills.txt', import.meta.url));
+const repositoryRemoveSkills = readFileSync(removeSkillsPath, 'utf8')
+  .split(/\r?\n/)
+  .map(line => line.trim())
+  .filter(line => line && !line.startsWith('#'));
+const fixtureRemoveSkills = [...repositoryRemoveSkills, 'blocked-one', 'blocked-two'];
 const expectedAgents = `aider-desk amp antigravity antigravity-cli astrbot autohand-code augment bob
 claude-code openclaw cline codearts-agent codebuddy codemaker codestudio codex
 command-code continue cortex crush cursor deepagents devin dexto droid firebender
@@ -37,8 +43,17 @@ function runSetup(t, options = {}) {
   mkdirSync(temporary);
   mkdirSync(join(fixture, 'hooks'));
   writeFileSync(callsPath, '');
-  copyFileSync(setupPath, join(fixture, 'setup.sh'));
-  writeFileSync(join(fixture, 'remove-skills.txt'), '# blocked skills\n blocked-one \n\nblocked-two\n');
+  let setupContents = readFileSync(setupPath, 'utf8');
+  if (options.legacyFormationAdd) {
+    const externalSkillsAnchor = '# External skills\n';
+    assert.ok(setupContents.includes(externalSkillsAnchor));
+    setupContents = setupContents.replace(
+      externalSkillsAnchor,
+      `INSTALL_INTERNAL_SKILLS=1 run_skills add efoo-team/skills --skill formation-designer -g -a opencode -y\n\n${externalSkillsAnchor}`,
+    );
+  }
+  writeFileSync(join(fixture, 'setup.sh'), setupContents);
+  writeFileSync(join(fixture, 'remove-skills.txt'), `${readFileSync(removeSkillsPath, 'utf8')}\n blocked-one \n\nblocked-two\n`);
   writeFileSync(join(fixture, 'sync-mcp.sh'), 'printf "mcp\\n" >> "$TEST_CALLS"\nexit "${MCP_STATUS:-0}"\n');
   const command = (name, body) => writeFileSync(join(bin, name), `#!/bin/bash\n${body}\n`, { mode: 0o755 });
   command('node', `echo ${options.nodeVersion ?? 'v24.0.0'}`);
@@ -148,16 +163,24 @@ function npxCalls(result) {
   return result.calls.filter(call => call[0] === 'npx');
 }
 
+function assertNoFormationDesignerAdd(result) {
+  const addCalls = npxCalls(result).filter(call => call[3] === 'add' && call.includes('formation-designer'));
+  assert.equal(addCalls.length, 0, 'setup still installs formation-designer');
+}
+
 function ghCalls(result) {
   return result.calls.filter(call => call[0] === 'gh').map(call => call.slice(1));
 }
 
-test('Node.js 24 setup preserves all 70 global targets and agent-specific installation', t => {
+test('Node.js 24 setup preserves all 70 global targets and retires formation-designer', t => {
   const result = runSetup(t, { nodeVersion: 'v24.0.0' });
   assert.equal(result.status, 0);
   const calls = npxCalls(result);
-  assert.deepEqual(calls.map(call => call[3]), ['add', 'add', 'add', 'remove', 'list']);
-  for (const call of [calls[0], calls[2]]) {
+  assert.deepEqual(calls.map(call => call[3]), ['add', 'add', 'remove', 'list']);
+  assert.equal(calls[0][4], 'efoo-team/skills');
+  assert.equal(calls[1][4], 'abekdwight/code-debug-skills');
+  assert.deepEqual(calls[1].slice(5, 7), ['--skill', 'code-debug-skill']);
+  for (const call of [calls[0], calls[1]]) {
     assert.equal(call[2], 'skills@1.5.14');
     assert.ok(call.includes('-g'));
     assert.ok(call.includes('-y'));
@@ -166,15 +189,24 @@ test('Node.js 24 setup preserves all 70 global targets and agent-specific instal
     assert.deepEqual(agents, expectedAgents);
     assert.ok(!agents.includes('eve') && !agents.includes('promptscript'));
   }
-  assert.deepEqual(calls[1], ['npx', '1', 'skills@1.5.14', 'add', 'efoo-team/skills', '--skill', 'formation-designer', '-g', '-a', 'opencode', '-y']);
-  assert.deepEqual(calls[3], ['npx', '0', 'skills@1.5.14', 'remove', 'blocked-one', 'blocked-two', '-g', '-y']);
-  assert.deepEqual(calls[4], ['npx', '0', 'skills@1.5.14', 'list', '-g']);
+  assertNoFormationDesignerAdd(result);
+  assert.ok(repositoryRemoveSkills.includes('formation-designer'));
+  assert.deepEqual(calls[2], ['npx', '0', 'skills@1.5.14', 'remove', ...fixtureRemoveSkills, '-g', '-y']);
+  assert.deepEqual(calls[3], ['npx', '0', 'skills@1.5.14', 'list', '-g']);
   assert.deepEqual(result.calls.slice(-5).map(call => call[0]), ['hook', 'mcp', 'gh', 'gh', 'npx']);
   const listPosition = result.stdout.indexOf('completed list');
   const donePosition = result.stdout.indexOf('=== Done ===');
   assert.ok(listPosition >= 0);
   assert.ok(donePosition >= 0);
   assert.ok(listPosition < donePosition);
+});
+
+test('formation-designer legacy add fixture is detected', t => {
+  const result = runSetup(t, { legacyFormationAdd: true });
+  assert.equal(result.status, 0);
+  const oldAddCalls = npxCalls(result).filter(call => call[3] === 'add' && call.includes('formation-designer'));
+  assert.equal(oldAddCalls.length, 1);
+  assert.throws(() => assertNoFormationDesignerAdd(result), /setup still installs formation-designer/);
 });
 
 test('Node.js 23 is rejected before setup changes', t => {
@@ -191,14 +223,16 @@ for (const [failAt, failKind, count] of [
   ['team', 'stderr', 1],
   ['team', 'ansi-stdout', 1],
   ['team', 'ansi-stderr', 1],
-  ['specific', 'stdout', 2],
-  ['external', 'stderr', 3],
-  ['remove', 'stdout', 4],
-  ['remove', 'ansi-stderr', 4],
+  ['external', 'stderr', 2],
+  ['remove', 'stdout', 3],
+  ['remove', 'ansi-stderr', 3],
   ['team', 'exit', 1],
-  ['remove', 'exit', 4],
+  ['remove', 'exit', 3],
 ]) {
-  test(`${failAt} ${failKind} failure stops setup`, t => {
+  const name = failAt === 'remove'
+    ? `remove failure (${failKind}) stops setup`
+    : `${failAt} ${failKind} failure stops setup`;
+  test(name, t => {
     const result = runSetup(t, { failAt, failKind });
     assert.equal(result.status, failKind === 'exit' ? 23 : 1);
     assert.equal(npxCalls(result).length, count);
@@ -218,7 +252,7 @@ test('tee failure stops setup with its original status', t => {
 test('list failure prevents Done', t => {
   const result = runSetup(t, { failAt: 'list', failKind: 'exit' });
   assert.equal(result.status, 23);
-  assert.equal(npxCalls(result).length, 5);
+  assert.equal(npxCalls(result).length, 4);
   assert.ok(!result.stdout.includes('=== Done ==='));
 });
 

@@ -7,4 +7,5 @@ langfuse
 github-pull-request
 issue-report
 agents-md-composer
+formation-designer
 
